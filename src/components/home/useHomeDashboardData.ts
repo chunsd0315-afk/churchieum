@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { getAllAnnouncements } from '../../lib/announcementStorage';
+import { getAllPrayers } from '../../lib/prayerStorage';
+import { getIntercessionPrayers } from '../../lib/prayerHelpers';
+import { useAuth } from '../../contexts/AuthContext';
 import type { NoticeItem, ScheduleItem, PrayerItem } from './HomeDashboard';
 
 export type HomeDashboardData = {
@@ -16,6 +19,7 @@ function formatDate(dateStr: string): string {
 }
 
 export function useHomeDashboardData(): HomeDashboardData {
+  const { user } = useAuth();
   const [notices, setNotices] = useState<NoticeItem[]>([]);
   const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
   const [prayers, setPrayers] = useState<PrayerItem[]>([]);
@@ -54,24 +58,31 @@ export function useHomeDashboardData(): HomeDashboardData {
       })
       .catch(() => {/* keep empty */});
 
-    // Prayers — Supabase
-    supabase
-      .from('prayers')
-      .select('id, title, created_at')
-      .order('created_at', { ascending: false })
-      .limit(5)
-      .then(({ data }) => {
-        if (!data) return;
-        setPrayers(
-          data.map((r: { id: string; title: string; created_at: string }) => ({
-            id: r.id,
-            title: r.title,
-            createdAt: r.created_at,
-          }))
-        );
-      })
-      .catch(() => {/* keep empty */});
-  }, []);
+    // Prayers — visibility → 권한 검사 → 홈 미리보기
+    const localPrayers = getIntercessionPrayers(getAllPrayers(), user)
+      .slice(0, 5)
+      .map(p => ({ id: p.id, title: p.title, authorName: p.authorName, createdAt: p.createdAt }));
+    if (localPrayers.length > 0) {
+      setPrayers(localPrayers);
+    } else {
+      supabase
+        .from('prayers')
+        .select('id, title, created_at')
+        .order('created_at', { ascending: false })
+        .limit(5)
+        .then(({ data }) => {
+          if (!data) return;
+          setPrayers(
+            data.map((r: { id: string; title: string; created_at: string }) => ({
+              id: r.id,
+              title: r.title,
+              createdAt: r.created_at,
+            }))
+          );
+        })
+        .catch(() => {/* keep empty */});
+    }
+  }, [user]);
 
   return { recentNotices: notices, upcomingSchedules: schedules, prayerItems: prayers };
 }

@@ -8,7 +8,9 @@ import {
 } from 'lucide-react';
 import { getProfileImage } from '../../lib/profileImage';
 import { useChurchOrg } from '../../lib/useChurchOrg';
+import { getUnreadNotificationCount } from '../../lib/prayerNotificationStorage';
 import { AppLayout } from '../shared/AppLayout';
+import PrayerNotificationSheet from '../shared/PrayerNotificationSheet';
 
 export type Page =
   | 'home'
@@ -96,7 +98,14 @@ type Props = {
 export function MemberLayout({ children, currentPage, onNavigate, onSwitchMode, isAdmin }: Props) {
   const { user } = useAuth();
   const [profileImg, setProfileImg] = useState<string | null>(null);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifTick, setNotifTick] = useState(0);
   const { churchName, orgLabel } = useChurchOrg(user);
+
+  const unreadCount = user?.id
+    ? getUnreadNotificationCount(user.id)
+    : 0;
+  void notifTick;
 
   useEffect(() => {
     if (user?.id) setProfileImg(getProfileImage(user.id));
@@ -147,9 +156,16 @@ export function MemberLayout({ children, currentPage, onNavigate, onSwitchMode, 
           </div>
         </button>
         <div className="flex items-center gap-0.5 shrink-0">
-          <button className="relative p-2 hover:bg-gray-100 rounded-[10px] transition-colors">
+          <button
+            type="button"
+            onClick={() => setShowNotifications(true)}
+            className="relative p-2 hover:bg-gray-100 rounded-[10px] transition-colors"
+            aria-label="기도 알림"
+          >
             <Bell className="w-5 h-5 text-gray-500" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white" />
+            {unreadCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 min-w-[8px] h-2 px-0.5 bg-red-500 rounded-full border border-white" />
+            )}
           </button>
           {(isAdmin || user?.role === 'pastor') && (
             <button
@@ -208,6 +224,14 @@ export function MemberLayout({ children, currentPage, onNavigate, onSwitchMode, 
       bottomNavItems={BOTTOM_NAV_ITEMS.map(i => ({ id: i.page, label: i.label, icon: i.icon }))}
     >
       {children}
+      {showNotifications && user?.id && (
+        <PrayerNotificationSheet
+          userId={user.id}
+          onClose={() => setShowNotifications(false)}
+          onNavigate={onNavigate}
+          onChanged={() => setNotifTick(t => t + 1)}
+        />
+      )}
     </AppLayout>
   );
 }

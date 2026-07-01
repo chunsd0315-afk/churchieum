@@ -128,6 +128,11 @@ The app uses a **hybrid model**: localStorage demo data + optional Supabase.
 | `org_districts_v1` / `org_zones_v1` / `org_departments_v1` | Org structure |
 | `org_settings_v1` | Org label settings |
 | `church_announcements_v2` | Announcements |
+| `churchieum_prayers` | Prayer records (`prayerStorage`; migrates from `churchieum_prayers_v1`) |
+| `churchieum_prayer_attachments` | Prayer attachments (linked by `prayerId`) |
+| `churchieum_prayer_comments` | Prayer comments (`prayerCommentStorage`; migrates from `churchieum_prayer_comments_v1`) |
+| `churchieum_prayer_history` | Prayer history (created / edited / shared / answered) |
+| `churchieum_prayer_notifications` | Prayer notifications (`prayerNotificationStorage`; migrates from `churchieum_prayer_notifications_v1`) |
 | `churchieum_sermons` / `churchieum_sermon_folders` | Sermons |
 | `churchieum_sharing_posts` / `_requests` / `_messages` | Church sharing |
 | `graceNotesV2` | Grace notes (`graceNotesV1` legacy) |

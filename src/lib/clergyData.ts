@@ -172,6 +172,17 @@ export function getClergyById(id: string): ClergyMember | null {
   return loadClergy().find(c => c.id === id) ?? null;
 }
 
+export function getClergyByEmail(email: string): ClergyMember | null {
+  const normalized = email.toLowerCase().trim();
+  return loadClergy().find(
+    c => c.status === 'active' && c.email?.toLowerCase() === normalized,
+  ) ?? null;
+}
+
+export function getAllActiveAssignments(): StaffAssignment[] {
+  return loadAssignments().filter(a => a.isActive);
+}
+
 export function createClergy(input: Omit<ClergyMember, 'id' | 'createdAt' | 'updatedAt'>): ClergyMember {
   const now = new Date().toISOString();
   const member: ClergyMember = { ...input, id: `cl-${uid()}`, createdAt: now, updatedAt: now };
