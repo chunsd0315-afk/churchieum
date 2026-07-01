@@ -1,0 +1,54 @@
+---
+description: Churchieum (교회이음) development standards — routing, roles, UI, language, and data resilience
+alwaysApply: true
+---
+
+# Churchieum Development Rules
+
+## Routing & Pages
+
+- **Never break existing routing.** Navigation is state-based in `App.tsx` (`mode`, `memberPage`, `adminPage`). Do not replace it with URL routing without an explicit migration plan.
+- **Never remove existing pages** without user confirmation.
+- Preserve invite URL handling (`?code=`, `?invite=`, `/invite/{code}`).
+
+## Roles
+
+- **Always preserve admin / pastor / member role separation.**
+- `super_admin` → admin mode; `pastor` and `member` → member mode (with pastor-only UI where applicable).
+- Use `permissions.ts` and `AuthContext` (`isAdmin`, `isPastor`) — do not collapse roles into a single experience.
+
+## Components & Layout
+
+- **Prefer shared components** (`components/shared/`, `components/ui/`, `components/layout/`) over duplicating layouts.
+- Reuse `AppLayout`, `PageHeaderBar`, `EmptyState`, `TabBar`, and home dashboard patterns before creating one-off UI.
+
+## Accessibility (Elderly Users)
+
+- **Large fonts**, **clear buttons**, **simple words** — avoid IT/admin jargon.
+- Short labels, one primary action per screen, generous tap targets on mobile.
+- Desktop: **max content width 900px** unless the page truly needs full width (e.g. wide tables, bible reader).
+- Mobile: **simple list/card layout** — avoid dense grids and nested navigation.
+
+## Church Language (No Marketplace Tone)
+
+Do not use marketplace/commerce language. Use these replacements:
+
+| Avoid | Use |
+|-------|-----|
+| 거래하기 | 함께 나누기 |
+| 판매자 | 나눔교회 |
+| 구매자 | 신청교회 |
+| 판매완료 | 나눔완료 |
+| 후기 | 감사나눔 |
+
+Prefer: **나눔, 섬김, 교제, 기도, 은혜** — not 거래, 판매, 구매.
+
+## Data & Resilience
+
+- **Always keep localStorage demo fallback working.** Demo accounts and `churchieum_demo_user` must remain functional without a backend.
+- **Supabase/Firebase failures must not break UI.** Never throw on missing env vars at import time; catch API errors and fall back to demo/localStorage data.
+- Do not remove demo seed data or fallback paths when adding backend integration.
+
+## Verification
+
+- **Run `npm run build`** after important changes to ensure the app still bundles and renders.

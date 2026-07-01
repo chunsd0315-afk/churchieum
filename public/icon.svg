@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4CAF50"/>
+      <stop offset="100%" stop-color="#1E88E5"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background rounded square -->
+  <rect width="512" height="512" rx="112" ry="112" fill="url(#bg)"/>
+
+  <!-- Cross: vertical -->
+  <line x1="256" y1="34"  x2="256" y2="136" stroke="white" stroke-width="34" stroke-linecap="round"/>
+  <!-- Cross: horizontal -->
+  <line x1="198" y1="78"  x2="314" y2="78"  stroke="white" stroke-width="34" stroke-linecap="round"/>
+
+  <!-- Church arch (open path: left wall → left curve → right curve → right wall) -->
+  <path d="M80 460 L80 264 Q80 132 256 132 Q432 132 432 264 L432 460"
+        stroke="white" stroke-width="30" fill="none"
+        stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Connection arc between two people -->
+  <path d="M160 248 Q256 172 352 248"
+        stroke="white" stroke-width="24" fill="none"
+        stroke-linecap="round" opacity="0.80"/>
+
+  <!-- Left person: head -->
+  <circle cx="160" cy="298" r="40" fill="white" opacity="0.92"/>
+  <!-- Left person: body -->
+  <path d="M120 460 L120 368 Q120 338 160 338 Q200 338 200 368 L200 460"
+        fill="white" opacity="0.80"/>
+
+  <!-- Right person: head -->
+  <circle cx="352" cy="298" r="40" fill="white" opacity="0.92"/>
+  <!-- Right person: body -->
+  <path d="M312 460 L312 368 Q312 338 352 338 Q392 338 392 368 L392 460"
+        fill="white" opacity="0.80"/>
+</svg>

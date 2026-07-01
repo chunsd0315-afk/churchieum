@@ -1,0 +1,642 @@
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ══════════════════════════════════════════════════════════════════
+   교회이음 Design Tokens — v2.0
+   All raw values live here. Tailwind config + component classes
+   reference these variables so every value exists in exactly
+   one place.
+   ══════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Color: Primary (Blue) ───────────────────────── */
+  --color-primary-50:  #EFF6FF;
+  --color-primary-100: #DBEAFE;
+  --color-primary-200: #BFDBFE;
+  --color-primary-300: #93C5FD;
+  --color-primary-400: #60A5FA;
+  --color-primary-500: #2563EB;
+  --color-primary-600: #1D4ED8;
+  --color-primary-700: #1E40AF;
+  --color-primary-800: #1E3A8A;
+  --color-primary-900: #172554;
+
+  /* ── Color: Secondary (Green) ────────────────────── */
+  --color-secondary-50:  #F0FDF4;
+  --color-secondary-100: #DCFCE7;
+  --color-secondary-200: #BBF7D0;
+  --color-secondary-300: #86EFAC;
+  --color-secondary-400: #4ADE80;
+  --color-secondary-500: #22C55E;
+  --color-secondary-600: #16A34A;
+  --color-secondary-700: #15803D;
+  --color-secondary-800: #166534;
+  --color-secondary-900: #14532D;
+
+  /* ── Color: Accent (Amber/Orange) ────────────────── */
+  --color-accent-50:  #FFF7ED;
+  --color-accent-100: #FFEDD5;
+  --color-accent-200: #FED7AA;
+  --color-accent-300: #FDBA74;
+  --color-accent-400: #FB923C;
+  --color-accent-500: #F97316;
+  --color-accent-600: #EA580C;
+  --color-accent-700: #C2410C;
+  --color-accent-800: #9A3412;
+  --color-accent-900: #7C2D12;
+
+  /* ── Color: Semantic ─────────────────────────────── */
+  --color-success-50:  #F0FDF4;
+  --color-success-100: #DCFCE7;
+  --color-success-500: #22C55E;
+  --color-success-600: #16A34A;
+  --color-success-700: #15803D;
+
+  --color-warning-50:  #FFFBEB;
+  --color-warning-100: #FEF3C7;
+  --color-warning-500: #F59E0B;
+  --color-warning-600: #D97706;
+  --color-warning-700: #B45309;
+
+  --color-error-50:  #FEF2F2;
+  --color-error-100: #FEE2E2;
+  --color-error-500: #EF4444;
+  --color-error-600: #DC2626;
+  --color-error-700: #B91C1C;
+
+  /* ── Color: Neutral (Gray) ───────────────────────── */
+  --color-neutral-0:   #FFFFFF;
+  --color-neutral-50:  #F9FAFB;
+  --color-neutral-100: #F3F4F6;
+  --color-neutral-150: #EAECF0;
+  --color-neutral-200: #E5E7EB;
+  --color-neutral-300: #D1D5DB;
+  --color-neutral-400: #9CA3AF;
+  --color-neutral-500: #6B7280;
+  --color-neutral-600: #4B5563;
+  --color-neutral-700: #374151;
+  --color-neutral-800: #1F2937;
+  --color-neutral-900: #111827;
+  --color-neutral-950: #030712;
+
+  /* ── Color: Surface / Background ─────────────────── */
+  --color-bg-page:    #F8FAFC;
+  --color-bg-surface: #FFFFFF;
+  --color-bg-sunken:  #F3F4F6;
+  --color-bg-raised:  #FFFFFF;
+
+  /* ── Color: Border ───────────────────────────────── */
+  --color-border-subtle:  #F3F4F6;
+  --color-border-default: #E5E7EB;
+  --color-border-strong:  #D1D5DB;
+  --color-border-focus:   #60A5FA;
+
+  /* ── Color: Text ─────────────────────────────────── */
+  --color-text-primary:   #111827;
+  --color-text-secondary: #374151;
+  --color-text-tertiary:  #6B7280;
+  --color-text-disabled:  #9CA3AF;
+  --color-text-inverse:   #FFFFFF;
+  --color-text-link:      #2563EB;
+  --color-text-link-hover: #1D4ED8;
+
+  /* ── Typography: Font Family ─────────────────────── */
+  --font-sans: 'Pretendard', -apple-system, BlinkMacSystemFont, 'system-ui', sans-serif;
+
+  /* ── Typography: Font Size ───────────────────────── */
+  --text-xs:   0.6875rem; /* 11px */
+  --text-sm:   0.8125rem; /* 13px */
+  --text-base: 0.9375rem; /* 15px */
+  --text-md:   1rem;      /* 16px */
+  --text-lg:   1.125rem;  /* 18px */
+  --text-xl:   1.25rem;   /* 20px */
+  --text-2xl:  1.5rem;    /* 24px */
+  --text-3xl:  1.875rem;  /* 30px */
+  --text-4xl:  2.25rem;   /* 36px */
+
+  /* ── Typography: Font Weight ─────────────────────── */
+  --font-regular:   400;
+  --font-medium:    500;
+  --font-semibold:  600;
+  --font-bold:      700;
+
+  /* ── Typography: Line Height ─────────────────────── */
+  --leading-tight:   1.2;  /* Headings */
+  --leading-snug:    1.375;
+  --leading-normal:  1.5;  /* Body */
+  --leading-relaxed: 1.625;
+
+  /* ── Typography: Letter Spacing ──────────────────── */
+  --tracking-tighter: -0.02em;
+  --tracking-tight:   -0.01em;
+  --tracking-normal:   0em;
+  --tracking-wide:     0.025em;
+  --tracking-wider:    0.05em;
+  --tracking-widest:   0.1em;
+
+  /* ── Spacing (8px base grid) ─────────────────────── */
+  --space-0:    0px;
+  --space-0-5:  2px;
+  --space-1:    4px;
+  --space-1-5:  6px;
+  --space-2:    8px;
+  --space-2-5:  10px;
+  --space-3:    12px;
+  --space-3-5:  14px;
+  --space-4:    16px;
+  --space-5:    20px;
+  --space-6:    24px;
+  --space-7:    28px;
+  --space-8:    32px;
+  --space-9:    36px;
+  --space-10:   40px;
+  --space-12:   48px;
+  --space-14:   56px;
+  --space-16:   64px;
+  --space-20:   80px;
+  --space-24:   96px;
+
+  /* ── Semantic Spacing ────────────────────────────── */
+  --spacing-page-x:       16px; /* mobile horizontal page padding */
+  --spacing-page-x-md:    24px; /* tablet/desktop horizontal page padding */
+  --spacing-section-gap:  24px; /* vertical gap between page sections */
+  --spacing-card-pad:     20px; /* default card internal padding */
+  --spacing-card-gap:     16px; /* vertical gap between cards in a list */
+  --spacing-card-gap-md:  20px; /* vertical gap between cards on desktop */
+
+  /* ── Border Radius ───────────────────────────────── */
+  --radius-xs:   4px;
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   14px;  /* buttons */
+  --radius-xl:   16px;
+  --radius-2xl:  20px;  /* cards */
+  --radius-3xl:  24px;
+  --radius-full: 9999px;
+
+  /* ── Semantic Radius ─────────────────────────────── */
+  --radius-btn:    var(--radius-lg);
+  --radius-card:   var(--radius-2xl);
+  --radius-input:  var(--radius-md);
+  --radius-badge:  var(--radius-full);
+  --radius-pill:   var(--radius-full);
+  --radius-dialog: var(--radius-2xl);
+  --radius-sheet:  var(--radius-2xl);
+  --radius-popover: var(--radius-xl);
+
+  /* ── Shadows ─────────────────────────────────────── */
+  --shadow-xs:      0 1px 2px 0 rgba(15, 23, 42, 0.04);
+  --shadow-sm:      0 2px 6px 0 rgba(15, 23, 42, 0.06);
+  --shadow-md:      0 4px 12px 0 rgba(15, 23, 42, 0.06);
+  --shadow-lg:      0 8px 24px 0 rgba(15, 23, 42, 0.08);
+  --shadow-xl:      0 16px 40px 0 rgba(15, 23, 42, 0.10);
+  --shadow-2xl:     0 24px 64px 0 rgba(15, 23, 42, 0.14);
+  --shadow-card:    0 2px 8px 0 rgba(15, 23, 42, 0.05), 0 1px 2px 0 rgba(15, 23, 42, 0.04);
+  --shadow-card-md: 0 8px 24px 0 rgba(15, 23, 42, 0.06);
+  --shadow-card-hover: 0 16px 40px 0 rgba(15, 23, 42, 0.10);
+  --shadow-btn-primary: 0 4px 14px 0 rgba(37, 99, 235, 0.30);
+  --shadow-btn-primary-hover: 0 6px 18px 0 rgba(37, 99, 235, 0.40);
+  --shadow-overlay: 0 20px 60px 0 rgba(15, 23, 42, 0.20);
+  --shadow-inset:   inset 0 2px 4px 0 rgba(15, 23, 42, 0.06);
+  --shadow-focus:   0 0 0 3px rgba(37, 99, 235, 0.20);
+
+  /* ── Z-index Scale ───────────────────────────────── */
+  --z-base:       0;
+  --z-raised:     10;
+  --z-dropdown:   100;
+  --z-sticky:     200;
+  --z-overlay:    300;
+  --z-modal:      400;
+  --z-popover:    500;
+  --z-toast:      600;
+  --z-tooltip:    700;
+
+  /* ── Motion / Transition ─────────────────────────── */
+  --duration-instant:  80ms;
+  --duration-fast:     120ms;
+  --duration-base:     180ms;
+  --duration-moderate: 250ms;
+  --duration-slow:     350ms;
+  --duration-slower:   500ms;
+
+  --ease-default:   ease;
+  --ease-in:        cubic-bezier(0.4, 0, 1, 1);
+  --ease-out:       cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out:    cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring:    cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-bounce:    cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+  --transition-base:   all var(--duration-base) var(--ease-default);
+  --transition-colors: background-color var(--duration-base) var(--ease-default),
+                       color var(--duration-base) var(--ease-default),
+                       border-color var(--duration-base) var(--ease-default),
+                       box-shadow var(--duration-base) var(--ease-default);
+  --transition-transform: transform var(--duration-base) var(--ease-out);
+  --transition-opacity:   opacity var(--duration-base) var(--ease-default);
+  --transition-card:      transform var(--duration-base) var(--ease-out),
+                          box-shadow var(--duration-base) var(--ease-out);
+  --transition-fade:      opacity var(--duration-moderate) var(--ease-out);
+  --transition-slide:     transform var(--duration-moderate) var(--ease-out),
+                          opacity var(--duration-moderate) var(--ease-out);
+
+  /* ── Breakpoints (reference only — use Tailwind md:/lg:) ── */
+  --bp-mobile: 640px;
+  --bp-tablet: 768px;
+  --bp-desktop: 1024px;
+  --bp-wide: 1280px;
+
+  /* ── Layout ──────────────────────────────────────── */
+  --layout-content-max:   900px;
+  --layout-sidebar-width: 240px;
+  --layout-header-h:      56px;
+  --layout-nav-h:         64px;  /* mobile bottom nav */
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Base Layer
+   ══════════════════════════════════════════════════════════════════ */
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: var(--color-bg-page);
+    color: var(--color-text-primary);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  /* Focus ring — accessible, consistent */
+  :focus-visible {
+    outline: 2px solid var(--color-primary-400);
+    outline-offset: 2px;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Component Classes
+   ══════════════════════════════════════════════════════════════════ */
+
+@layer components {
+
+  /* ── Buttons ─────────────────────────────────────── */
+
+  .btn-primary {
+    @apply bg-primary-500 text-white font-semibold px-6
+           active:scale-[0.98]
+           disabled:opacity-50 disabled:cursor-not-allowed
+           flex items-center justify-center;
+    height: 48px;
+    border-radius: var(--radius-btn);
+    box-shadow: var(--shadow-btn-primary);
+    transition: var(--transition-colors);
+    transition-property: background-color, color, box-shadow, transform;
+    transition-duration: var(--duration-base);
+    transition-timing-function: var(--ease-default);
+  }
+
+  .btn-secondary {
+    @apply bg-white text-primary-600 font-semibold px-6
+           border border-primary-200
+           active:scale-[0.98];
+    height: 48px;
+    border-radius: var(--radius-btn);
+    transition-property: background-color, color, border-color, box-shadow, transform;
+    transition-duration: var(--duration-base);
+    transition-timing-function: var(--ease-default);
+  }
+
+  .btn-outline {
+    @apply border border-primary-500 text-primary-500 font-semibold px-6
+           active:scale-[0.98];
+    height: 48px;
+    border-radius: var(--radius-btn);
+    transition-property: background-color, color, border-color, transform;
+    transition-duration: var(--duration-base);
+    transition-timing-function: var(--ease-default);
+  }
+
+  .btn-ghost {
+    @apply text-gray-600 font-medium px-4
+           active:scale-[0.98];
+    height: 48px;
+    border-radius: var(--radius-btn);
+    transition-property: background-color, color, transform;
+    transition-duration: var(--duration-base);
+    transition-timing-function: var(--ease-default);
+  }
+
+  /* ── Cards ───────────────────────────────────────── */
+
+  .card {
+    background-color: var(--color-bg-surface);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-card);
+    padding: var(--spacing-card-pad);
+    box-shadow: var(--shadow-card-md);
+  }
+
+  .card-hover {
+    @apply card cursor-pointer;
+    transition: var(--transition-card);
+  }
+
+  /* ── Search input ─────────────────────────────────── */
+
+  .search-input {
+    @apply w-full px-4
+           text-sm placeholder-gray-400
+           focus:outline-none focus:bg-white;
+    height: 44px;
+    border-radius: var(--radius-btn);
+    border: 1px solid var(--color-border-default);
+    background-color: var(--color-bg-sunken);
+    color: var(--color-text-primary);
+    transition-property: background-color, border-color, box-shadow;
+    transition-duration: var(--duration-base);
+    transition-timing-function: var(--ease-default);
+  }
+  .search-input:focus {
+    border-color: transparent;
+    box-shadow: 0 0 0 2px var(--color-border-focus);
+  }
+
+  /* ── Inputs ──────────────────────────────────────── */
+
+  .input-field {
+    @apply w-full px-4
+           text-sm placeholder-gray-400
+           focus:outline-none focus:bg-white;
+    height: 48px;
+    border-radius: var(--radius-input);
+    border: 1px solid var(--color-border-default);
+    background-color: var(--color-bg-sunken);
+    color: var(--color-text-primary);
+    transition-property: background-color, border-color, box-shadow;
+    transition-duration: var(--duration-base);
+    transition-timing-function: var(--ease-default);
+  }
+  .input-field:focus {
+    border-color: transparent;
+    box-shadow: 0 0 0 2px var(--color-border-focus);
+  }
+
+  /* ── Filter pills ─────────────────────────────────── */
+
+  .filter-pill {
+    @apply px-4 font-medium text-sm whitespace-nowrap;
+    height: 40px;
+    border-radius: var(--radius-pill);
+    display: inline-flex;
+    align-items: center;
+    transition-property: background-color, color, border-color;
+    transition-duration: var(--duration-base);
+    transition-timing-function: var(--ease-default);
+  }
+  .filter-pill-active  { @apply filter-pill bg-primary-500 text-white; }
+  .filter-pill-inactive {
+    @apply filter-pill bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-800;
+  }
+
+  /* ── Tab pills ───────────────────────────────────── */
+
+  .tab-pill {
+    @apply flex-1 flex items-center justify-center font-semibold text-sm;
+    height: 40px;
+    border-radius: var(--radius-pill);
+    transition-property: background-color, color;
+    transition-duration: var(--duration-base);
+    transition-timing-function: var(--ease-default);
+  }
+  .tab-pill-active   { @apply tab-pill bg-primary-500 text-white; }
+  .tab-pill-inactive { @apply tab-pill text-gray-500 hover:bg-gray-100 hover:text-gray-700; }
+
+  /* ── Menu / Nav item ─────────────────────────────── */
+
+  .menu-item {
+    @apply flex items-center gap-3 px-4 py-3 bg-white hover:bg-gray-100 cursor-pointer;
+    border-radius: var(--radius-btn);
+    transition-property: background-color, color;
+    transition-duration: var(--duration-base);
+    transition-timing-function: var(--ease-default);
+  }
+
+  /* ── Badges ──────────────────────────────────────── */
+
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 text-[11px] font-semibold;
+    border-radius: var(--radius-badge);
+  }
+  .badge-primary { @apply badge bg-primary-100 text-primary-700; }
+  .badge-green   { @apply badge bg-secondary-100 text-secondary-700; }
+  .badge-red     { @apply badge bg-red-100 text-red-600; }
+
+  /* ── Section heading ─────────────────────────────── */
+
+  .section-title {
+    @apply text-xs font-bold text-gray-400 uppercase tracking-wider mb-3;
+    letter-spacing: var(--tracking-wider);
+  }
+
+  /* ── Divider ─────────────────────────────────────── */
+
+  .divider {
+    border-top: 1px solid var(--color-border-subtle);
+    margin-top: var(--space-4);
+    margin-bottom: var(--space-4);
+  }
+
+  /* ── Gradients ───────────────────────────────────── */
+
+  .gradient-bg {
+    @apply bg-gradient-to-br from-primary-500 via-primary-600 to-secondary-500;
+  }
+  .gradient-card {
+    @apply bg-gradient-to-br from-primary-500 to-secondary-500;
+  }
+
+  /* ── Scrollbar ───────────────────────────────────── */
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+
+  /* ── Line clamps ─────────────────────────────────── */
+
+  .line-clamp-1 {
+    overflow: hidden; display: -webkit-box;
+    -webkit-line-clamp: 1; -webkit-box-orient: vertical;
+  }
+  .line-clamp-2 {
+    overflow: hidden; display: -webkit-box;
+    -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  }
+  .line-clamp-3 {
+    overflow: hidden; display: -webkit-box;
+    -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Utility Classes
+   ══════════════════════════════════════════════════════════════════ */
+
+@layer utilities {
+  /* ── Named animations ────────────────────────────── */
+  .animate-slide-up   { animation: slideUp   var(--duration-moderate) var(--ease-out); }
+  .animate-slide-left { animation: slideLeft var(--duration-moderate) var(--ease-out); }
+  .animate-fade-in    { animation: fadeIn    var(--duration-moderate) var(--ease-out); }
+  .animate-scale-in  { animation: scaleIn   var(--duration-moderate) var(--ease-spring); }
+  .animate-slide-down { animation: slideDown var(--duration-moderate) var(--ease-out); }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Keyframes
+   ══════════════════════════════════════════════════════════════════ */
+
+@keyframes slideUp {
+  from { transform: translateY(12px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+@keyframes slideDown {
+  from { transform: translateY(-12px); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
+@keyframes slideLeft {
+  from { transform: translateX(-16px); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes scaleIn {
+  from { transform: scale(0.94); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Layout Utilities
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Card corners — normalize Tailwind's named radii to design tokens */
+.rounded-2xl { border-radius: var(--radius-card); }
+.rounded-3xl { border-radius: var(--radius-3xl); }
+
+/* Page content max-width container */
+.page-content-container {
+  width: 100%;
+  max-width: var(--layout-content-max);
+  margin: 0 auto;
+}
+
+/* ── Mobile ──────────────────────────────────────────── */
+
+@media (max-width: 767px) {
+  .space-y-4 > * + * { margin-top: var(--spacing-card-gap); }
+  .space-y-3 > * + * { margin-top: 12px; }
+
+  button.btn-primary,
+  button.btn-secondary,
+  button.btn-outline,
+  button.btn-ghost { min-height: 48px; }
+}
+
+/* ── Desktop card baseline ────────────────────────────── */
+
+@media (min-width: 768px) {
+  .bg-white.border.rounded-2xl,
+  .bg-white.border.rounded-card {
+    box-shadow: var(--shadow-card-md);
+  }
+
+  .space-y-5 > * + * { margin-top: 20px; }
+  .space-y-6 > * + * { margin-top: 24px; }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   PC Hover System
+   @media (hover: hover) targets pointer devices only.
+   Touch-only devices (hover: none) are excluded automatically.
+   ══════════════════════════════════════════════════════════════════ */
+
+@media (hover: hover) {
+
+  /* 1. Universal smooth transition for all interactive elements */
+  button:not([disabled]),
+  a[href],
+  [role="button"],
+  [role="tab"],
+  [role="menuitem"],
+  [role="option"] {
+    transition-property: background-color, color, box-shadow, transform,
+                         border-color, opacity;
+    transition-duration: var(--duration-base);
+    transition-timing-function: var(--ease-default);
+  }
+
+  /* 2. Small icon buttons — gray bg on hover */
+  button:not([disabled]).p-2:hover,
+  button:not([disabled]).p-2\.5:hover,
+  button:not([disabled]).p-3:hover {
+    background-color: var(--color-neutral-200);
+    color: var(--color-text-primary);
+  }
+
+  /* 3. White/transparent toolbar buttons */
+  button:not([disabled]).hover\:bg-gray-100:hover { background-color: var(--color-neutral-100); }
+  button:not([disabled]).hover\:bg-gray-50:hover  { background-color: var(--color-neutral-100); }
+
+  /* 4. Card-hover: lift + deeper shadow */
+  .card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-card-hover);
+  }
+
+  /* 5. White-bordered button/link cards: subtle lift */
+  button.border.bg-white:not([disabled]):hover,
+  a.border.bg-white:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-xl);
+  }
+
+  /* 6. Tailwind shadow hover classes — add lift */
+  .hover\:shadow-md:hover,
+  .hover\:shadow-lg:hover {
+    transform: translateY(-2px);
+  }
+
+  /* 7. Primary button: darken on hover */
+  .btn-primary:hover {
+    background-color: var(--color-primary-600);
+    box-shadow: var(--shadow-btn-primary-hover);
+  }
+
+  /* 8. Secondary button: tinted bg on hover */
+  .btn-secondary:hover { background-color: var(--color-primary-50); }
+
+  /* 9. Outline button: tinted bg on hover */
+  .btn-outline:hover { background-color: var(--color-primary-50); }
+
+  /* 10. Ghost button: gray bg on hover */
+  .btn-ghost:hover { background-color: var(--color-neutral-100); }
+
+  /* 11. Filter-pill active: darken on hover */
+  .filter-pill-active:hover { background-color: var(--color-primary-600); }
+
+  /* 12. Active blue elements: brightness dim */
+  .bg-primary-500:not([disabled]):hover { filter: brightness(0.92); }
+}
