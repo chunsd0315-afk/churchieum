@@ -23,6 +23,7 @@ export function filterSermonsForUser(sermons: Sermon[], user: AppUser | null): S
 }
 
 export type SermonListFilters = {
+  folderId?: string;
   worshipType?: string;
   preacher?: string;
   dateFrom?: string;
@@ -32,6 +33,9 @@ export type SermonListFilters = {
 
 export function filterSermonList(sermons: Sermon[], filters: SermonListFilters): Sermon[] {
   return sermons.filter(s => {
+    if (filters.folderId && filters.folderId !== 'all' && s.folderId !== filters.folderId) {
+      return false;
+    }
     if (filters.worshipType && filters.worshipType !== 'all' && s.worshipType !== filters.worshipType) {
       return false;
     }
