@@ -78,6 +78,11 @@ export function canCreateSchedule(user: AppUser | null, scope?: ContentScope): b
   return canCreateNotice(user, scope);
 }
 
+export function canManageSermons(user: AppUser | null): boolean {
+  if (!user) return false;
+  return user.role === 'super_admin' || user.role === 'pastor';
+}
+
 export function canCreateAlbum(user: AppUser | null, scope?: ContentScope): boolean {
   return canCreateNotice(user, scope);
 }

@@ -1,5 +1,13 @@
-import SermonSharedView from '../shared/SermonSharedView';
+import { useAuth } from '../../contexts/AuthContext';
+import { canManageSermons, isSuperAdmin } from '../../lib/permissions';
+import SermonApp from '../sermon/SermonApp';
 
 export default function SermonManagementPage() {
-  return <SermonSharedView isAdmin={true} />;
+  const { user } = useAuth();
+  return (
+    <SermonApp
+      canManage={canManageSermons(user)}
+      canManageFolders={isSuperAdmin(user)}
+    />
+  );
 }
