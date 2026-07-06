@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { ChevronLeft, Save, User, Building2, ChevronDown, Check } from 'lucide-react';
 import type { RichMember } from './MemberListTab';
-import { updateDemoMember } from '../../lib/demoData';
-import { getAllDistricts, getAllZones, getAllDepartments, getDistrictNameById, getZoneNameById, getDepartmentNamesByIds } from '../../lib/orgData';
+import { updateDemoMember } from '../../services/demoData';
+import { getAllDistricts, getAllZones, getAllDepartments, getDistrictNameById, getZoneNameById, getDepartmentNamesByIds } from '../../services/orgData';
 import { useOrgSettings } from '../../contexts/OrgSettingsContext';
 
 const POSITION_OPTIONS = ['장로', '안수집사', '권사', '서리집사', '성도', '기타'] as const;

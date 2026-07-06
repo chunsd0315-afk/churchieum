@@ -1,9 +1,10 @@
-import {
+﻿import {
   Home, BookOpen, Book, BookHeart, Heart, Megaphone,
   BookMarked, Calendar, Image, User, Target, Church, HeartHandshake,
 } from 'lucide-react';
+import type { NavIcon } from '../../types/icons';
 import type { Page } from './Layout';
-import PCSidebar from '../shared/PCSidebar';
+import PCSidebar from '../layout/PCSidebar';
 import { useAuth } from '../../contexts/AuthContext';
 
 type Props = {
@@ -15,7 +16,7 @@ type Props = {
   userEmail: string;
 };
 
-const NAV_ITEMS: { page: Page; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+const NAV_ITEMS: { page: Page; label: string; icon: NavIcon }[] = [
   { page: 'home',                 label: '홈',       icon: Home },
   { page: 'sermon',               label: '설교',     icon: BookOpen },
   { page: 'announcement',         label: '공지사항', icon: Megaphone },

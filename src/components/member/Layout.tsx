@@ -1,16 +1,16 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   Bell, ChevronLeft, Settings,
   Home, BookOpen, BookHeart, Heart, Megaphone,
   Book, BookMarked, Calendar, Image, User, Target,
-  HeartHandshake, Church,
+  HeartHandshake,
 } from 'lucide-react';
-import { getProfileImage } from '../../lib/profileImage';
-import { useChurchOrg } from '../../lib/useChurchOrg';
-import { getUnreadNotificationCount } from '../../lib/prayerNotificationStorage';
-import { AppLayout } from '../shared/AppLayout';
-import PrayerNotificationSheet from '../shared/PrayerNotificationSheet';
+import { getProfileImage } from '../../services/profileImage';
+import { useChurchOrg } from '../../hooks/useChurchOrg';
+import { getUnreadNotificationCount } from '../../services/prayerNotificationStorage';
+import { AppLayout } from '../layout/AppLayout';
+import PrayerNotificationSheet from '../layout/PrayerNotificationSheet';
 
 export type Page =
   | 'home'
@@ -28,30 +28,28 @@ export type Page =
   | 'church-info'
   | 'sharing';
 
-type NavMenuItem = { page: Page; label: string; icon: React.ComponentType<{ size?: number; className?: string }> };
+type NavMenuItem = { page: Page; label: string; icon: import('../../types/icons').NavIcon };
 
 const NAV_ITEMS: NavMenuItem[] = [
   { page: 'home',                  label: '홈',       icon: Home },
-  { page: 'sermon',                label: '설교',     icon: BookOpen },
-  { page: 'announcement',          label: '공지사항', icon: Megaphone },
-  { page: 'bible',                 label: '성경',     icon: Book },
-  { page: 'bible-reading-center',  label: '성경통독', icon: Target },
-  { page: 'grace-notes',           label: '은혜기록', icon: BookHeart },
   { page: 'prayer',                label: '기도',     icon: Heart },
+  { page: 'sermon',                label: '설교',     icon: BookOpen },
+  { page: 'grace-notes',           label: '은혜기록', icon: BookHeart },
+  { page: 'bible',                 label: '성경',     icon: Book },
+  { page: 'bible-reading-center',  label: '통독',     icon: Target },
+  { page: 'announcement',          label: '공지',     icon: Megaphone },
   { page: 'bulletin',              label: '주보',     icon: BookMarked },
   { page: 'schedule',              label: '일정',     icon: Calendar },
   { page: 'album',                 label: '앨범',     icon: Image },
-  { page: 'sharing',               label: '교회나눔', icon: HeartHandshake },
+  { page: 'sharing',               label: '교제',     icon: HeartHandshake },
   { page: 'profile',               label: '내 정보',  icon: User },
-  { page: 'church-info',           label: '교회정보', icon: Church },
 ];
 
-// Bottom nav: 5 most-used pages
 const BOTTOM_NAV_ITEMS: NavMenuItem[] = [
   { page: 'home',         label: '홈',     icon: Home },
+  { page: 'prayer',       label: '기도',   icon: Heart },
   { page: 'sermon',       label: '설교',   icon: BookOpen },
   { page: 'announcement', label: '공지',   icon: Megaphone },
-  { page: 'prayer',       label: '기도',   icon: Heart },
   { page: 'profile',      label: '내 정보', icon: User },
 ];
 
@@ -59,16 +57,16 @@ const PAGE_LABELS: Partial<Record<Page, string>> = {
   sermon:                 '설교',
   'grace-notes':          '은혜기록',
   prayer:                 '기도',
-  announcement:           '공지사항',
+  announcement:           '공지',
   album:                  '앨범',
   profile:                '내 정보',
   departments:            '부서',
   bible:                  '성경',
-  'bible-reading-center': '성경통독',
+  'bible-reading-center': '통독',
   bulletin:               '주보',
   schedule:               '일정',
   'church-info':          '교회정보',
-  sharing:                '교회나눔',
+  sharing:                '교제',
 };
 
 const PAGE_SUBTITLES: Partial<Record<Page, string>> = {
@@ -139,7 +137,7 @@ export function MemberLayout({ children, currentPage, onNavigate, onSwitchMode, 
       <div className="px-4 h-14 flex items-center justify-between">
         <button onClick={() => onNavigate('profile')} className="flex items-center gap-2.5 min-w-0 flex-1">
           <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg, #2563EB 0%, #22C55E 100%)' }}>
+            style={{ background: 'linear-gradient(135deg, #2563EB 0%, #4F46E5 100%)' }}>
             {profileImg
               ? <img src={profileImg} alt="프로필" className="w-full h-full object-cover" />
               : <span className="text-white font-bold text-sm">{initial}</span>

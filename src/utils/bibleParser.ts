@@ -1,4 +1,4 @@
-/**
+﻿/**
  * parseBibleReference — 성경 구절 참조 파싱
  *
  * 지원 형식:
@@ -10,7 +10,7 @@
  *   창세기 1장       → { book: "창세기", chapter: 1 }
  */
 
-import { BOOK_LIST } from '../lib/bibleVersesKR';
+import { BOOK_LIST } from '../services/bibleVersesKR';
 
 export type BibleRef = {
   book: string;

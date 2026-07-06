@@ -1,27 +1,29 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import {
-  Users, BookOpen, BookHeart, Megaphone,
-  BarChart, FileText,
-  Calendar, Book, Link, Image,
-  UserCog, Network, Home, Heart, Bell, ChevronLeft, HeartHandshake,
-  BookMarked, User, Church,
+  Users, BarChart, Layers,
+  UserCog, Network, Home, Bell, ChevronLeft,
+  Church, Settings, Link,
 } from 'lucide-react';
-import { getProfileImage } from '../../lib/profileImage';
-import { useChurchOrg } from '../../lib/useChurchOrg';
-import { AppLayout } from '../shared/AppLayout';
-import ChurchSettingsPage from './ChurchSettingsPage';
+import { getProfileImage } from '../../services/profileImage';
+import { useChurchOrg } from '../../hooks/useChurchOrg';
+import { AppLayout } from '../layout/AppLayout';
+import ChurchSettingsPage from '../../pages/admin/ChurchSettingsPage';
 
 export type AdminPage =
   | 'home' | 'church' | 'org' | 'districts' | 'zones' | 'departments'
-  | 'clergy' | 'members' | 'invitations'
+  | 'clergy' | 'members' | 'invitations' | 'contents'
   | 'sermons' | 'qt' | 'announcements' | 'bulletins'
   | 'events' | 'prayers' | 'visits' | 'new-family'
   | 'bible-plans' | 'albums' | 'statistics'
   | 'verification' | 'staff' | 'profile' | 'sharing'
   | 'bible' | 'church-info';
 
-type MenuItem = { id: AdminPage; label: string; icon: React.ComponentType<{ size?: number; className?: string }> };
+import type { NavIcon } from '../../types/icons';
+
+type AdminNavId = AdminPage | 'settings';
+
+type MenuItem = { id: AdminNavId; label: string; icon: NavIcon };
 
 type Props = {
   children: React.ReactNode;
@@ -30,58 +32,74 @@ type Props = {
   onSwitchMode?: () => void;
 };
 
+/** Primary sidebar — 2단계 메뉴 (대시보드 → 기능) */
 export const MENU_ITEMS: MenuItem[] = [
-  { id: 'home',          label: '홈',           icon: Home },
-  { id: 'org',           label: '조직관리',     icon: Network },
-  { id: 'clergy',        label: '교역자관리',   icon: UserCog },
-  { id: 'members',       label: '성도관리',     icon: Users },
-  { id: 'invitations',   label: '초대관리',     icon: Link },
-  { id: 'sermons',       label: '설교',        icon: BookOpen },
-  { id: 'announcements', label: '공지사항',    icon: Megaphone },
-  { id: 'bible',         label: '성경',        icon: BookMarked },
-  { id: 'bible-plans',   label: '성경통독',    icon: Book },
-  { id: 'qt',            label: '은혜기록',    icon: BookHeart },
-  { id: 'prayers',       label: '기도',        icon: Heart },
-  { id: 'bulletins',     label: '주보',        icon: FileText },
-  { id: 'events',        label: '일정',        icon: Calendar },
-  { id: 'albums',        label: '앨범',        icon: Image },
-  { id: 'sharing',       label: '교회나눔',    icon: HeartHandshake },
-  { id: 'profile',       label: '내 정보',     icon: User },
-  { id: 'church-info',   label: '교회정보',    icon: Church },
-  { id: 'statistics',    label: '통계/보고서', icon: BarChart },
+  { id: 'home',        label: '대시보드', icon: Home },
+  { id: 'church',      label: '교회',     icon: Church },
+  { id: 'org',         label: '조직',     icon: Network },
+  { id: 'clergy',      label: '교역자',   icon: UserCog },
+  { id: 'members',     label: '성도',     icon: Users },
+  { id: 'invitations', label: '초대',     icon: Link },
+  { id: 'contents',    label: '콘텐츠',   icon: Layers },
+  { id: 'statistics',  label: '통계',     icon: BarChart },
+  { id: 'settings',    label: '설정',     icon: Settings },
 ];
 
-// These 4 pages are accessed via Church Settings, not the sidebar
-const SETTINGS_ONLY_PAGES: AdminPage[] = ['org', 'clergy', 'members', 'invitations'];
-const SIDEBAR_ITEMS = MENU_ITEMS.filter(m => !SETTINGS_ONLY_PAGES.includes(m.id));
-
-// Bottom nav: 5 primary pages for quick mobile access
 const BOTTOM_NAV_ITEMS: MenuItem[] = [
-  { id: 'home',          label: '홈',     icon: Home },
-  { id: 'sermons',       label: '설교',   icon: BookOpen },
-  { id: 'announcements', label: '공지',   icon: Megaphone },
-  { id: 'members',       label: '성도',   icon: Users },
-  { id: 'profile',       label: '내 정보', icon: User },
+  { id: 'home',        label: '홈',     icon: Home },
+  { id: 'contents',    label: '콘텐츠', icon: Layers },
+  { id: 'members',     label: '성도',   icon: Users },
+  { id: 'statistics',  label: '통계',   icon: BarChart },
+  { id: 'settings',    label: '설정',   icon: Settings },
+];
+
+const PAGE_LABELS: Partial<Record<AdminPage, string>> = {
+  home: '대시보드',
+  church: '교회',
+  org: '조직',
+  clergy: '교역자',
+  members: '성도',
+  invitations: '초대',
+  contents: '콘텐츠',
+  statistics: '통계',
+  sermons: '설교',
+  announcements: '공지',
+  bulletins: '주보',
+  qt: '은혜기록',
+  prayers: '기도',
+  events: '일정',
+  albums: '앨범',
+  'bible-plans': '성경통독',
+  sharing: '교회나눔',
+  bible: '성경',
+  profile: '내 정보',
+};
+
+const CONTENT_SUB_PAGES: AdminPage[] = [
+  'sermons', 'announcements', 'bulletins', 'qt', 'prayers', 'events',
+  'albums', 'bible-plans', 'sharing', 'bible',
 ];
 
 const PAGE_SUBTITLES: Partial<Record<AdminPage, string>> = {
-  sermons:       '예배 설교 말씀을 다시 보고 묵상하세요.',
-  announcements: '교회 소식과 안내를 확인하세요.',
-  bulletins:     '예배 순서와 주간 소식을 확인하세요.',
-  events:        '교회 예배와 행사 일정을 확인하세요.',
-  prayers:       '기도제목을 나누고 함께 기도하세요.',
-  albums:        '교회 공동체의 소중한 순간을 함께 나누세요.',
-  statistics:    '교회 활동과 참여 현황을 확인하세요.',
-  org:           '상위조직, 하위조직, 부서를 관리합니다.',
-  clergy:        '교역자 정보와 담당 조직을 관리합니다.',
-  members:       '성도 정보와 소속을 관리합니다.',
-  invitations:   '교역자와 성도를 초대하고 초대 현황을 관리합니다.',
-  bible:         '하나님의 말씀을 읽고 묵상하세요.',
-  'bible-plans': '말씀 통독 계획과 진행률을 확인하세요.',
-  qt:            '말씀과 삶 속에서 받은 은혜를 기록하고 나누세요.',
-  sharing:       '교회와 교회가 필요한 것을 나누고 함께 성장합니다.',
-  profile:       '나의 프로필과 소속 정보를 확인하세요.',
-  'church-info': '우리 교회의 기본 정보를 확인하세요.',
+  home: '교회 운영 현황을 한눈에 확인하세요.',
+  church: '교회 기본 정보와 인증을 관리합니다.',
+  org: '교구, 구역, 부서를 관리합니다.',
+  clergy: '교역자 정보와 담당 조직을 관리합니다.',
+  members: '성도 정보와 소속을 관리합니다.',
+  invitations: '초대 링크를 생성하고 관리합니다.',
+  contents: '설교, 공지, 주보 등 콘텐츠를 관리합니다.',
+  statistics: '교회 활동과 참여 현황을 확인하세요.',
+  sermons: '예배 설교를 등록하고 관리하세요.',
+  announcements: '교회 공지를 작성하고 안내하세요.',
+  bulletins: '주보를 업로드하고 관리하세요.',
+  events: '예배와 행사 일정을 관리하세요.',
+  prayers: '기도제목을 확인하고 관리하세요.',
+  albums: '교회 앨범을 관리하세요.',
+  qt: '성도 은혜 기록을 관리하세요.',
+  'bible-plans': '성경 통독 계획을 관리하세요.',
+  sharing: '교회 간 나눔을 관리하세요.',
+  bible: '성경을 읽고 묵상하세요.',
+  profile: '나의 프로필과 소속 정보를 확인하세요.',
 };
 
 export function AdminLayout({ children, currentPage, onNavigate }: Props) {
@@ -98,8 +116,16 @@ export function AdminLayout({ children, currentPage, onNavigate }: Props) {
   const initial = (user?.name || '관')[0];
   const position = user?.position
     ?? (user?.role === 'super_admin' ? '최고관리자' : user?.role === 'pastor' ? '교역자' : '관리자');
-  const pageLabel = MENU_ITEMS.find(m => m.id === currentPage)?.label ?? '관리';
+  const pageLabel = PAGE_LABELS[currentPage] ?? MENU_ITEMS.find(m => m.id === currentPage)?.label ?? '관리';
   const pageSubtitle = PAGE_SUBTITLES[currentPage];
+
+  const handleNavigate = (id: string) => {
+    if (id === 'settings') {
+      setShowSettings(true);
+      return;
+    }
+    onNavigate(id as AdminPage);
+  };
 
   const userPosition = user?.position
     ?? (user?.role === 'super_admin' ? '최고관리자' : user?.role === 'pastor' ? '교역자' : '관리자');
@@ -150,7 +176,7 @@ export function AdminLayout({ children, currentPage, onNavigate }: Props) {
     <header className="bg-white sticky top-0 z-sticky" style={{ borderBottom: '1px solid #F1F5F9' }}>
       <div className="px-2 flex items-center" style={{ minHeight: '56px' }}>
         <button
-          onClick={() => onNavigate('home')}
+          onClick={() => onNavigate(CONTENT_SUB_PAGES.includes(currentPage) ? 'contents' : 'home')}
           className="flex items-center gap-1 px-3 py-2 hover:bg-gray-100 rounded-[10px] transition-colors text-gray-600 shrink-0"
         >
           <ChevronLeft className="w-5 h-5" />
@@ -174,11 +200,11 @@ export function AdminLayout({ children, currentPage, onNavigate }: Props) {
     <>
       <AppLayout
         currentPage={currentPage}
-        onNavigate={onNavigate}
+        onNavigate={handleNavigate}
         isHomePage={isHome}
         mobileHomeHeader={mobileHomeHeader}
         mobileSubHeader={mobileSubHeader}
-        sidebarNavItems={SIDEBAR_ITEMS.map(i => ({ page: i.id, label: i.label, icon: i.icon }))}
+        sidebarNavItems={MENU_ITEMS.map(i => ({ page: i.id as AdminPage, label: i.label, icon: i.icon }))}
         userPosition={userPosition}
         showSettingsButton
         onSettingsClick={() => setShowSettings(true)}

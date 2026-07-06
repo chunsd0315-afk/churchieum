@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 개역한글 성경 데이터 (공개 도메인, 1961년판)
  * 향후 교체: DATA_SOURCE를 변경하거나 getVerse/getChapter 구현체를 교체하세요.
  *   - Firebase: import { getVerseFromFirebase } from './bibleFirebaseAdapter'
@@ -6,11 +6,11 @@
  *   - 성경 API:   fetch(`https://your-api.com/bible/${book}/${chapter}/${verse}`)
  */
 
-import { BIBLE_KR, BOOK_LIST } from '../lib/bibleVersesKR';
-import { loadBibleData, hasChapter as providerHasChapter, getChapter as providerGetChapter } from '../lib/bibleProvider';
+import { BIBLE_KR, BOOK_LIST } from '../services/bibleVersesKR';
+import { loadBibleData, hasChapter as providerHasChapter, getChapter as providerGetChapter } from '../services/bibleProvider';
 
-export type { BibleVerseMap } from '../lib/bibleVersesKR';
-export { BOOK_LIST } from '../lib/bibleVersesKR';
+export type { BibleVerseMap } from '../services/bibleVersesKR';
+export { BOOK_LIST } from '../services/bibleVersesKR';
 
 // Kick off JSON load immediately; components call hasChapterData after loading
 loadBibleData();
@@ -164,7 +164,6 @@ export function searchBible(query: string, limit = 30): BibleVerse[] {
   }
 
   // 키워드 검색 (본문 포함)
-  const lower = q.toLowerCase();
   return ALL_VERSES.filter(v =>
     v.text.includes(q) ||
     v.keywords.includes(q) ||

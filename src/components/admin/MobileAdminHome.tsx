@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabase';
+﻿import { useEffect, useState } from 'react';
+import { supabase } from '../../services/supabase';
 import type { AdminPage } from './Layout';
 import {
   BookOpen, BookHeart, Megaphone, FileText, Calendar, Heart, Image, Book,

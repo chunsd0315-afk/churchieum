@@ -1,8 +1,8 @@
-/**
+﻿/**
  * TranslationSelector — compact pill-style translation mode selector
  */
 import { Globe, BookOpen } from 'lucide-react';
-import type { TranslationMode } from '../../lib/bibleTranslation';
+import type { TranslationMode } from '../../services/bibleTranslation';
 
 type Props = {
   mode: TranslationMode;

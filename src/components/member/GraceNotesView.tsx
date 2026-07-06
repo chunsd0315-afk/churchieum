@@ -813,7 +813,7 @@ function Section({ icon, label, text }: { icon: React.ReactNode; label: string; 
 
 // ─── Plan Grace Notes Summary (used inside BibleReadingCenter DetailView) ─────
 
-export function PlanGraceNotesSummary({ progressId, planName, planColor, onViewAll, onWrite, onViewNote }: {
+export function PlanGraceNotesSummary({ progressId, planName: _planName, planColor, onViewAll, onWrite, onViewNote }: {
   progressId: string;
   planName: string;
   planColor: string;

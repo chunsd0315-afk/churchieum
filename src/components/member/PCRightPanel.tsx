@@ -1,4 +1,4 @@
-import { Bell, Calendar, Heart, BookOpen, FileText, BookHeart, ChevronRight, Book } from 'lucide-react';
+import { Bell, Calendar, Heart, ChevronRight, Book } from 'lucide-react';
 
 const ANNOUNCEMENTS = [
   { id: '1', title: '2026년 하반기 교회 일정 안내', date: '2026.06.01' },

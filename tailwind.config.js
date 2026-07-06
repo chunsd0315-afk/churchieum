@@ -17,7 +17,7 @@ export default {
           800: 'var(--color-primary-800)',
           900: 'var(--color-primary-900)',
         },
-        /* ── Secondary (Green) ───────────────────────── */
+        /* ── Secondary (Indigo) ───────────────────────── */
         secondary: {
           50:  'var(--color-secondary-50)',
           100: 'var(--color-secondary-100)',
@@ -72,7 +72,16 @@ export default {
       },
 
       fontFamily: {
-        sans: ['Pretendard', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-family-brand)', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],
+      },
+
+      fontWeight: {
+        normal:   'var(--font-regular)',
+        medium:   'var(--font-semibold)',
+        semibold: 'var(--font-semibold)',
+        bold:     'var(--font-bold)',
+        extrabold: 'var(--font-bold)',
+        black:    'var(--font-bold)',
       },
 
       fontSize: {
@@ -168,6 +177,7 @@ export default {
         '16':   'var(--space-16)',
         '20':   'var(--space-20)',
         '24':   'var(--space-24)',
+        'btn':  'var(--height-btn)',
       },
 
       animation: {

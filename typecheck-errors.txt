@@ -1,0 +1,111 @@
+﻿
+src/components/admin/MemberInviteTab.tsx(3,19): error TS6133: 'QrCode' is declared but its value is never read.
+src/components/admin/MemberInviteTab.tsx(11,6): error TS6196: 'ShareMethod' is declared but never used.
+src/components/admin/MemberListTab.tsx(1,44): error TS6133: 'useRef' is declared but its value is never read.
+src/components/common/home/HomeDashboard.tsx(334,3): error TS6133: 'currentUser' is declared but its value is never rea
+d.
+src/components/common/home/HomeDashboard.tsx(335,3): error TS6133: 'mode' is declared but its value is never read.
+src/components/common/home/HomeDashboard.tsx(340,3): error TS6133: 'churchName' is declared but its value is never read
+.
+src/components/common/home/HomeDashboard.tsx(341,3): error TS6133: 'orgLabel' is declared but its value is never read.
+src/components/common/sermon/SermonFolderManager.tsx(149,15): error TS6133: 'all' is declared but its value is never re
+ad.
+src/components/common/ui/Avatar.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/components/common/ui/CalendarToolbar.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/components/common/ui/ConfirmDialog.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/components/common/ui/FilterBar.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/components/common/ui/Loading.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/components/common/ui/Pagination.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/components/common/ui/PlayerCard.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/components/common/ui/SearchInput.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/common/ui/StatusBadge.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/components/common/ui/ViewToggle.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/components/layout/HomeDashboard.tsx(205,61): error TS2322: Type '{ className: string; style: { width: number; heigh
+t: number; }; }' is not assignable to type 'IntrinsicAttributes & { className?: string | undefined; }'.
+src/components/layout/MobileBottomNav.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/components/layout/PCSidebar.tsx(127,17): error TS2322: Type '{ className: string; style: CSSProperties; }' is not a
+ssignable to type 'IntrinsicAttributes & { className?: string | undefined; }'.
+src/components/layout/TabSection.tsx(34,17): error TS2322: Type '{ className: string; style: { width: string; height: s
+tring; }; }' is not assignable to type 'IntrinsicAttributes & { className?: string | undefined; }'.
+src/components/member/GraceNotesView.tsx(816,53): error TS6133: 'planName' is declared but its value is never read.
+src/components/member/PCRightPanel.tsx(1,33): error TS6133: 'BookOpen' is declared but its value is never read.
+src/components/member/PCRightPanel.tsx(1,43): error TS6133: 'FileText' is declared but its value is never read.
+src/components/member/PCRightPanel.tsx(1,53): error TS6133: 'BookHeart' is declared but its value is never read.
+src/data/bibleData.ts(167,9): error TS6133: 'lower' is declared but its value is never read.
+src/pages/admin/AlbumManagementPage.tsx(411,11): error TS6133: 'allPhotosCount' is declared but its value is never read
+.
+src/pages/admin/AnnouncementManagementPage.tsx(27,7): error TS6133: 'CATEGORIES' is declared but its value is never rea
+d.
+src/pages/admin/AnnouncementManagementPage.tsx(856,76): error TS6133: 'onToggleImportant' is declared but its value is 
+never read.
+src/pages/admin/AttendanceManagementPage.tsx(3,23): error TS6133: 'Calendar' is declared but its value is never read.
+src/pages/admin/BiblePlanManagementPage.tsx(172,9): error TS6133: 'plan' is declared but its value is never read.
+src/pages/admin/BulletinManagementPage.tsx(11,30): error TS6133: 'SearchInput' is declared but its value is never read.
+src/pages/admin/BulletinManagementPage.tsx(46,9): error TS6133: 'isDesktop' is declared but its value is never read.
+src/pages/admin/ChurchSettingsPage.tsx(10,1): error TS6133: 'AdminPage' is declared but its value is never read.
+src/pages/admin/ChurchVerificationPage.tsx(3,68): error TS6133: 'AlertCircle' is declared but its value is never read.
+src/pages/admin/ChurchVerificationPage.tsx(3,81): error TS6133: 'FileText' is declared but its value is never read.
+src/pages/admin/ClergyManagementPage.tsx(6,10): error TS6133: 'UserPlus' is declared but its value is never read.
+src/pages/admin/ClergyManagementPage.tsx(547,48): error TS6133: 'onNavigate' is declared but its value is never read.
+src/pages/admin/EventManagementPage.tsx(3,20): error TS6133: 'Plus' is declared but its value is never read.
+src/pages/admin/EventManagementPage.tsx(5,22): error TS6133: 'Button' is declared but its value is never read.
+src/pages/admin/InvitationPage.tsx(9,3): error TS6133: 'UserPlus' is declared but its value is never read.
+src/pages/admin/InvitationPage.tsx(11,23): error TS6133: 'ChevronDown' is declared but its value is never read.
+src/pages/admin/InvitationPage.tsx(11,36): error TS6133: 'ChevronUp' is declared but its value is never read.
+src/pages/admin/InvitationPage.tsx(60,7): error TS6133: 'ROLE_COLORS' is declared but its value is never read.
+src/pages/admin/InvitationPage.tsx(80,7): error TS6133: 'STATUS_ICONS' is declared but its value is never read.
+src/pages/admin/InvitationPage.tsx(838,10): error TS6133: 'InfoCell' is declared but its value is never read.
+src/pages/admin/MemberManagementPage.tsx(7,48): error TS6133: 'onNavigate' is declared but its value is never read.
+src/pages/admin/NewFamilyManagementPage.tsx(3,53): error TS6133: 'User' is declared but its value is never read.
+src/pages/admin/PrayerManagementPage.tsx(9,40): error TS6133: 'resolvePrayerAccess' is declared but its value is never 
+read.
+src/pages/admin/QtManagementPage.tsx(6,29): error TS6133: 'SearchInput' is declared but its value is never read.
+src/pages/admin/QtManagementPage.tsx(6,42): error TS6133: 'IconButton' is declared but its value is never read.
+src/pages/admin/StaffManagementPage.tsx(4,14): error TS6133: 'Plus' is declared but its value is never read.
+src/pages/admin/StaffManagementPage.tsx(5,20): error TS6133: 'Users' is declared but its value is never read.
+src/pages/member/AlbumPage.tsx(5,54): error TS6133: 'Edit3' is declared but its value is never read.
+src/pages/member/AlbumPage.tsx(5,61): error TS6133: 'Trash2' is declared but its value is never read.
+src/pages/member/AttendancePage.tsx(35,9): error TS6133: 'user' is declared but its value is never read.
+src/pages/member/BiblePage.tsx(11,3): error TS6133: 'searchBible' is declared but its value is never read.
+src/pages/member/BiblePage.tsx(74,21): error TS2345: Argument of type '{ type: "reading"; sourceId: string; sourceTitle
+: string; planId: PlanId; planName: string; planColor: string; day: number; bibleReference: string; graceContent: strin
+g; memorableVerse: string; application: string; prayer: string; }' is not assignable to parameter of type 'GraceNoteInp
+ut'.
+src/pages/member/BiblePage.tsx(506,9): error TS6133: 'displayKRV' is declared but its value is never read.
+src/pages/member/BiblePage.tsx(507,9): error TS6133: 'displayWEB' is declared but its value is never read.
+src/pages/member/BiblePage.tsx(837,34): error TS2352: Conversion of type '{ book: string; chapter: number; verse: numbe
+r; text: string; translation: TranslationId; keywords: never[]; }[]' to type 'BibleVerse[]' may be a mistake because ne
+ither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+src/pages/member/BiblePage.tsx(1027,38): error TS2739: Type 'SavedVerse' is missing the following properties from type 
+'BibleVerse': testament, keywords
+src/pages/member/BibleReadingCenterPage.tsx(1075,21): error TS2322: Type '((ref: { book: string; chapter: number; }) =>
+ void) | undefined' is not assignable to type '((book: string, chapter: number) => void) | undefined'.
+src/pages/member/BulletinPage.tsx(96,44): error TS2322: Type 'LucideIcon' is not assignable to type 'ComponentType<{ cl
+assName?: string | undefined; size?: number | undefined; }> | undefined'.
+src/pages/member/ChurchFinderPage.tsx(4,15): error TS6133: 'Check' is declared but its value is never read.
+src/pages/member/ChurchFinderPage.tsx(5,24): error TS6133: 'ChevronLeft' is declared but its value is never read.
+src/pages/member/GraceNotesPage.tsx(42,10): error TS6133: 'editNote' is declared but its value is never read.
+src/pages/member/GraceNotesPage.tsx(47,9): error TS6133: 'readingNotes' is declared but its value is never read.
+src/pages/member/GraceNotesPage.tsx(48,9): error TS6133: 'sermonNotes' is declared but its value is never read.
+src/pages/member/GraceNotesPage.tsx(64,13): error TS6133: 'prog' is declared but its value is never read.
+src/pages/member/InviteSignupPage.tsx(4,27): error TS6133: 'Phone' is declared but its value is never read.
+src/pages/member/InviteSignupPage.tsx(340,10): error TS6133: 'password' is declared but its value is never read.
+src/pages/member/PrayerPage.tsx(204,38): error TS2322: Type 'LucideIcon' is not assignable to type 'ComponentType<{ cla
+ssName?: string | undefined; size?: number | undefined; }> | undefined'.
+src/pages/member/PrayerPage.tsx(205,43): error TS2322: Type 'LucideIcon' is not assignable to type 'ComponentType<{ cla
+ssName?: string | undefined; size?: number | undefined; }> | undefined'.
+src/pages/member/PrayerPage.tsx(206,48): error TS2322: Type 'LucideIcon' is not assignable to type 'ComponentType<{ cla
+ssName?: string | undefined; size?: number | undefined; }> | undefined'.
+src/pages/member/QtPage.tsx(4,21): error TS6133: 'Calendar' is declared but its value is never read.
+src/pages/member/QtPage.tsx(44,19): error TS6133: 'setLoading' is declared but its value is never read.
+src/pages/member/QtPage.tsx(112,12): error TS2551: Property 'catch' does not exist on type 'PostgrestFilterBuilder<any,
+ any, any, null, "qt_writings", unknown, "POST">'. Did you mean 'match'?
+src/pages/member/SchedulePage.tsx(9,6): error TS6196: 'EventType' is declared but never used.
+src/pages/shared/ChurchSharingPage.tsx(5,16): error TS6133: 'Clock' is declared but its value is never read.
+src/pages/shared/ChurchSharingPage.tsx(5,23): error TS6133: 'AlertCircle' is declared but its value is never read.
+src/pages/shared/ChurchSharingPage.tsx(14,47): error TS6133: 'SharingMessage' is declared but its value is never read.
+src/pages/shared/ChurchSharingPage.tsx(571,31): error TS6133: 'user' is declared but its value is never read.
+src/services/demoData.ts(17,7): error TS6133: 'DEPT_NAMES' is declared but its value is never read.
+src/services/demoData.ts(27,10): error TS6133: 'uid' is declared but its value is never read.
+
+

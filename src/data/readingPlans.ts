@@ -1,8 +1,8 @@
-/**
+﻿/**
  * 성경 통독 플랜 정의 및 오늘 읽을 말씀 계산
  */
 
-import { BOOK_LIST } from '../lib/bibleVersesKR';
+import { BOOK_LIST } from '../services/bibleVersesKR';
 import { getChapter, hasChapterData, type BibleVerse } from './bibleData';
 
 export type PlanId =

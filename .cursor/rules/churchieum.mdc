@@ -5,22 +5,107 @@ alwaysApply: true
 
 # Churchieum Development Rules
 
+## Development Principles
+
+Every feature and page must follow these principles:
+
+| Principle | Requirement |
+|-----------|-------------|
+| **Responsive** | Support **PC**, **Tablet**, and **Mobile** on every page |
+| **TypeScript** | Strict typing; no `any` unless unavoidable and documented |
+| **Tailwind CSS** | Use design tokens (`src/styles/index.css`) and Tailwind utilities — avoid one-off inline styles when a token/class exists |
+| **Component separation** | Split pages, layout shells, and reusable UI — no monolithic page files |
+| **Reusability** | Extend `components/common/`, `components/layout/`, `hooks/`, `services/` before duplicating |
+
+### Responsive (PC · Tablet · Mobile)
+
+- Use `useBreakpoint()` (`hooks/useBreakpoint.ts`):
+  - `isMobile` — &lt;768px (phone)
+  - `isTablet` — 768–1023px
+  - `isPc` — ≥1024px (desktop)
+  - `isDesktop` / `isNotMobile` — ≥768px (tablet + PC shell: sidebar, wide layout)
+- Wrap screens in `AppLayout` — desktop sidebar + mobile bottom nav pattern.
+- **PC:** max content width **900px** (`PageContentWell`), card grid where appropriate.
+- **Tablet:** same content well; avoid dense multi-column grids.
+- **Mobile:** list/card layout, large tap targets (button height **56px**), bottom navigation.
+- Test layout at ~375px, ~768px, and ≥1024px before shipping.
+
+### TypeScript · Tailwind · Components
+
+- Page files live in `src/pages/{member|admin|pastor|shared}/`.
+- Layout shells live in `src/components/{member|pastor|admin}/Layout.tsx`.
+- Shared UI: `components/common/ui/`, layout chrome: `components/layout/`.
+- Business logic & storage: `src/services/` — not inside JSX.
+- Types: `src/types/`; helpers: `src/utils/`; static data: `src/data/`.
+
+## Design System (summary)
+
+- **Colors:** Primary `#2563EB`, Secondary `#4F46E5`, Background `#F8FAFC`, Success `#16A34A`, Warning `#F59E0B`, Error `#DC2626`
+- **Font:** Pretendard — Regular 400, SemiBold 600, Bold 700
+- **Radius:** 16px (`rounded-card`, `rounded-btn`)
+- **Button height:** 56px (`btn-primary`, `h-btn`, `ChurchButton` md/lg)
+- **Philosophy:** Naver-like information structure + KidsNote warmth — large text, cards, generous spacing
+
+## UI Principles
+
+Every screen and interaction must follow these rules:
+
+| Principle | Requirement |
+|-----------|-------------|
+| **한 화면 한 가지 목적** | One primary goal per screen — one hero action, no competing workflows |
+| **메뉴 2단계 이하** | Navigation depth ≤ 2: e.g. 홈 → 기능 (no 홈 → 중간 → 하위 → 상세) |
+| **버튼에 아이콘** | Every action button includes a Lucide icon (`ChurchButton` `icon` prop) |
+| **클릭 영역 ≥ 48px** | All tappable targets: `min-h-[48px]` / `.touch-target` (primary buttons: **56px**) |
+| **3초 이해** | Title + one-line subtitle visible immediately; plain Korean; no jargon |
+| **자동 저장** | All form/input flows use debounced auto-save (`hooks/useAutoSave`) + localStorage fallback |
+
+### 한 화면 한 가지 목적
+
+- Page header states **what** and **why** in one line (`PageHeaderBar` subtitle).
+- At most **one** primary button (`btn-primary` / `ChurchButton` variant `primary`).
+- Secondary actions use `outline` / `ghost` — visually subordinate.
+
+### 메뉴 2단계 이하
+
+- Level 1: role home (`MemberHome`, `PastorHome`, `AdminHome`) or bottom/sidebar nav.
+- Level 2: feature page (`PrayerPage`, `SermonPage`, …).
+- Do **not** add nested hub pages; use tabs or in-page sections instead of deeper nav trees.
+
+### 버튼 · 터치 · 이해하기 쉬운 UI
+
+```tsx
+import { Save } from 'lucide-react';
+import { ChurchButton } from '../components/common/ui/ChurchButton';
+
+<ChurchButton icon={<Save size={20} />} size="md">저장</ChurchButton>
+```
+
+- Icon + label together; icon-only buttons need `aria-label`.
+- Use `touch-target` class for list rows, icon buttons, and chips.
+- Empty states: icon + short Korean sentence + one clear next step.
+
+### 자동 저장
+
+- Use `useAutoSave(value, saveFn, { delayMs: 800 })` for text fields and forms.
+- Persist to localStorage in demo mode; try Supabase in `saveFn` with `try/catch` fallback.
+- Show subtle “저장됨” feedback — never block the user with a save dialog.
+
 ## Routing & Pages
 
-- **Never break existing routing.** Navigation is state-based in `App.tsx` (`mode`, `memberPage`, `adminPage`). Do not replace it with URL routing without an explicit migration plan.
+- **Never break existing routing.** Navigation is state-based in `src/app/App.tsx` (`mode`, `memberPage`, `pastorPage`, `adminPage`). Do not replace with URL routing without an explicit migration plan.
 - **Never remove existing pages** without user confirmation.
 - Preserve invite URL handling (`?code=`, `?invite=`, `/invite/{code}`).
 
 ## Roles
 
 - **Always preserve admin / pastor / member role separation.**
-- `super_admin` → admin mode; `pastor` and `member` → member mode (with pastor-only UI where applicable).
-- Use `permissions.ts` and `AuthContext` (`isAdmin`, `isPastor`) — do not collapse roles into a single experience.
+- `super_admin` → admin mode; `pastor` → pastor mode; `member` → member mode.
+- Use `services/permissions.ts` and `AuthContext` (`isAdmin`, `isPastor`) — do not collapse roles into a single experience.
 
 ## Components & Layout
 
-- **Prefer shared components** (`components/shared/`, `components/ui/`, `components/layout/`) over duplicating layouts.
-- Reuse `AppLayout`, `PageHeaderBar`, `EmptyState`, `TabBar`, and home dashboard patterns before creating one-off UI.
+- **Prefer shared components** (`components/common/`, `components/layout/`) over duplicating layouts.
+- Reuse `AppLayout`, `PageHeaderBar`, `EmptyState`, `TabBar`, `ChurchButton`, `ChurchCard`, and `HomeDashboard` patterns before creating one-off UI.
 
 ## Accessibility (Elderly Users)
 

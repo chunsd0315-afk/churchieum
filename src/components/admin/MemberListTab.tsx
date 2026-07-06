@@ -1,18 +1,18 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+﻿import { useState, useCallback, useEffect } from 'react';
 import {
   Search, X, Users, ChevronDown, ChevronUp,
   ChevronsUpDown, Edit, Trash2, MoreVertical, ChevronRight,
   RotateCcw,
 } from 'lucide-react';
-import { supabase as _supabase } from '../../lib/supabase';
-import type { Member } from '../../lib/supabase';
+import { supabase as _supabase } from '../../services/supabase';
+import type { Member } from '../../services/supabase';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
 import MemberDetailSheet from './MemberDetailSheet';
-import { getDemoData } from '../../lib/demoData';
+import { getDemoData } from '../../services/demoData';
 import {
   getAllDistricts, getAllZones, getAllDepartments,
   getDistrictNameById, getZoneNameById, getDepartmentNamesByIds,
-} from '../../lib/orgData';
+} from '../../services/orgData';
 import { useOrgSettings } from '../../contexts/OrgSettingsContext';
 
 /* ── Enriched member type ── */

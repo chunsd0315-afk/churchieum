@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import {
-  UserPlus, Link, QrCode, Copy, Check, Send, Trash2,
+  UserPlus, Link, Copy, Check, Send, Trash2,
   RefreshCw, X, MessageSquare, Share2, Clock,
   ChevronDown, ChevronUp, AlertCircle, CheckCircle,
   Smartphone, Globe,
@@ -8,7 +8,6 @@ import {
 
 type Role = '담임목사' | '교역자' | '장로' | '부서장' | '교사' | '성도';
 type InviteStatus = '대기중' | '발송완료' | '가입완료' | '만료';
-type ShareMethod = 'link' | 'sms' | 'kakao' | 'qr';
 
 type Invite = {
   id: string;

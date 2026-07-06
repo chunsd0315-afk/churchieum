@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import type { UserRole, AppUser } from '../lib/permissions';
+﻿import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import type { UserRole, AppUser } from '../services/permissions';
 
 type AuthContextType = {
   user: AppUser | null;
