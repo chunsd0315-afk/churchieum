@@ -1,9 +1,7 @@
 ﻿import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import {
-  Bell, ChevronLeft,
-  Home, Users, Heart, ClipboardList, Megaphone,
-  Calendar, BookOpen, BookHeart, User,
+  Bell, ChevronLeft, Home, BookOpen, Heart, User,
 } from 'lucide-react';
 import { getProfileImage } from '../../services/profileImage';
 import { useChurchOrg } from '../../hooks/useChurchOrg';
@@ -12,6 +10,12 @@ import { AppLayout } from '../layout/AppLayout';
 import PrayerNotificationSheet from '../layout/PrayerNotificationSheet';
 import ChurchSettingsPage from '../../pages/admin/ChurchSettingsPage';
 import { HomeLayoutProvider } from '../common/home/HomeLayoutContext';
+import {
+  PASTOR_ROLE_MENUS,
+  buildSidebarNavItems,
+  catalogPageLabels,
+} from '../common/home/roleMenus';
+import { HOME_MENU_CATALOG } from '../common/home/homeMenuCatalog';
 
 export type PastorPage =
   | 'home'
@@ -30,65 +34,34 @@ export type PastorPage =
   | 'sharing'
   | 'church-info';
 
-type NavMenuItem = {
-  page: PastorPage;
-  label: string;
-  icon: import('../../types/icons').NavIcon;
-};
+type PastorNavId = PastorPage | 'settings';
 
-const NAV_ITEMS: NavMenuItem[] = [
-  { page: 'home',          label: '대시보드', icon: Home },
-  { page: 'members',       label: '성도',     icon: Users },
-  { page: 'prayers',       label: '기도',     icon: Heart },
-  { page: 'visits',        label: '심방',     icon: ClipboardList },
-  { page: 'announcements', label: '공지',     icon: Megaphone },
-  { page: 'events',        label: '일정',     icon: Calendar },
-  { page: 'sermons',       label: '설교',     icon: BookOpen },
-  { page: 'grace-notes',   label: '은혜기록', icon: BookHeart },
-  { page: 'profile',       label: '내 정보',  icon: User },
+const SIDEBAR_NAV_ITEMS = buildSidebarNavItems<PastorNavId>(PASTOR_ROLE_MENUS);
+
+const BOTTOM_NAV_ITEMS = [
+  { page: 'home' as const, label: '홈', icon: Home },
+  { page: 'sermons' as const, label: HOME_MENU_CATALOG.sermon.label, icon: BookOpen },
+  { page: 'prayers' as const, label: HOME_MENU_CATALOG.prayer.label, icon: Heart },
+  { page: 'profile' as const, label: HOME_MENU_CATALOG.profile.label, icon: User },
 ];
 
-const BOTTOM_NAV_ITEMS: NavMenuItem[] = [
-  { page: 'home',    label: '홈',     icon: Home },
-  { page: 'members', label: '성도',   icon: Users },
-  { page: 'prayers', label: '기도',   icon: Heart },
-  { page: 'sermons', label: '설교',   icon: BookOpen },
-  { page: 'profile', label: '내 정보', icon: User },
-];
-
-const PAGE_LABELS: Record<PastorPage, string> = {
-  home: '대시보드',
-  members: '성도',
-  prayers: '기도',
+const PAGE_LABELS: Partial<Record<PastorPage, string>> = {
+  home: '홈',
+  members: '성도관리',
   visits: '심방',
-  announcements: '공지',
-  events: '일정',
-  sermons: '설교',
-  'grace-notes': '은혜기록',
-  profile: '내 정보',
-  bulletin: '주보',
-  album: '앨범',
-  bible: '성경',
-  'bible-reading-center': '성경통독',
-  sharing: '교회나눔',
-  'church-info': '교회정보',
+  ...catalogPageLabels(PASTOR_ROLE_MENUS),
 };
 
 const PAGE_SUBTITLES: Partial<Record<PastorPage, string>> = {
+  home: '교회 메뉴를 선택하세요.',
   members: '담당 조직의 성도를 돌보고 섬깁니다.',
-  prayers: '기도제목을 확인하고 함께 기도하세요.',
   visits: '심방과 상담 기록을 관리하세요.',
-  announcements: '교회 공지를 작성하고 안내하세요.',
-  events: '예배와 행사 일정을 관리하세요.',
-  sermons: '설교를 등록하고 말씀을 나누세요.',
-  'grace-notes': '말씀과 삶 속 은혜를 기록하세요.',
-  profile: '나의 프로필과 소속 정보를 확인하세요.',
-  bulletin: '예배 순서와 주간 소식을 확인하세요.',
-  album: '교회 공동체의 소중한 순간을 함께 나누세요.',
-  bible: '하나님의 말씀을 읽고 묵상하세요.',
-  'bible-reading-center': '말씀 통독 계획과 진행률을 확인하세요.',
-  sharing: '교회와 교회가 필요한 것을 나누고 함께 성장합니다.',
-  'church-info': '우리 교회의 기본 정보를 확인하세요.',
+  ...Object.fromEntries(
+    PASTOR_ROLE_MENUS.map(({ catalogKey, page }) => [
+      page,
+      HOME_MENU_CATALOG[catalogKey].description,
+    ]),
+  ),
 };
 
 type Props = {
@@ -115,8 +88,16 @@ export function PastorLayout({ children, currentPage, onNavigate }: Props) {
   const isHome = currentPage === 'home';
   const initial = (user?.name || '목')[0];
   const position = user?.position ?? '교역자';
-  const pageLabel = PAGE_LABELS[currentPage];
+  const pageLabel = PAGE_LABELS[currentPage] ?? '메뉴';
   const pageSubtitle = PAGE_SUBTITLES[currentPage];
+
+  const handleNavigate = (id: string) => {
+    if (id === 'settings') {
+      setShowSettings(true);
+      return;
+    }
+    onNavigate(id as PastorPage);
+  };
 
   const mobileHomeHeader = (
     <header className="bg-white sticky top-0 z-sticky" style={{ borderBottom: '1px solid #F1F5F9' }}>
@@ -182,11 +163,11 @@ export function PastorLayout({ children, currentPage, onNavigate }: Props) {
     <HomeLayoutProvider openSettings={() => setShowSettings(true)}>
       <AppLayout
         currentPage={currentPage}
-        onNavigate={onNavigate}
+        onNavigate={handleNavigate}
         isHomePage={isHome}
         mobileHomeHeader={mobileHomeHeader}
         mobileSubHeader={mobileSubHeader}
-        sidebarNavItems={NAV_ITEMS}
+        sidebarNavItems={SIDEBAR_NAV_ITEMS.map(i => ({ page: i.page as PastorPage, label: i.label, icon: i.icon }))}
         userPosition={position}
         bottomNavItems={BOTTOM_NAV_ITEMS.map(i => ({ id: i.page, label: i.label, icon: i.icon }))}
       >

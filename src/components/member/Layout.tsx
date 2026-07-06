@@ -2,15 +2,19 @@
 import { useAuth } from '../../contexts/AuthContext';
 import {
   Bell, ChevronLeft, Settings,
-  Home, BookOpen, BookHeart, Heart, Megaphone,
-  Book, BookMarked, Calendar, Image, User, Target,
-  HeartHandshake,
+  Home, Heart, BookOpen, Megaphone, User,
 } from 'lucide-react';
 import { getProfileImage } from '../../services/profileImage';
 import { useChurchOrg } from '../../hooks/useChurchOrg';
 import { getUnreadNotificationCount } from '../../services/prayerNotificationStorage';
 import { AppLayout } from '../layout/AppLayout';
 import PrayerNotificationSheet from '../layout/PrayerNotificationSheet';
+import {
+  MEMBER_ROLE_MENUS,
+  buildSidebarNavItems,
+  catalogPageLabels,
+} from '../common/home/roleMenus';
+import { HOME_MENU_CATALOG } from '../common/home/homeMenuCatalog';
 
 export type Page =
   | 'home'
@@ -28,61 +32,30 @@ export type Page =
   | 'church-info'
   | 'sharing';
 
-type NavMenuItem = { page: Page; label: string; icon: import('../../types/icons').NavIcon };
+const SIDEBAR_NAV_ITEMS = buildSidebarNavItems<Page>(MEMBER_ROLE_MENUS);
 
-const NAV_ITEMS: NavMenuItem[] = [
-  { page: 'home',                  label: '홈',       icon: Home },
-  { page: 'prayer',                label: '기도',     icon: Heart },
-  { page: 'sermon',                label: '설교',     icon: BookOpen },
-  { page: 'grace-notes',           label: '은혜기록', icon: BookHeart },
-  { page: 'bible',                 label: '성경',     icon: Book },
-  { page: 'bible-reading-center',  label: '통독',     icon: Target },
-  { page: 'announcement',          label: '공지',     icon: Megaphone },
-  { page: 'bulletin',              label: '주보',     icon: BookMarked },
-  { page: 'schedule',              label: '일정',     icon: Calendar },
-  { page: 'album',                 label: '앨범',     icon: Image },
-  { page: 'sharing',               label: '교제',     icon: HeartHandshake },
-  { page: 'profile',               label: '내 정보',  icon: User },
-];
-
-const BOTTOM_NAV_ITEMS: NavMenuItem[] = [
-  { page: 'home',         label: '홈',     icon: Home },
-  { page: 'prayer',       label: '기도',   icon: Heart },
-  { page: 'sermon',       label: '설교',   icon: BookOpen },
-  { page: 'announcement', label: '공지',   icon: Megaphone },
-  { page: 'profile',      label: '내 정보', icon: User },
+const BOTTOM_NAV_ITEMS = [
+  { page: 'home' as const, label: '홈', icon: Home },
+  { page: 'prayer' as const, label: HOME_MENU_CATALOG.prayer.label, icon: Heart },
+  { page: 'sermon' as const, label: HOME_MENU_CATALOG.sermon.label, icon: BookOpen },
+  { page: 'announcement' as const, label: HOME_MENU_CATALOG.announcement.label, icon: Megaphone },
+  { page: 'profile' as const, label: HOME_MENU_CATALOG.profile.label, icon: User },
 ];
 
 const PAGE_LABELS: Partial<Record<Page, string>> = {
-  sermon:                 '설교',
-  'grace-notes':          '은혜기록',
-  prayer:                 '기도',
-  announcement:           '공지',
-  album:                  '앨범',
-  profile:                '내 정보',
-  departments:            '부서',
-  bible:                  '성경',
-  'bible-reading-center': '통독',
-  bulletin:               '주보',
-  schedule:               '일정',
-  'church-info':          '교회정보',
-  sharing:                '교제',
+  home: '홈',
+  ...catalogPageLabels(MEMBER_ROLE_MENUS),
+  departments: '부서',
 };
 
 const PAGE_SUBTITLES: Partial<Record<Page, string>> = {
-  sermon:                 '예배 설교 말씀을 다시 보고 묵상하세요.',
-  'grace-notes':          '말씀과 삶 속에서 받은 은혜를 기록하고 나누세요.',
-  prayer:                 '기도제목을 나누고 함께 기도하세요.',
-  announcement:           '교회 소식과 안내를 확인하세요.',
-  album:                  '교회 공동체의 소중한 순간을 함께 나누세요.',
-  profile:                '나의 프로필과 소속 정보를 확인하세요.',
-  departments:            '부서 정보를 확인하세요.',
-  bible:                  '하나님의 말씀을 읽고 묵상하세요.',
-  'bible-reading-center': '말씀 통독 계획과 진행률을 확인하세요.',
-  bulletin:               '예배 순서와 주간 소식을 확인하세요.',
-  schedule:               '교회 예배와 행사 일정을 확인하세요.',
-  'church-info':          '우리 교회의 기본 정보를 확인하세요.',
-  sharing:                '교회와 교회가 필요한 것을 나누고 함께 성장합니다.',
+  ...Object.fromEntries(
+    MEMBER_ROLE_MENUS.map(({ catalogKey, page }) => [
+      page,
+      HOME_MENU_CATALOG[catalogKey].description,
+    ]),
+  ),
+  departments: '부서 정보를 확인하세요.',
 };
 
 type Props = {
@@ -215,7 +188,7 @@ export function MemberLayout({ children, currentPage, onNavigate, onSwitchMode, 
       isHomePage={isHome}
       mobileHomeHeader={mobileHomeHeader}
       mobileSubHeader={mobileSubHeader}
-      sidebarNavItems={NAV_ITEMS}
+      sidebarNavItems={SIDEBAR_NAV_ITEMS}
       userPosition={userPosition}
       sidebarModeSwitcher={modeSwitcher}
       showSettingsButton={false}
