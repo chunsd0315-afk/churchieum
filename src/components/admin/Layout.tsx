@@ -9,6 +9,7 @@ import { getProfileImage } from '../../services/profileImage';
 import { useChurchOrg } from '../../hooks/useChurchOrg';
 import { AppLayout } from '../layout/AppLayout';
 import ChurchSettingsPage from '../../pages/admin/ChurchSettingsPage';
+import { HomeLayoutProvider } from '../common/home/HomeLayoutContext';
 
 export type AdminPage =
   | 'home' | 'church' | 'org' | 'districts' | 'zones' | 'departments'
@@ -197,7 +198,7 @@ export function AdminLayout({ children, currentPage, onNavigate }: Props) {
   );
 
   return (
-    <>
+    <HomeLayoutProvider openSettings={() => setShowSettings(true)}>
       <AppLayout
         currentPage={currentPage}
         onNavigate={handleNavigate}
@@ -218,7 +219,7 @@ export function AdminLayout({ children, currentPage, onNavigate }: Props) {
           onClose={() => { setShowSettings(false); onNavigate('home'); }}
         />
       )}
-    </>
+    </HomeLayoutProvider>
   );
 }
 

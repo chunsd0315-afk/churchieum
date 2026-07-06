@@ -1,58 +1,58 @@
-﻿import {
-  Church, Network, UserCog, Users, Link, Layers, BarChart,
-} from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
-import { useChurchOrg } from '../../hooks/useChurchOrg';
-import type { AdminPage } from './Layout';
+﻿import type { AdminPage } from './Layout';
 import HomeDashboard from '../common/home/HomeDashboard';
 import type { HomeMenuItem } from '../common/home/HomeDashboard';
-import { useHomeDashboardData } from '../common/home/useHomeDashboardData';
+import { HOME_MENU_CATALOG } from '../common/home/homeMenuCatalog';
+import { useHomeLayoutActions } from '../common/home/HomeLayoutContext';
 
 type Props = { onNavigate: (page: AdminPage) => void };
 
-type MenuDef = {
-  id: AdminPage;
-  label: string;
-  description: string;
-  icon: React.ComponentType<{ className?: string }>;
-  bg: string;
-  iconColor: string;
+type AdminMenuEntry = {
+  catalogKey: keyof typeof HOME_MENU_CATALOG;
+  page: AdminPage | 'settings';
 };
 
-const ADMIN_MENUS: MenuDef[] = [
-  { id: 'church',      label: '교회',     description: '교회 기본 정보와 인증을 관리합니다',   icon: Church,   bg: 'bg-teal-50',    iconColor: 'text-teal-600' },
-  { id: 'org',         label: '조직',     description: '교구, 구역, 부서를 관리합니다',       icon: Network,  bg: 'bg-indigo-50',  iconColor: 'text-indigo-500' },
-  { id: 'clergy',      label: '교역자',   description: '교역자 정보와 담당을 관리합니다',     icon: UserCog,  bg: 'bg-purple-50',  iconColor: 'text-purple-500' },
-  { id: 'members',     label: '성도',     description: '성도 정보와 소속을 관리합니다',       icon: Users,    bg: 'bg-sky-50',     iconColor: 'text-sky-600' },
-  { id: 'invitations', label: '초대',     description: '초대 링크를 생성하고 관리합니다',     icon: Link,     bg: 'bg-lime-50',    iconColor: 'text-lime-600' },
-  { id: 'contents',    label: '콘텐츠',   description: '설교, 공지, 주보 등을 관리합니다',    icon: Layers,   bg: 'bg-blue-50',    iconColor: 'text-blue-600' },
-  { id: 'statistics',  label: '통계',     description: '교회 활동과 참여 현황을 확인합니다',  icon: BarChart, bg: 'bg-violet-50',  iconColor: 'text-violet-600' },
+const ADMIN_HOME_MENUS: AdminMenuEntry[] = [
+  { catalogKey: 'sermon', page: 'sermons' },
+  { catalogKey: 'grace', page: 'qt' },
+  { catalogKey: 'announcement', page: 'announcements' },
+  { catalogKey: 'bulletin', page: 'bulletins' },
+  { catalogKey: 'schedule', page: 'events' },
+  { catalogKey: 'prayer', page: 'prayers' },
+  { catalogKey: 'album', page: 'albums' },
+  { catalogKey: 'bible', page: 'bible' },
+  { catalogKey: 'biblePlan', page: 'bible-plans' },
+  { catalogKey: 'sharing', page: 'sharing' },
+  { catalogKey: 'profile', page: 'profile' },
+  { catalogKey: 'churchInfo', page: 'church-info' },
+  { catalogKey: 'statistics', page: 'statistics' },
+  { catalogKey: 'org', page: 'org' },
+  { catalogKey: 'clergy', page: 'clergy' },
+  { catalogKey: 'members', page: 'members' },
+  { catalogKey: 'invitations', page: 'invitations' },
+  { catalogKey: 'settings', page: 'settings' },
 ];
 
 export default function AdminHome({ onNavigate }: Props) {
-  const { user } = useAuth();
-  const { churchName, orgLabel } = useChurchOrg(user);
-  const { recentNotices, upcomingSchedules, prayerItems } = useHomeDashboardData();
+  const { openSettings } = useHomeLayoutActions();
 
-  const menuItems: HomeMenuItem[] = ADMIN_MENUS.map(m => ({
-    ...m,
-    onClick: () => onNavigate(m.id),
-  }));
+  const menuItems: HomeMenuItem[] = ADMIN_HOME_MENUS.map(({ catalogKey, page }) => {
+    const meta = HOME_MENU_CATALOG[catalogKey];
+    return {
+      id: page,
+      label: meta.label,
+      description: meta.description,
+      icon: meta.icon,
+      bg: meta.bg,
+      iconColor: meta.iconColor,
+      onClick: () => {
+        if (page === 'settings') {
+          openSettings?.();
+          return;
+        }
+        onNavigate(page);
+      },
+    };
+  });
 
-  return (
-    <HomeDashboard
-      currentUser={user}
-      mode="admin"
-      menuItems={menuItems}
-      recentNotices={recentNotices}
-      todaySchedules={upcomingSchedules}
-      prayerItems={prayerItems}
-      churchName={churchName}
-      orgLabel={orgLabel}
-      onMenuClick={id => onNavigate(id as AdminPage)}
-      onNoticesMore={() => onNavigate('contents')}
-      onSchedulesMore={() => onNavigate('events')}
-      onPrayersMore={() => onNavigate('prayers')}
-    />
-  );
+  return <HomeDashboard menuItems={menuItems} />;
 }

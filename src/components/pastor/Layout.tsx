@@ -10,6 +10,8 @@ import { useChurchOrg } from '../../hooks/useChurchOrg';
 import { getUnreadNotificationCount } from '../../services/prayerNotificationStorage';
 import { AppLayout } from '../layout/AppLayout';
 import PrayerNotificationSheet from '../layout/PrayerNotificationSheet';
+import ChurchSettingsPage from '../../pages/admin/ChurchSettingsPage';
+import { HomeLayoutProvider } from '../common/home/HomeLayoutContext';
 
 export type PastorPage =
   | 'home'
@@ -20,7 +22,13 @@ export type PastorPage =
   | 'events'
   | 'sermons'
   | 'grace-notes'
-  | 'profile';
+  | 'profile'
+  | 'bulletin'
+  | 'album'
+  | 'bible'
+  | 'bible-reading-center'
+  | 'sharing'
+  | 'church-info';
 
 type NavMenuItem = {
   page: PastorPage;
@@ -58,6 +66,12 @@ const PAGE_LABELS: Record<PastorPage, string> = {
   sermons: '설교',
   'grace-notes': '은혜기록',
   profile: '내 정보',
+  bulletin: '주보',
+  album: '앨범',
+  bible: '성경',
+  'bible-reading-center': '성경통독',
+  sharing: '교회나눔',
+  'church-info': '교회정보',
 };
 
 const PAGE_SUBTITLES: Partial<Record<PastorPage, string>> = {
@@ -69,6 +83,12 @@ const PAGE_SUBTITLES: Partial<Record<PastorPage, string>> = {
   sermons: '설교를 등록하고 말씀을 나누세요.',
   'grace-notes': '말씀과 삶 속 은혜를 기록하세요.',
   profile: '나의 프로필과 소속 정보를 확인하세요.',
+  bulletin: '예배 순서와 주간 소식을 확인하세요.',
+  album: '교회 공동체의 소중한 순간을 함께 나누세요.',
+  bible: '하나님의 말씀을 읽고 묵상하세요.',
+  'bible-reading-center': '말씀 통독 계획과 진행률을 확인하세요.',
+  sharing: '교회와 교회가 필요한 것을 나누고 함께 성장합니다.',
+  'church-info': '우리 교회의 기본 정보를 확인하세요.',
 };
 
 type Props = {
@@ -81,6 +101,7 @@ export function PastorLayout({ children, currentPage, onNavigate }: Props) {
   const { user } = useAuth();
   const [profileImg, setProfileImg] = useState<string | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [notifTick, setNotifTick] = useState(0);
   const { churchName, orgLabel } = useChurchOrg(user);
 
@@ -158,25 +179,30 @@ export function PastorLayout({ children, currentPage, onNavigate }: Props) {
   );
 
   return (
-    <AppLayout
-      currentPage={currentPage}
-      onNavigate={onNavigate}
-      isHomePage={isHome}
-      mobileHomeHeader={mobileHomeHeader}
-      mobileSubHeader={mobileSubHeader}
-      sidebarNavItems={NAV_ITEMS}
-      userPosition={position}
-      bottomNavItems={BOTTOM_NAV_ITEMS.map(i => ({ id: i.page, label: i.label, icon: i.icon }))}
-    >
-      {children}
-      {showNotifications && user?.id && (
-        <PrayerNotificationSheet
-          userId={user.id}
-          onClose={() => setShowNotifications(false)}
-          onNavigate={p => onNavigate(p === 'prayer' ? 'prayers' : 'home')}
-          onChanged={() => setNotifTick(t => t + 1)}
-        />
+    <HomeLayoutProvider openSettings={() => setShowSettings(true)}>
+      <AppLayout
+        currentPage={currentPage}
+        onNavigate={onNavigate}
+        isHomePage={isHome}
+        mobileHomeHeader={mobileHomeHeader}
+        mobileSubHeader={mobileSubHeader}
+        sidebarNavItems={NAV_ITEMS}
+        userPosition={position}
+        bottomNavItems={BOTTOM_NAV_ITEMS.map(i => ({ id: i.page, label: i.label, icon: i.icon }))}
+      >
+        {children}
+        {showNotifications && user?.id && (
+          <PrayerNotificationSheet
+            userId={user.id}
+            onClose={() => setShowNotifications(false)}
+            onNavigate={p => onNavigate(p === 'prayer' ? 'prayers' : 'home')}
+            onChanged={() => setNotifTick(t => t + 1)}
+          />
+        )}
+      </AppLayout>
+      {showSettings && (
+        <ChurchSettingsPage onClose={() => { setShowSettings(false); onNavigate('home'); }} />
       )}
-    </AppLayout>
+    </HomeLayoutProvider>
   );
 }

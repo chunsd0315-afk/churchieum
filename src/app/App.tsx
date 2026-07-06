@@ -211,6 +211,26 @@ function AppContent() {
         {pastorPage === 'sermons' && <SafePage><SermonPage /></SafePage>}
         {pastorPage === 'grace-notes' && <SafePage><GraceNotesPage /></SafePage>}
         {pastorPage === 'profile' && <SafePage><ProfilePage /></SafePage>}
+        {pastorPage === 'bulletin' && <SafePage><BulletinPage /></SafePage>}
+        {pastorPage === 'album' && <SafePage><AlbumPage /></SafePage>}
+        {pastorPage === 'bible' && (
+          <SafePage>
+            <BiblePage
+              onNavigate={(p) => { setBibleInitialRef(null); setPastorPage(p as PastorPage); }}
+              initialRef={bibleInitialRef}
+            />
+          </SafePage>
+        )}
+        {pastorPage === 'bible-reading-center' && (
+          <SafePage>
+            <BibleReadingCenterPage
+              onNavigate={(p) => setPastorPage(p as PastorPage)}
+              onGoToBible={(book, chapter) => { setBibleInitialRef({ book, chapter }); setPastorPage('bible'); }}
+            />
+          </SafePage>
+        )}
+        {pastorPage === 'sharing' && <SafePage><ChurchSharingPage /></SafePage>}
+        {pastorPage === 'church-info' && <SafePage><ChurchInfoPage /></SafePage>}
       </PastorLayout>
     );
   }
