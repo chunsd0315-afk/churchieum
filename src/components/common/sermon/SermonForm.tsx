@@ -4,7 +4,6 @@ import type {
   Sermon, SermonAttachment, SermonFolder, SermonStatus, SermonVisibility, WorshipType,
 } from '../../../types/sermon';
 import {
-  WORSHIP_TYPE_LABELS, WORSHIP_TAB_TYPES,
   SERMON_VISIBILITY_LABELS, SERMON_STATUS_LABELS,
 } from '../../../types/sermon';
 import { getSelectableFolders, getYouTubeId } from '../../../services/sermonStorage';
@@ -91,15 +90,6 @@ export default function SermonForm({ editing, user, onSave, onCancel }: Props) {
     setForm(p => ({ ...p, folderId: id, folderName: f?.name ?? '', worshipType: f?.worshipType ?? p.worshipType }));
   };
 
-  const handleWorshipType = (wt: WorshipType) => {
-    const match = folders.find(f => f.worshipType === wt);
-    setForm(p => ({
-      ...p, worshipType: wt,
-      folderId: match?.id ?? p.folderId,
-      folderName: match?.name ?? WORSHIP_TYPE_LABELS[wt],
-    }));
-  };
-
   const handleFile = (files: FileList | null) => {
     if (!files?.length || form.attachments.length >= 5) return;
     const next = Array.from(files).slice(0, 5 - form.attachments.length).map(file => ({
@@ -161,23 +151,16 @@ export default function SermonForm({ editing, user, onSave, onCancel }: Props) {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <div>
-            <label className={sermonLabelClass}>예배 종류</label>
-            <select value={form.worshipType} onChange={e => handleWorshipType(e.target.value as WorshipType)} className={sermonInputClass}>
-              {[...WORSHIP_TAB_TYPES, 'other' as WorshipType].map(wt => (
-                <option key={wt} value={wt}>{WORSHIP_TYPE_LABELS[wt]}</option>
-              ))}
+            <label className={sermonLabelClass}>예배 종류 *</label>
+            <select value={form.folderId} onChange={e => handleFolder(e.target.value)} className={sermonInputClass}>
+              {folders.length === 0 && <option value="">등록된 예배 폴더가 없습니다</option>}
+              {folders.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
             </select>
           </div>
           <div>
             <label className={sermonLabelClass}>설교 날짜 *</label>
             <input type="date" value={form.sermonDate} onChange={e => setField('sermonDate', e.target.value)} className={sermonInputClass} />
           </div>
-        </div>
-        <div>
-          <label className={sermonLabelClass}>설교 폴더</label>
-          <select value={form.folderId} onChange={e => handleFolder(e.target.value)} className={sermonInputClass}>
-            {folders.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-          </select>
         </div>
         <div>
           <label className={sermonLabelClass}>YouTube 링크 또는 영상 URL</label>

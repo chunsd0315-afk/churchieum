@@ -140,7 +140,7 @@ export default function SermonApp({
               className="px-4 py-2 text-sm font-bold text-primary-600 bg-primary-50 rounded-[14px]">수정</button>
           )}
         </div>
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-[900px] mx-auto">
           <SermonDetail sermon={selected} user={user} canManage={canManage}
             onEdit={() => openEdit(selected)} onDelete={() => setDeleteId(selected.id)}
             renderExtraActions={renderExtraActions} />
@@ -171,7 +171,7 @@ export default function SermonApp({
           onManageFolders={canManageFolders ? () => setShowFolderMgr(true) : undefined}
         />
         <div className="px-4 md:px-7 pt-3 pb-3 border-b border-[#E5E7EB]">
-          <div className="max-w-2xl mx-auto">
+          <div className="max-w-[900px] mx-auto">
             <StickyPlayer
               sermon={selected}
               playing={playing}
@@ -183,7 +183,7 @@ export default function SermonApp({
       </div>
 
       {/* 검색 · 등록 · 카드 목록 · 페이지네이션 */}
-      <div className="max-w-2xl mx-auto pt-4 space-y-3">
+      <div className="max-w-[900px] mx-auto pt-4 space-y-3">
         {canManage && (
           <button type="button" onClick={openCreate}
             className="md:hidden w-full flex items-center justify-center gap-2 h-12 bg-primary-600 text-white rounded-[14px] font-bold text-[15px] hover:bg-primary-700 transition-colors">
