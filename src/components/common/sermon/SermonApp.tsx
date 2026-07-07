@@ -1,5 +1,5 @@
-﻿import React, { useState, useCallback, useMemo } from 'react';
-import { Plus, Search, X, BookOpen, ChevronLeft, Filter } from 'lucide-react';
+﻿import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { Plus, Search, X, BookOpen, ChevronLeft, ChevronRight, Filter, Play, Youtube } from 'lucide-react';
 import type { Sermon, SermonFolder } from '../../../types/sermon';
 import {
   getAllSermons, addSermon, updateSermon, deleteSermon, getUniquePreachers,
@@ -16,6 +16,7 @@ import SermonDetail from './SermonDetail';
 import SermonForm, { type SermonFormData } from './SermonForm';
 import SermonFolderManager from './SermonFolderManager';
 import SermonFolderTabs from './SermonFolderTabs';
+import { SermonYoutubeThumb, formatShortDate } from './sermonUiUtils';
 import type { SermonStatus } from '../../../types/sermon';
 import {
   SermonShell, SermonPageHeader, SermonCard, sermonPrimaryBtnClass, sermonGhostBtnClass, sermonInputClass,
@@ -50,6 +51,7 @@ export default function SermonApp({
   const [filterPreacher, setFilterPreacher] = useState('all');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
+  const [playing, setPlaying] = useState(false);
 
   const refresh = useCallback(() => {
     setSermons(getAllSermons());
@@ -67,9 +69,19 @@ export default function SermonApp({
   const preachers = useMemo(() => getUniquePreachers(visible), [visible]);
   const selected = filtered.find(s => s.id === selectedId) ?? filtered[0] ?? null;
 
+  // 폴더 변경 시 고정 플레이어는 썸네일 상태로 초기화
+  useEffect(() => { setPlaying(false); }, [activeFolder]);
+
   const openDetail = (s: Sermon) => { setSelectedId(s.id); if (isMobile) setView('detail'); };
   const openCreate = () => { setEditing(null); setView('form'); };
   const openEdit = (s: Sermon) => { setEditing(s); setView('form'); };
+
+  // 모바일: 목록 항목 탭 → 상단 고정 플레이어에서 재생
+  const playSermon = (s: Sermon) => {
+    setSelectedId(s.id);
+    setPlaying(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const handleSave = (data: SermonFormData, status: SermonStatus) => {
     if (editing) { const u = updateSermon(editing.id, { ...data, status }); if (u) trySyncSermonToSupabase(u); }
@@ -204,33 +216,226 @@ export default function SermonApp({
     );
   }
 
+  // ── 모바일: 폴더 리스트 → 고정 플레이어 → 번호 목록 ──
+  const mobileListView = (
+    <>
+      {/* 상단 고정: 예배 폴더 탭 + 플레이어 */}
+      <div className="sticky top-14 z-20 -mx-4 bg-[#F8FAFC]">
+        <SermonFolderTabs
+          tabs={folderTabs}
+          activeId={activeFolder}
+          onSelect={setActiveFolder}
+          onManageFolders={canManageFolders ? () => setShowFolderMgr(true) : undefined}
+        />
+        <div className="px-4 pt-3 pb-3 border-b border-[#E5E7EB]">
+          <MobileStickyPlayer
+            sermon={selected}
+            playing={playing}
+            onPlay={() => setPlaying(true)}
+            onOpenDetail={() => selected && setView('detail')}
+          />
+        </div>
+      </div>
+
+      {/* 검색 + 등록 */}
+      <div className="pt-3 space-y-3">
+        {canManage && (
+          <button type="button" onClick={openCreate}
+            className="w-full flex items-center justify-center gap-2 h-12 bg-primary-600 text-white rounded-[14px] font-bold text-[15px] hover:bg-primary-700 transition-colors">
+            <Plus className="w-5 h-5" /> 설교 등록
+          </button>
+        )}
+        <div className="relative">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="제목, 본문, 설교자 검색"
+            className={`${sermonInputClass} pl-12 pr-12 !bg-white`}
+          />
+          {search && (
+            <button type="button" onClick={() => setSearch('')} className="absolute right-4 top-1/2 -translate-y-1/2">
+              <X className="w-5 h-5 text-gray-400" />
+            </button>
+          )}
+        </div>
+
+        {/* 번호 목록 */}
+        {filtered.length > 0 ? (
+          <div className="space-y-2.5">
+            {filtered.map((s, i) => (
+              <NumberedSermonRow
+                key={s.id}
+                index={i + 1}
+                sermon={s}
+                active={selected?.id === s.id}
+                onSelect={() => playSermon(s)}
+              />
+            ))}
+          </div>
+        ) : (
+          <SermonCard className="py-16 text-center">
+            <BookOpen className="w-14 h-14 text-gray-200 mx-auto mb-4" />
+            <p className="font-bold text-[#6B7280] text-base">
+              {search || activeFolder !== 'all' ? '검색 결과가 없습니다' : '등록된 설교가 없습니다'}
+            </p>
+          </SermonCard>
+        )}
+      </div>
+    </>
+  );
+
   return (
     <SermonShell>
-      <SermonPageHeader title="설교" description="예배 설교 말씀을 다시 보고 묵상하세요." action={registerBtn} />
-
       {!isMobile ? (
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,380px)_1fr] gap-6">
-          <div className="lg:max-h-[calc(100vh-11rem)] lg:overflow-y-auto lg:pr-1">{listPanel}</div>
-          <div className="min-w-0">
-            {selected ? (
-              <SermonDetail sermon={selected} user={user} canManage={canManage}
-                onEdit={() => openEdit(selected)} onDelete={() => setDeleteId(selected.id)}
-                renderExtraActions={renderExtraActions} />
-            ) : (
-              <SermonCard className="py-24 text-center">
-                <BookOpen className="w-16 h-16 text-gray-200 mx-auto mb-4" />
-                <p className="text-[#6B7280] font-semibold text-base">왼쪽에서 설교를 선택하세요</p>
-              </SermonCard>
-            )}
+        <>
+          <SermonPageHeader title="설교" description="예배 설교 말씀을 다시 보고 묵상하세요." action={registerBtn} />
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,380px)_1fr] gap-6">
+            <div className="lg:max-h-[calc(100vh-11rem)] lg:overflow-y-auto lg:pr-1">{listPanel}</div>
+            <div className="min-w-0">
+              {selected ? (
+                <SermonDetail sermon={selected} user={user} canManage={canManage}
+                  onEdit={() => openEdit(selected)} onDelete={() => setDeleteId(selected.id)}
+                  renderExtraActions={renderExtraActions} />
+              ) : (
+                <SermonCard className="py-24 text-center">
+                  <BookOpen className="w-16 h-16 text-gray-200 mx-auto mb-4" />
+                  <p className="text-[#6B7280] font-semibold text-base">왼쪽에서 설교를 선택하세요</p>
+                </SermonCard>
+              )}
+            </div>
           </div>
-        </div>
+        </>
       ) : (
-        listPanel
+        mobileListView
       )}
 
       {showFolderMgr && <SermonFolderManager onClose={() => setShowFolderMgr(false)} onRefresh={refresh} />}
       {deleteId && <DeleteModal onCancel={() => setDeleteId(null)} onConfirm={() => handleDelete(deleteId)} />}
     </SermonShell>
+  );
+}
+
+/* ── 모바일 상단 고정 플레이어 ── */
+function MobileStickyPlayer({
+  sermon, playing, onPlay, onOpenDetail,
+}: {
+  sermon: Sermon | null;
+  playing: boolean;
+  onPlay: () => void;
+  onOpenDetail: () => void;
+}) {
+  if (!sermon) {
+    return (
+      <div className="rounded-2xl bg-white border border-[#E5E7EB] py-12 text-center">
+        <BookOpen className="w-12 h-12 text-gray-200 mx-auto mb-3" />
+        <p className="text-[15px] font-semibold text-[#6B7280]">아래 목록에서 설교를 선택하세요</p>
+      </div>
+    );
+  }
+
+  const ytId = sermon.youtubeVideoId;
+
+  return (
+    <div className="rounded-2xl overflow-hidden bg-white border border-[#E5E7EB] shadow-sm">
+      <div className="relative w-full aspect-video bg-gray-900">
+        {playing && ytId ? (
+          <iframe
+            src={`https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0`}
+            className="w-full h-full"
+            title={sermon.title}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        ) : ytId ? (
+          <button type="button" onClick={onPlay} className="absolute inset-0">
+            <SermonYoutubeThumb videoId={ytId} title={sermon.title} className="w-full h-full" />
+            <span className="absolute inset-0 bg-black/30 flex items-center justify-center">
+              <span className="w-16 h-16 rounded-full bg-red-600/95 flex items-center justify-center shadow-xl">
+                <Play className="w-8 h-8 text-white fill-white ml-1" />
+              </span>
+            </span>
+            <span className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 bg-black/60 rounded-lg">
+              <Youtube className="w-3.5 h-3.5 text-red-400" />
+              <span className="text-[11px] text-white font-bold">YouTube</span>
+            </span>
+          </button>
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary-500 to-primary-600">
+            <BookOpen className="w-16 h-16 text-white/30" />
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center gap-2 p-3">
+        <div className="min-w-0 flex-1">
+          <h3 className="text-[16px] font-extrabold text-gray-900 leading-snug line-clamp-1">{sermon.title}</h3>
+          <div className="flex items-center gap-2 mt-1 text-[12px] text-[#6B7280]">
+            {sermon.scripture && <span className="text-primary-600 font-semibold truncate">{sermon.scripture}</span>}
+            {sermon.scripture && <span className="text-gray-300">·</span>}
+            <span className="truncate">{sermon.preacher}</span>
+            <span className="text-gray-300">·</span>
+            <span className="shrink-0">{formatShortDate(sermon.sermonDate)}</span>
+          </div>
+        </div>
+        <button type="button" onClick={onOpenDetail}
+          className="shrink-0 flex items-center gap-0.5 px-3 h-9 rounded-[12px] bg-[#F1F5F9] text-gray-700 text-[13px] font-bold hover:bg-gray-200 transition-colors">
+          상세 <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ── 모바일 번호 목록 항목 ── */
+function NumberedSermonRow({
+  index, sermon, active, onSelect,
+}: {
+  index: number;
+  sermon: Sermon;
+  active: boolean;
+  onSelect: () => void;
+}) {
+  const ytId = sermon.youtubeVideoId;
+  return (
+    <button type="button" onClick={onSelect} className="w-full text-left">
+      <div className={`flex items-center gap-3 p-2.5 rounded-2xl border transition-colors ${
+        active ? 'bg-primary-50 border-primary-300' : 'bg-white border-[#E5E7EB] hover:bg-gray-50'
+      }`}>
+        <span className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-[13px] font-extrabold ${
+          active ? 'bg-primary-600 text-white' : 'bg-[#F1F5F9] text-[#6B7280]'
+        }`}>
+          {index}
+        </span>
+
+        <div className="relative shrink-0 rounded-lg overflow-hidden bg-gray-100" style={{ width: 72, height: 46 }}>
+          {ytId ? (
+            <>
+              <SermonYoutubeThumb videoId={ytId} title={sermon.title} className="w-full h-full" />
+              <span className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                <span className="w-6 h-6 rounded-full bg-red-600/90 flex items-center justify-center">
+                  <Play className="w-3 h-3 text-white fill-white ml-0.5" />
+                </span>
+              </span>
+            </>
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary-500 to-primary-600">
+              <BookOpen className="w-5 h-5 text-white/60" />
+            </div>
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <p className="text-[15px] font-bold text-gray-900 leading-snug line-clamp-1">{sermon.title}</p>
+          <p className="text-[12px] text-[#6B7280] mt-0.5 truncate">
+            {sermon.scripture ? `${sermon.scripture} · ` : ''}{sermon.preacher}
+          </p>
+          <p className="text-[11px] text-[#9CA3AF] mt-0.5">{formatShortDate(sermon.sermonDate)}</p>
+        </div>
+
+        {active
+          ? <Play className="w-5 h-5 shrink-0 text-primary-600 fill-primary-600" />
+          : <ChevronRight className="w-5 h-5 shrink-0 text-gray-300" />}
+      </div>
+    </button>
   );
 }
 
