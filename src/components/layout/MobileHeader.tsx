@@ -40,7 +40,7 @@ export function MobileHeader({
         {/* Notification */}
         <button
           onClick={onNotificationClick}
-          className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-gray-100 transition-colors text-gray-500"
+          className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-gray-100 transition-colors text-primary-500"
           aria-label="알림"
         >
           <Bell style={{ width: 18, height: 18 }} />
@@ -50,7 +50,7 @@ export function MobileHeader({
         {mode !== 'member' && (
           <button
             onClick={onSettingsClick}
-            className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-gray-100 transition-colors text-gray-500"
+            className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-gray-100 transition-colors text-primary-500"
             aria-label="설정"
           >
             <Settings style={{ width: 18, height: 18 }} />

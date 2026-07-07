@@ -45,17 +45,19 @@
   --color-primary-800: #1E3A8A;
   --color-primary-900: #172554;
 
-  /* ── Color: Secondary (Indigo) ───────────────────── */
-  --color-secondary-50:  #EEF2FF;
-  --color-secondary-100: #E0E7FF;
-  --color-secondary-200: #C7D2FE;
-  --color-secondary-300: #A5B4FC;
-  --color-secondary-400: #818CF8;
-  --color-secondary-500: #6366F1;
-  --color-secondary-600: #4F46E5;
-  --color-secondary-700: #4338CA;
-  --color-secondary-800: #3730A3;
-  --color-secondary-900: #312E81;
+  /* ── Color: Secondary (Deep Blue / Navy) ─────────────
+     교회이음 1.0 시안: Primary #2563EB + Secondary #1D4ED8 로
+     네이비+블루 통일. (기존 인디고 계열 제거) */
+  --color-secondary-50:  #EFF6FF;
+  --color-secondary-100: #DBEAFE;
+  --color-secondary-200: #BFDBFE;
+  --color-secondary-300: #93C5FD;
+  --color-secondary-400: #3B82F6;
+  --color-secondary-500: #1D4ED8;
+  --color-secondary-600: #1E40AF;
+  --color-secondary-700: #1E3A8A;
+  --color-secondary-800: #172554;
+  --color-secondary-900: #0F172A;
 
   /* ── Color: Accent (Amber/Orange) ────────────────── */
   --color-accent-50:  #FFF7ED;
@@ -203,7 +205,7 @@
 
   /* ── Semantic Radius ─────────────────────────────── */
   --radius-btn:     var(--radius-brand);
-  --radius-card:    var(--radius-brand);
+  --radius-card:    20px; /* Churchieum 1.0: 카드 라운드 20px */
   --radius-input:   var(--radius-brand);
   --radius-badge:   var(--radius-full);
   --radius-pill:    var(--radius-full);

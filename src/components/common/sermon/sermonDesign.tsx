@@ -6,7 +6,7 @@ export const SERMON_PAGE_BG = '#F8FAFC';
 export const sermonCardStyle: CSSProperties = {
   background: '#FFFFFF',
   border: '1px solid #E5E7EB',
-  borderRadius: '16px',
+  borderRadius: '20px',
   boxShadow: '0 8px 24px rgba(15,23,42,.04)',
 };
 
@@ -32,14 +32,10 @@ export const sermonGhostBtnClass =
 
 type ShellProps = { children: ReactNode; className?: string };
 
+/* 설교 페이지는 공통 콘텐츠 웰(AppLayout PageContentWell, 900px·좌우24) 안에서
+   렌더링되므로 별도의 max-width/padding을 두지 않는다. (폭·정렬 통일) */
 export function SermonShell({ children, className = '' }: ShellProps) {
-  return (
-    <div className={`min-h-full ${className}`} style={{ background: SERMON_PAGE_BG }}>
-      <div className="mx-auto w-full max-w-[900px] px-4 md:px-7 pb-12">
-        {children}
-      </div>
-    </div>
-  );
+  return <div className={`min-h-full ${className}`}>{children}</div>;
 }
 
 type CardProps = { children: ReactNode; className?: string; hover?: boolean };

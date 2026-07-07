@@ -64,7 +64,7 @@ const MENUS: MenuCard[] = [
   { id: 'book',          label: '설정',        icon: Book,           bg: 'bg-slate-50',   ic: 'text-slate-500',   roles: ['pastor'] },
   // admin only
   { id: 'statistics',    label: '통계/보고서', icon: BarChart,       bg: 'bg-slate-50',   ic: 'text-slate-500',   roles: ['admin'] },
-  { id: 'org',           label: '조직관리',    icon: Network,        bg: 'bg-indigo-50',  ic: 'text-indigo-500',  roles: ['admin'] },
+  { id: 'org',           label: '조직관리',    icon: Network,        bg: 'bg-secondary-50',  ic: 'text-secondary-500',  roles: ['admin'] },
   { id: 'clergy',        label: '교역자관리',  icon: UserCog,        bg: 'bg-purple-50',  ic: 'text-purple-500',  roles: ['admin'] },
   { id: 'members',       label: '성도관리',    icon: Users,          bg: 'bg-sky-50',     ic: 'text-sky-500',     roles: ['admin'] },
   { id: 'invitations',   label: '초대관리',    icon: LinkIcon,       bg: 'bg-lime-50',    ic: 'text-lime-600',    roles: ['admin'] },

@@ -26,7 +26,7 @@ export function ChurchSearchInput({
         className={[
           'w-full h-12 pl-10 pr-4 bg-white border border-gray-200 rounded-[14px]',
           'text-sm text-gray-900 placeholder:text-gray-400',
-          'focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100',
+          'focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100',
           'transition-colors duration-150',
         ].join(' ')}
       />

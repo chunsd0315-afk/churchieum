@@ -43,11 +43,11 @@ export function DesktopSidebar({
               className={[
                 'w-full flex items-center gap-3 px-3.5 py-2.5 rounded-[14px] text-sm font-semibold transition-all duration-150 text-left',
                 active
-                  ? 'bg-blue-50 text-blue-600'
+                  ? 'bg-primary-50 text-primary-600'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
               ].join(' ')}
             >
-              <span className={`shrink-0 ${active ? 'text-blue-500' : 'text-gray-400'}`}>
+              <span className={`shrink-0 ${active ? 'text-primary-500' : 'text-gray-400'}`}>
                 {item.icon}
               </span>
               {item.label}

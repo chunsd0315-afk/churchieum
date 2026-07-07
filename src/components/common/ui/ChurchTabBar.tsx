@@ -26,7 +26,7 @@ export function ChurchTabBar({ tabs, activeTab, onChange }: ChurchTabBarProps) {
             className={[
               'h-10 px-4 rounded-full text-sm font-semibold transition-all duration-150 flex items-center gap-1.5',
               active
-                ? 'bg-blue-600 text-white shadow-sm'
+                ? 'bg-primary-500 text-white shadow-sm'
                 : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-300 hover:text-gray-800',
             ].join(' ')}
           >
@@ -63,7 +63,7 @@ export function ChurchFilterChip({ children, active = false, onClick }: ChurchFi
       className={[
         'h-[38px] px-3.5 rounded-full text-xs font-semibold transition-all duration-150 whitespace-nowrap',
         active
-          ? 'bg-blue-600 text-white shadow-sm'
+          ? 'bg-primary-500 text-white shadow-sm'
           : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-300 hover:text-gray-800',
       ].join(' ')}
     >

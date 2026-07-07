@@ -129,12 +129,12 @@ export function PageLayout({
   return (
     <div className={`flex flex-col gap-0 ${className}`}>
 
-      {/* ── PageHeader (PC 전용: 메뉴명 + 설명 + 액션) ────────────── */}
-      <div className="hidden md:flex items-start justify-between gap-4 pb-5">
+      {/* ── PageHeader (PC 전용: 메뉴명 + 설명 + 액션 — 모바일은 고정 App Header 사용) ── */}
+      <div className="hidden md:flex items-start justify-between gap-4 mb-8">
         <div className="min-w-0 flex-1">
-          <h1 className="text-xl font-bold text-gray-900 leading-tight">{header.title}</h1>
+          <h1 className="text-[28px] font-bold text-[#111827] leading-tight">{header.title}</h1>
           {header.description && (
-            <p className="mt-1 text-sm text-gray-500 leading-snug">{header.description}</p>
+            <p className="mt-2 text-[15px] font-normal text-[#64748B] leading-snug">{header.description}</p>
           )}
         </div>
         {header.action ? (
@@ -289,12 +289,12 @@ export interface PageHeaderBarProps {
 export function PageHeaderBar({ title, description, action, mobileAction, mobileFab, className = '' }: PageHeaderBarProps) {
   return (
     <div className={className}>
-      {/* PC 전용: 메뉴명 + 설명 + 액션 */}
-      <div className="hidden md:flex items-start justify-between gap-4 pb-5">
+      {/* 메뉴명 + 설명 + 액션 (PC 전용 — 모바일은 고정 App Header 사용) */}
+      <div className="hidden md:flex items-start justify-between gap-4 mb-8">
         <div className="min-w-0 flex-1">
-          <h1 className="text-xl font-bold text-gray-900 leading-tight">{title}</h1>
+          <h1 className="text-[28px] font-bold text-[#111827] leading-tight">{title}</h1>
           {description && (
-            <p className="mt-1 text-sm text-gray-500 leading-snug">{description}</p>
+            <p className="mt-2 text-[15px] font-normal text-[#64748B] leading-snug">{description}</p>
           )}
         </div>
         {action && <div className="shrink-0">{action}</div>}

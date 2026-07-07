@@ -3,7 +3,7 @@ import type { InputHTMLAttributes, TextareaHTMLAttributes, SelectHTMLAttributes,
 const INPUT_BASE = [
   'w-full bg-white border border-gray-200 rounded-[14px] px-3.5',
   'text-sm text-gray-900 placeholder:text-gray-400',
-  'focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100',
+  'focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100',
   'transition-colors duration-150',
   'disabled:opacity-50 disabled:cursor-not-allowed',
 ].join(' ');

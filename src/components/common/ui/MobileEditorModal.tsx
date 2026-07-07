@@ -19,7 +19,7 @@ export function MobileEditorModal({ title, onClose, children }: MobileEditorModa
       className="fixed inset-0 flex md:items-center md:justify-center md:p-4 md:bg-black/50 md:backdrop-blur-sm"
       style={{ zIndex: 300 }}
     >
-      <div className="bg-white flex flex-col w-full h-full md:h-auto md:max-h-[90vh] md:max-w-lg md:rounded-3xl md:shadow-2xl overflow-hidden">
+      <div className="bg-white flex flex-col w-full h-full md:h-auto md:max-h-[90vh] md:w-full md:max-w-[900px] md:rounded-3xl md:shadow-2xl overflow-hidden">
         {/* 헤더 */}
         <div className="shrink-0 flex items-center gap-2 px-3 md:px-5 h-14 border-b border-gray-100 bg-white">
           <button

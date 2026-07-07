@@ -1,6 +1,7 @@
 ﻿import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   Plus, Search, X, BookOpen, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Play, Youtube,
+  Pencil, Trash2,
 } from 'lucide-react';
 import type { Sermon, SermonFolder, SermonStatus } from '../../../types/sermon';
 import {
@@ -99,9 +100,18 @@ export default function SermonApp({
   };
 
   const handleDelete = (id: string) => {
+    // 현재 선택된 설교가 삭제되면 이전 설교(없으면 첫 번째)를 자동 선택
+    if (selected?.id === id) {
+      const idx = filtered.findIndex(s => s.id === id);
+      const rest = filtered.filter(s => s.id !== id);
+      const next = rest[Math.max(0, idx - 1)] ?? rest[0] ?? null;
+      setSelectedId(next?.id ?? null);
+      setPlaying(false);
+    }
     deleteSermon(id); deleteCommentsForSermon(id); deleteLikesForSermon(id);
-    setDeleteId(null); refresh();
-    if (selectedId === id) { setSelectedId(null); setView('list'); }
+    setDeleteId(null);
+    setView('list');
+    refresh();
   };
 
   const registerBtn = canManage ? (
@@ -116,9 +126,9 @@ export default function SermonApp({
       <SermonShell>
         <ContentEditorLayout
           title={editing ? '설교 수정' : '설교 등록'}
-          onBack={() => { setEditing(null); setView(selected ? 'detail' : 'list'); }}
+          onBack={() => { setEditing(null); setView('list'); }}
         >
-          <SermonCard className="p-5 md:p-7 max-w-2xl mx-auto">
+          <SermonCard className="p-5 md:p-7">
             <SermonForm editing={editing} user={user} onSave={handleSave}
               onCancel={() => { setEditing(null); setView('list'); }} />
           </SermonCard>
@@ -131,7 +141,7 @@ export default function SermonApp({
   if (view === 'detail' && selected) {
     return (
       <SermonShell>
-        <div className="sticky top-14 md:top-0 z-30 -mx-4 md:-mx-7 px-4 md:px-7 py-3 mb-4 flex items-center gap-2 bg-[#F8FAFC]/95 backdrop-blur-sm border-b border-[#E5E7EB]">
+        <div className="sticky top-14 md:top-0 z-30 -mx-6 px-6 py-3 mb-4 flex items-center gap-2 bg-[#F8FAFC]/95 backdrop-blur-sm border-b border-[#E5E7EB]">
           <button type="button" onClick={() => setView('list')} className="p-2.5 hover:bg-white rounded-[14px]">
             <ChevronLeft className="w-6 h-6 text-gray-800" />
           </button>
@@ -154,30 +164,36 @@ export default function SermonApp({
   /* ── 목록 (폴더 탭 → 고정 플레이어 → 카드 목록 → 페이지네이션) ── */
   return (
     <SermonShell>
-      {/* PC 전용 타이틀 + 등록 버튼 (모바일은 레이아웃 헤더 사용) */}
-      <div className="hidden md:flex items-center justify-between mb-5 pt-1">
-        <div>
-          <h1 className="text-[28px] font-extrabold text-gray-900 leading-tight tracking-tight">설교</h1>
-          <p className="mt-1.5 text-[15px] text-[#6B7280]">예배 설교 말씀을 다시 보고 묵상하세요.</p>
+      {/* 메뉴명 + 설명 + 등록 버튼 (PC 전용 — 모바일은 고정 App Header 사용) */}
+      <div className="hidden md:flex items-start justify-between gap-4 mb-8">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-[28px] font-bold text-[#111827] leading-tight">설교</h1>
+          <p className="mt-2 text-[15px] font-normal text-[#64748B] leading-snug">예배 설교 말씀을 다시 보고 묵상하세요.</p>
         </div>
-        {registerBtn}
+        {registerBtn && <div className="shrink-0">{registerBtn}</div>}
       </div>
 
       {/* 상단 고정: 예배 폴더 탭 + 플레이어 */}
-      <div className="sticky top-14 md:top-0 z-30 -mx-4 md:-mx-7 bg-[#F8FAFC]">
-        <SermonFolderTabs
-          tabs={folderTabs}
-          activeId={activeFolder}
-          onSelect={setActiveFolder}
-          onManageFolders={canManageFolders ? () => setShowFolderMgr(true) : undefined}
-        />
-        <div className="px-4 md:px-7 pt-3 pb-3 border-b border-[#E5E7EB]">
+      <div className="sticky top-14 md:top-0 z-30 -mx-6 bg-[#F8FAFC]">
+        <div className="px-6 pt-1">
+          <div className="max-w-[900px] mx-auto">
+            <SermonFolderTabs
+              tabs={folderTabs}
+              activeId={activeFolder}
+              onSelect={setActiveFolder}
+              onManageFolders={canManageFolders ? () => setShowFolderMgr(true) : undefined}
+            />
+          </div>
+        </div>
+        <div className="px-6 pt-1 pb-3 border-b border-[#E5E7EB]">
           <div className="max-w-[900px] mx-auto">
             <StickyPlayer
               sermon={selected}
               playing={playing}
               onPlay={() => setPlaying(true)}
-              onOpenDetail={() => selected && setView('detail')}
+              canManage={canManage}
+              onEdit={() => { if (selected) openEdit(selected); }}
+              onDelete={() => { if (selected) setDeleteId(selected.id); }}
             />
           </div>
         </div>
@@ -210,6 +226,9 @@ export default function SermonApp({
                   sermon={s}
                   active={selected?.id === s.id}
                   onSelect={() => playSermon(s)}
+                  canManage={canManage}
+                  onEdit={() => openEdit(s)}
+                  onDelete={() => setDeleteId(s.id)}
                 />
               ))}
             </div>
@@ -234,14 +253,48 @@ export default function SermonApp({
   );
 }
 
+/* ── 설교 수정/삭제 공통 버튼 (플레이어·목록 카드 공용) ── */
+function SermonManageActions({
+  onEdit, onDelete, className = '',
+}: {
+  onEdit: () => void;
+  onDelete: () => void;
+  className?: string;
+}) {
+  return (
+    <div className={`flex items-center gap-1.5 ${className}`}>
+      <button
+        type="button"
+        aria-label="설교 수정"
+        onClick={e => { e.stopPropagation(); onEdit(); }}
+        className="flex items-center justify-center gap-1 h-9 min-w-[36px] px-2 md:px-3 rounded-[12px] bg-primary-50 text-primary-600 hover:bg-primary-100 text-[13px] font-bold transition-colors"
+      >
+        <Pencil className="w-4 h-4" />
+        <span className="hidden md:inline">수정</span>
+      </button>
+      <button
+        type="button"
+        aria-label="설교 삭제"
+        onClick={e => { e.stopPropagation(); onDelete(); }}
+        className="flex items-center justify-center gap-1 h-9 min-w-[36px] px-2 md:px-3 rounded-[12px] bg-red-50 text-red-600 hover:bg-red-100 text-[13px] font-bold transition-colors"
+      >
+        <Trash2 className="w-4 h-4" />
+        <span className="hidden md:inline">삭제</span>
+      </button>
+    </div>
+  );
+}
+
 /* ── 상단 고정 플레이어 ── */
 function StickyPlayer({
-  sermon, playing, onPlay, onOpenDetail,
+  sermon, playing, onPlay, canManage, onEdit, onDelete,
 }: {
   sermon: Sermon | null;
   playing: boolean;
   onPlay: () => void;
-  onOpenDetail: () => void;
+  canManage: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
 }) {
   if (!sermon) {
     return (
@@ -296,10 +349,9 @@ function StickyPlayer({
             <span className="shrink-0">{formatShortDate(sermon.sermonDate)}</span>
           </div>
         </div>
-        <button type="button" onClick={onOpenDetail}
-          className="shrink-0 flex items-center gap-0.5 px-3 h-9 rounded-[12px] bg-[#F1F5F9] text-gray-700 text-[13px] font-bold hover:bg-gray-200 transition-colors">
-          상세 <ChevronRight className="w-4 h-4" />
-        </button>
+        {canManage && (
+          <SermonManageActions className="shrink-0" onEdit={onEdit} onDelete={onDelete} />
+        )}
       </div>
     </div>
   );
@@ -307,50 +359,61 @@ function StickyPlayer({
 
 /* ── 설교 카드 (썸네일 · 제목 · 본문 · 설교자 · 날짜) ── */
 function SermonCardRow({
-  sermon, active, onSelect,
+  sermon, active, onSelect, canManage, onEdit, onDelete,
 }: {
   sermon: Sermon;
   active: boolean;
   onSelect: () => void;
+  canManage: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
 }) {
   const ytId = sermon.youtubeVideoId;
   return (
-    <button type="button" onClick={onSelect} className="w-full text-left">
-      <div className={`flex items-center gap-3 p-3 rounded-2xl border transition-colors ${
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onSelect}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(); } }}
+      className={`w-full text-left cursor-pointer flex items-center gap-3 p-3 rounded-2xl border transition-colors ${
         active ? 'bg-primary-50 border-primary-300' : 'bg-white border-[#E5E7EB] hover:bg-gray-50'
-      }`}>
-        <div className="relative shrink-0 rounded-lg overflow-hidden bg-gray-100" style={{ width: 104, height: 64 }}>
-          {ytId ? (
-            <>
-              <SermonYoutubeThumb videoId={ytId} title={sermon.title} className="w-full h-full" />
-              <span className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                <span className="w-7 h-7 rounded-full bg-red-600/90 flex items-center justify-center">
-                  <Play className="w-3.5 h-3.5 text-white fill-white ml-0.5" />
-                </span>
+      }`}
+    >
+      <div className="relative shrink-0 rounded-lg overflow-hidden bg-gray-100" style={{ width: 104, height: 64 }}>
+        {ytId ? (
+          <>
+            <SermonYoutubeThumb videoId={ytId} title={sermon.title} className="w-full h-full" />
+            <span className="absolute inset-0 bg-black/20 flex items-center justify-center">
+              <span className="w-7 h-7 rounded-full bg-red-600/90 flex items-center justify-center">
+                <Play className="w-3.5 h-3.5 text-white fill-white ml-0.5" />
               </span>
-            </>
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary-500 to-primary-600">
-              <BookOpen className="w-6 h-6 text-white/60" />
-            </div>
-          )}
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <p className="text-[15px] font-bold text-gray-900 leading-snug line-clamp-1">{sermon.title}</p>
-          {sermon.scripture && (
-            <p className="text-[13px] text-primary-600 font-semibold mt-1 truncate">{sermon.scripture}</p>
-          )}
-          <p className="text-[12px] text-[#6B7280] mt-0.5 truncate">
-            {sermon.preacher} · {formatShortDate(sermon.sermonDate)}
-          </p>
-        </div>
-
-        {active
-          ? <Play className="w-5 h-5 shrink-0 text-primary-600 fill-primary-600" />
-          : <ChevronRight className="w-5 h-5 shrink-0 text-gray-300" />}
+            </span>
+          </>
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary-500 to-primary-600">
+            <BookOpen className="w-6 h-6 text-white/60" />
+          </div>
+        )}
       </div>
-    </button>
+
+      <div className="flex-1 min-w-0">
+        <p className="text-[15px] font-bold text-gray-900 leading-snug line-clamp-1">{sermon.title}</p>
+        {sermon.scripture && (
+          <p className="text-[13px] text-primary-600 font-semibold mt-1 truncate">{sermon.scripture}</p>
+        )}
+        <p className="text-[12px] text-[#6B7280] mt-0.5 truncate">
+          {sermon.preacher} · {formatShortDate(sermon.sermonDate)}
+        </p>
+      </div>
+
+      {canManage ? (
+        <SermonManageActions className="shrink-0" onEdit={onEdit} onDelete={onDelete} />
+      ) : active ? (
+        <Play className="w-5 h-5 shrink-0 text-primary-600 fill-primary-600" />
+      ) : (
+        <ChevronRight className="w-5 h-5 shrink-0 text-gray-300" />
+      )}
+    </div>
   );
 }
 

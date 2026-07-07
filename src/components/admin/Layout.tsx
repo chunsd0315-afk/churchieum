@@ -177,7 +177,7 @@ export function AdminLayout({ children, currentPage, onNavigate }: Props) {
         isHomePage={isHome}
         mobileHomeHeader={mobileHomeHeader}
         mobileSubHeader={mobileSubHeader}
-        sidebarNavItems={SIDEBAR_NAV_ITEMS.map(i => ({ page: i.page as AdminPage, label: i.label, icon: i.icon }))}
+        sidebarNavItems={SIDEBAR_NAV_ITEMS.map(i => ({ page: i.page as AdminPage, label: i.label, icon: i.icon, iconColor: i.iconColor }))}
         userPosition={userPosition}
         showSettingsButton
         onSettingsClick={() => setShowSettings(true)}

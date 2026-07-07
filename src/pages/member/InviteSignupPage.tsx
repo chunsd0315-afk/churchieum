@@ -28,7 +28,7 @@ const ROLE_COLORS: Record<string, string> = {
   '직원':     'bg-gray-100 text-gray-600',
   '관리자':   'bg-red-100 text-red-700',
   '장로':     'bg-blue-100 text-blue-700',
-  '부서장':   'bg-indigo-100 text-indigo-700',
+  '부서장':   'bg-secondary-100 text-secondary-700',
   '교사':     'bg-green-100 text-green-700',
   '성도':     'bg-gray-100 text-gray-500',
 };

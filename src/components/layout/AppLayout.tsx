@@ -16,6 +16,7 @@ export interface AppLayoutNavItem<P extends string> {
   page: P;
   label: string;
   icon: NavIcon;
+  iconColor?: string;
   badge?: number | boolean;
 }
 
@@ -50,14 +51,16 @@ export interface AppLayoutConfig<P extends string> {
 }
 
 /* ── Common ContentContainer ──────────────────
-   max-width: 900px, margin: auto, padding: 28px
+   교회이음 통일 디자인 시스템:
+   max-width: 900px · width: 100% · margin: 0 auto
+   좌우 여백 24px · 상단 24px · 하단 40px
    This is the canonical content well for every page.
    ────────────────────────────────────────────── */
 export function PageContentWell({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
     <div
       className={`w-full mx-auto ${className}`}
-      style={{ maxWidth: '900px', padding: '28px' }}
+      style={{ maxWidth: '900px', padding: '24px 24px 40px' }}
     >
       {children}
     </div>
@@ -142,8 +145,8 @@ function MobileAppLayout<P extends string>({
           /* Home pages use their own full-bleed layout */
           <div className="px-4 pt-4 pb-5">{children}</div>
         ) : (
-          /* Sub-pages: standard 900px content well, mobile-padded */
-          <div className="w-full mx-auto" style={{ maxWidth: '900px', padding: '16px 16px 24px' }}>
+          /* Sub-pages: 통일 900px 콘텐츠 웰 (좌우 24 · 상단 24 · 하단 40) */
+          <div className="w-full mx-auto" style={{ maxWidth: '900px', padding: '24px 24px 40px' }}>
             {children}
           </div>
         )}

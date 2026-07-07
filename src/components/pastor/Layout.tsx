@@ -167,7 +167,7 @@ export function PastorLayout({ children, currentPage, onNavigate }: Props) {
         isHomePage={isHome}
         mobileHomeHeader={mobileHomeHeader}
         mobileSubHeader={mobileSubHeader}
-        sidebarNavItems={SIDEBAR_NAV_ITEMS.map(i => ({ page: i.page as PastorPage, label: i.label, icon: i.icon }))}
+        sidebarNavItems={SIDEBAR_NAV_ITEMS.map(i => ({ page: i.page as PastorPage, label: i.label, icon: i.icon, iconColor: i.iconColor }))}
         userPosition={position}
         bottomNavItems={BOTTOM_NAV_ITEMS.map(i => ({ id: i.page, label: i.label, icon: i.icon }))}
       >

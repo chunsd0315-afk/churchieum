@@ -44,7 +44,7 @@ export default function ChurchInfoPage() {
   };
 
   return (
-    <div className="max-w-3xl space-y-6 pb-8">
+    <div className="space-y-6">
       <PageHeaderBar
         title="교회정보"
         description="우리 교회의 기본 정보를 확인하세요."

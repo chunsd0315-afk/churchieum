@@ -673,8 +673,8 @@ export default function AlbumManagementPage() {
               onClick={() => { setShowUploadPanel(v => !v); if (!showUploadPanel) clearUploadPanel(); }}
               className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm ${
                 showUploadPanel
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                  : 'bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100'
+                  ? 'bg-primary-500 text-white hover:bg-primary-600'
+                  : 'bg-primary-50 text-primary-600 border border-primary-200 hover:bg-primary-100'
               }`}>
               <Upload className="w-4 h-4" />
               {showUploadPanel ? '업로드 닫기' : '+ 사진 업로드'}
@@ -689,7 +689,7 @@ export default function AlbumManagementPage() {
           <button
             onClick={() => { setShowUploadPanel(v => !v); if (!showUploadPanel) clearUploadPanel(); }}
             className={`flex items-center gap-1.5 px-3 h-11 rounded-[14px] text-sm font-semibold transition-all ${
-              showUploadPanel ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600 border border-blue-200'
+              showUploadPanel ? 'bg-primary-500 text-white' : 'bg-primary-50 text-primary-600 border border-primary-200'
             }`}
           >
             <Upload className="w-4 h-4" />
@@ -701,13 +701,13 @@ export default function AlbumManagementPage() {
 
       {/* ★ Quick-upload panel */}
       {showUploadPanel && (
-        <div className="bg-white border border-blue-200 rounded-2xl shadow-sm overflow-hidden">
+        <div className="bg-white border border-primary-200 rounded-2xl shadow-sm overflow-hidden">
           {/* Panel header */}
-          <div className="flex items-center justify-between px-4 py-3 bg-blue-50 border-b border-blue-100">
-            <p className="font-bold text-blue-800 flex items-center gap-2 text-sm">
+          <div className="flex items-center justify-between px-4 py-3 bg-primary-50 border-b border-primary-100">
+            <p className="font-bold text-primary-800 flex items-center gap-2 text-sm">
               <Upload className="w-4 h-4" /> 사진 업로드
             </p>
-            <button onClick={() => { setShowUploadPanel(false); clearUploadPanel(); }} className="p-1.5 hover:bg-blue-100 rounded-lg text-blue-600">
+            <button onClick={() => { setShowUploadPanel(false); clearUploadPanel(); }} className="p-1.5 hover:bg-primary-100 rounded-lg text-primary-600">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -719,7 +719,7 @@ export default function AlbumManagementPage() {
               <select
                 value={uploadTargetAlbum}
                 onChange={e => setUploadTargetAlbum(e.target.value)}
-                className="w-full px-3.5 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:border-blue-400 focus:outline-none">
+                className="w-full px-3.5 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:border-primary-400 focus:outline-none">
                 <option value="">-- 앨범을 선택하세요 --</option>
                 {albums.map(a => (
                   <option key={a.id} value={a.id}>{a.title}{a.event_date ? ` (${a.event_date})` : ''}</option>
@@ -745,11 +745,11 @@ export default function AlbumManagementPage() {
               onClick={() => quickUploadInputRef.current?.click()}
               className={`flex flex-col items-center justify-center gap-3 py-10 border-2 border-dashed rounded-2xl cursor-pointer select-none transition-all
                 ${isDraggingPanel
-                  ? 'border-blue-400 bg-blue-50 scale-[1.005]'
-                  : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/40'
+                  ? 'border-primary-400 bg-primary-50 scale-[1.005]'
+                  : 'border-gray-200 hover:border-primary-300 hover:bg-primary-50/40'
                 }`}>
-              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-colors ${isDraggingPanel ? 'bg-blue-100' : 'bg-gray-100'}`}>
-                <Upload className={`w-7 h-7 transition-colors ${isDraggingPanel ? 'text-blue-500' : 'text-gray-400'}`} />
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-colors ${isDraggingPanel ? 'bg-primary-100' : 'bg-gray-100'}`}>
+                <Upload className={`w-7 h-7 transition-colors ${isDraggingPanel ? 'text-primary-500' : 'text-gray-400'}`} />
               </div>
               <div className="text-center">
                 <p className="text-sm font-semibold text-gray-700">사진을 끌어오거나 클릭해서 업로드하세요</p>
@@ -807,7 +807,7 @@ export default function AlbumManagementPage() {
                 <button
                   onClick={handleConfirmUpload}
                   disabled={!uploadTargetAlbum || uploadedImages.length === 0 || saving}
-                  className="flex items-center gap-1.5 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl disabled:opacity-40 transition-colors">
+                  className="flex items-center gap-1.5 px-5 py-2 bg-primary-500 hover:bg-primary-600 text-white text-sm font-bold rounded-xl disabled:opacity-40 transition-colors">
                   {saving
                     ? <><Loader2 className="w-4 h-4 animate-spin" /> 저장 중...</>
                     : <><CheckCircle className="w-4 h-4" /> {uploadedImages.length > 0 ? `${uploadedImages.length}장 저장` : '저장'}</>

@@ -66,10 +66,10 @@ export const MEMBER_ROLE_MENUS: RoleMenuEntry[] = [
 
 export function buildSidebarNavItems<T extends string>(
   entries: RoleMenuEntry[],
-): { page: T; label: string; icon: NavIcon }[] {
+): { page: T; label: string; icon: NavIcon; iconColor: string }[] {
   return entries.map(({ catalogKey, page }) => {
     const meta = HOME_MENU_CATALOG[catalogKey];
-    return { page: page as T, label: meta.label, icon: meta.icon };
+    return { page: page as T, label: meta.label, icon: meta.icon, iconColor: meta.iconColor };
   });
 }
 

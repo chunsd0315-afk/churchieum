@@ -65,7 +65,7 @@ export function ChurchConfirmDialog({
             onClick={onConfirm}
             className={[
               'flex-1 h-12 rounded-[14px] text-sm font-bold text-white transition-colors',
-              danger ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-600 hover:bg-blue-700',
+              danger ? 'bg-red-500 hover:bg-red-600' : 'bg-primary-500 hover:bg-primary-600',
             ].join(' ')}
           >
             {confirmText}
