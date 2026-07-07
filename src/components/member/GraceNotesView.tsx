@@ -163,10 +163,13 @@ export function GraceNoteFormView({ ctx, onSave, onBack }: {
   const hasContent = graceContent.trim().length > 0;
 
   return (
-    <div className="flex flex-col" style={{ minHeight: 'calc(100vh - 120px)' }}>
+    <div
+      className="flex flex-col fixed inset-0 bg-white overflow-y-auto overscroll-contain md:static md:inset-auto md:z-auto md:overflow-visible md:bg-transparent"
+      style={{ minHeight: 'calc(100vh - 120px)', zIndex: 300 }}
+    >
       <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-3 sticky top-0 z-10">
-        <button onClick={onBack} className="p-1.5 hover:bg-gray-100 rounded-lg">
-          <ArrowLeft className="w-5 h-5 text-gray-600" />
+        <button onClick={onBack} className="flex items-center gap-1 text-gray-700 hover:text-gray-900">
+          <ArrowLeft className="w-5 h-5" /> <span className="text-[15px] font-semibold md:hidden">뒤로</span>
         </button>
         <div className="flex-1">
           <h2 className="font-bold text-gray-900 text-sm">{ctx.editId ? '성경통독 은혜기록 수정' : '성경통독 은혜기록'}</h2>
@@ -308,10 +311,13 @@ export function SermonGraceFormView({ ctx, onSave, onBack }: {
   };
 
   return (
-    <div className="flex flex-col" style={{ minHeight: 'calc(100vh - 120px)' }}>
+    <div
+      className="flex flex-col fixed inset-0 bg-white overflow-y-auto overscroll-contain md:static md:inset-auto md:z-auto md:overflow-visible md:bg-transparent"
+      style={{ minHeight: 'calc(100vh - 120px)', zIndex: 300 }}
+    >
       <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-3 sticky top-0 z-10">
-        <button onClick={onBack} className="p-1.5 hover:bg-gray-100 rounded-lg">
-          <ArrowLeft className="w-5 h-5 text-gray-600" />
+        <button onClick={onBack} className="flex items-center gap-1 text-gray-700 hover:text-gray-900">
+          <ArrowLeft className="w-5 h-5" /> <span className="text-[15px] font-semibold md:hidden">뒤로</span>
         </button>
         <div className="flex-1">
           <h2 className="font-bold text-gray-900 text-sm">{ctx.editId ? '설교 은혜기록 수정' : '설교 은혜기록'}</h2>

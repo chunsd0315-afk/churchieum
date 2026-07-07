@@ -7,7 +7,7 @@ import {
   Star, Download, Edit3, Users, BookOpen, Save,
 } from 'lucide-react';
 import ContentEditorLayout from '../../components/layout/ContentEditorLayout';
-import { PageHeaderBar, MobileAddButton } from '../../components/common/ui';
+import { PageHeaderBar } from '../../components/common/ui';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
 
 /* ─── Types ─────────────────────────────────────────── */
@@ -686,19 +686,17 @@ export default function AlbumManagementPage() {
           </div>
         }
         mobileAction={
-          <div className="flex items-center gap-2">
-            <MobileAddButton label="앨범 생성" onClick={() => setShowForm(true)} className="flex-1" />
-            <button
-              onClick={() => { setShowUploadPanel(v => !v); if (!showUploadPanel) clearUploadPanel(); }}
-              className={`shrink-0 w-12 h-12 flex items-center justify-center rounded-[14px] transition-all ${
-                showUploadPanel ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600 border border-blue-200'
-              }`}
-              aria-label={showUploadPanel ? '업로드 닫기' : '사진 업로드'}
-            >
-              <Upload className="w-5 h-5" />
-            </button>
-          </div>
+          <button
+            onClick={() => { setShowUploadPanel(v => !v); if (!showUploadPanel) clearUploadPanel(); }}
+            className={`flex items-center gap-1.5 px-3 h-11 rounded-[14px] text-sm font-semibold transition-all ${
+              showUploadPanel ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600 border border-blue-200'
+            }`}
+          >
+            <Upload className="w-4 h-4" />
+            {showUploadPanel ? '업로드 닫기' : '사진 업로드'}
+          </button>
         }
+        mobileFab={{ label: '앨범 등록', onClick: () => setShowForm(true) }}
       />
 
       {/* ★ Quick-upload panel */}

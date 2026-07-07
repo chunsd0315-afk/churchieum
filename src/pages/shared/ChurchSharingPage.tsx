@@ -14,7 +14,7 @@ import {
   type SharingPost, type SharingRequest,
 } from '../../services/sharingStorage';
 import ContentEditorLayout from '../../components/layout/ContentEditorLayout';
-import { PageHeaderBar, MobileAddButton } from '../../components/common/ui';
+import { PageHeaderBar } from '../../components/common/ui';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -901,7 +901,7 @@ export default function ChurchSharingPage() {
               </button>
             ) : undefined
           }
-          mobileAction={canCreate ? <MobileAddButton label="나눔 등록" onClick={() => setView('create')} /> : undefined}
+          mobileFab={canCreate ? { label: '교회나눔 작성', onClick: () => setView('create') } : undefined}
         />
 
         {/* Search */}

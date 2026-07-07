@@ -9,7 +9,7 @@ import { EmptyState } from './EmptyState';
 import { Skeleton, SkeletonListCard } from './Skeleton';
 import { ViewToggle } from './ViewToggle';
 import type { ViewMode } from './ViewToggle';
-import { MobileAddButton } from './MobileAddButton';
+import { MobileFab } from './MobileFab';
 
 /* ══════════════════════════════════════════════════════════════════
    PageLayout
@@ -153,11 +153,9 @@ export function PageLayout({
         ) : null}
       </div>
 
-      {/* ── 모바일 전용: 전체 폭 등록 버튼 ───────────────────────── */}
+      {/* ── 모바일 전용: 플로팅 등록 버튼 ───────────────────────── */}
       {addButton && (
-        <div className="md:hidden pb-4">
-          <MobileAddButton label={addButton.label ?? '등록'} onClick={addButton.onClick} />
-        </div>
+        <MobileFab label={addButton.label ?? '등록'} onClick={addButton.onClick} />
       )}
 
       {/* ── Toolbar row: search / filter / view toggle ───────────── */}
@@ -275,8 +273,10 @@ export interface PageHeaderBarProps {
   description?: string;
   /** PC(데스크톱) 전용 우측 액션 — 모바일에서는 숨겨진다. */
   action?: React.ReactNode;
-  /** 모바일 전용 본문 상단 액션 — 보통 전체 폭 등록 버튼(MobileAddButton). */
+  /** 모바일 전용 본문 상단 인라인 콘텐츠 (예: 보기 전환 토글). */
   mobileAction?: React.ReactNode;
+  /** 모바일 전용 플로팅 등록/작성 버튼 (오른쪽 하단 고정). */
+  mobileFab?: { label: string; onClick: () => void };
   className?: string;
 }
 
@@ -284,9 +284,9 @@ export interface PageHeaderBarProps {
  * 메뉴 페이지 상단 헤더.
  * - PC: 메뉴명 + 설명 + 우측 액션 표시.
  * - 모바일: 고정 상단바에 메뉴명/설명이 이미 있으므로 본문 상단 메뉴명/설명은 숨김.
- *   등록/작성 버튼은 mobileAction(전체 폭)으로만 노출한다.
+ *   등록/작성 버튼은 오른쪽 하단 플로팅 버튼(mobileFab)으로 노출한다.
  */
-export function PageHeaderBar({ title, description, action, mobileAction, className = '' }: PageHeaderBarProps) {
+export function PageHeaderBar({ title, description, action, mobileAction, mobileFab, className = '' }: PageHeaderBarProps) {
   return (
     <div className={className}>
       {/* PC 전용: 메뉴명 + 설명 + 액션 */}
@@ -300,8 +300,11 @@ export function PageHeaderBar({ title, description, action, mobileAction, classN
         {action && <div className="shrink-0">{action}</div>}
       </div>
 
-      {/* 모바일 전용: 전체 폭 등록/작성 버튼 */}
-      {mobileAction && <div className="md:hidden pb-4">{mobileAction}</div>}
+      {/* 모바일 전용: 인라인 콘텐츠(토글 등) */}
+      {mobileAction && <div className="md:hidden flex justify-end pb-3">{mobileAction}</div>}
+
+      {/* 모바일 전용: 플로팅 등록/작성 버튼 */}
+      {mobileFab && <MobileFab label={mobileFab.label} onClick={mobileFab.onClick} />}
     </div>
   );
 }

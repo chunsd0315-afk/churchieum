@@ -4,7 +4,7 @@ import { Calendar, Clock, MapPin, ChevronLeft, ChevronRight, Grid, List, Loader,
 import { useAuth } from '../../contexts/AuthContext';
 import { canWriteContent, getAvailableScopes, type ContentScope } from '../../services/permissions';
 import { getDistricts, getZones, getDepartments } from '../../services/orgData';
-import { PageHeaderBar, MobileAddButton } from '../../components/common/ui';
+import { PageHeaderBar, MobileEditorModal } from '../../components/common/ui';
 
 type ChurchEvent = {
   id: string;
@@ -132,24 +132,16 @@ export default function SchedulePage() {
           </div>
         }
         mobileAction={
-          <div className="flex items-center gap-2">
-            {canWrite && (
-              <MobileAddButton
-                label="일정 등록"
-                onClick={() => { setEditingEvent(null); setShowCreateForm(true); }}
-                className="flex-1"
-              />
-            )}
-            <div className="shrink-0 flex items-center gap-1 bg-gray-100 rounded-[14px] p-1 h-12">
-              <button onClick={() => setViewMode('calendar')} className={`px-3 h-full rounded-lg transition-colors ${viewMode === 'calendar' ? 'bg-white shadow-sm' : ''}`} aria-label="달력 보기">
-                <Grid className="w-4 h-4 text-gray-600" />
-              </button>
-              <button onClick={() => setViewMode('list')} className={`px-3 h-full rounded-lg transition-colors ${viewMode === 'list' ? 'bg-white shadow-sm' : ''}`} aria-label="목록 보기">
-                <List className="w-4 h-4 text-gray-600" />
-              </button>
-            </div>
+          <div className="flex items-center gap-1 bg-gray-100 rounded-[14px] p-1">
+            <button onClick={() => setViewMode('calendar')} className={`px-3 py-2 rounded-lg transition-colors ${viewMode === 'calendar' ? 'bg-white shadow-sm' : ''}`} aria-label="달력 보기">
+              <Grid className="w-4 h-4 text-gray-600" />
+            </button>
+            <button onClick={() => setViewMode('list')} className={`px-3 py-2 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-white shadow-sm' : ''}`} aria-label="목록 보기">
+              <List className="w-4 h-4 text-gray-600" />
+            </button>
           </div>
         }
+        mobileFab={canWrite ? { label: '일정 등록', onClick: () => { setEditingEvent(null); setShowCreateForm(true); } } : undefined}
       />
 
       {/* Month nav */}
@@ -339,12 +331,7 @@ function CreateEventModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-end sm:items-center justify-center p-4">
-      <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl max-h-[92vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white px-5 py-4 border-b border-gray-100 flex items-center justify-between rounded-t-3xl z-10">
-          <h3 className="font-bold text-gray-900">{editing ? '일정 수정' : '일정 등록'}</h3>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl"><X className="w-5 h-5 text-gray-500" /></button>
-        </div>
+    <MobileEditorModal title={editing ? '일정 수정' : '일정 등록'} onClose={onClose}>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1.5">제목 *</label>
@@ -401,7 +388,6 @@ function CreateEventModal({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </MobileEditorModal>
   );
 }

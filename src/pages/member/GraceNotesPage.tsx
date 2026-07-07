@@ -19,7 +19,7 @@ import {
   type GraceFormCtx, type SermonGraceFormCtx,
 } from '../../components/member/GraceNotesView';
 import { useAuth } from '../../contexts/AuthContext';
-import { PageHeaderBar } from '../../components/common/ui';
+import { PageHeaderBar, MobileFab } from '../../components/common/ui';
 
 type SubView =
   | 'main'
@@ -278,6 +278,10 @@ export default function GraceNotesPage() {
       <PageHeaderBar
         title="은혜기록"
         description="말씀과 삶 속에서 받은 은혜를 기록하고 나누세요."
+      />
+      <MobileFab
+        label="은혜기록 작성"
+        onClick={() => { setBackView('main'); setSermonCtx(null); setView('sermon-form'); }}
       />
       {/* Hero */}
       <div className="pt-1 pb-4">

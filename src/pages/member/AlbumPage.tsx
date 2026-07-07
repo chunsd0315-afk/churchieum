@@ -7,7 +7,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { canWriteContent, getAvailableScopes, type ContentScope } from '../../services/permissions';
 import { getDistricts, getZones, getDepartments } from '../../services/orgData';
-import { PageHeaderBar, MobileAddButton } from '../../components/common/ui';
+import { PageHeaderBar, MobileEditorModal } from '../../components/common/ui';
 import SearchSection from '../../components/layout/SearchSection';
 
 type Album = {
@@ -259,19 +259,15 @@ export default function AlbumPage() {
           </div>
         }
         mobileAction={
-          <div className="flex items-center gap-2">
-            {canWrite && (
-              <MobileAddButton label="앨범 등록" onClick={() => setShowCreateForm(true)} className="flex-1" />
-            )}
-            <button
-              onClick={() => setGridView(v => !v)}
-              className="shrink-0 w-12 h-12 flex items-center justify-center bg-gray-100 rounded-[14px]"
-              aria-label="보기 전환"
-            >
-              {gridView ? <Rows className="w-5 h-5 text-gray-600" /> : <Grid2x2 className="w-5 h-5 text-gray-600" />}
-            </button>
-          </div>
+          <button
+            onClick={() => setGridView(v => !v)}
+            className="w-11 h-11 flex items-center justify-center bg-gray-100 rounded-[14px]"
+            aria-label="보기 전환"
+          >
+            {gridView ? <Rows className="w-5 h-5 text-gray-600" /> : <Grid2x2 className="w-5 h-5 text-gray-600" />}
+          </button>
         }
+        mobileFab={canWrite ? { label: '앨범 등록', onClick: () => setShowCreateForm(true) } : undefined}
       />
       <SearchSection
         value={search}
@@ -400,12 +396,7 @@ function CreateAlbumModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-end sm:items-center justify-center p-4">
-      <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white px-5 py-4 border-b border-gray-100 flex items-center justify-between rounded-t-3xl z-10">
-          <h3 className="font-bold text-gray-900">앨범 등록</h3>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl"><X className="w-5 h-5 text-gray-500" /></button>
-        </div>
+    <MobileEditorModal title="앨범 등록" onClose={onClose}>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1.5">앨범 제목 *</label>
@@ -448,7 +439,6 @@ function CreateAlbumModal({
             <button type="submit" className="flex-1 py-3 bg-primary-500 text-white font-bold rounded-2xl text-sm hover:bg-primary-600">앨범 등록</button>
           </div>
         </form>
-      </div>
-    </div>
+    </MobileEditorModal>
   );
 }

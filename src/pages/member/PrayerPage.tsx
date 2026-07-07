@@ -33,10 +33,10 @@ import PrayerAttachmentPicker from '../../components/layout/PrayerAttachmentPick
 import PrayerDetailSheet from '../../components/layout/PrayerDetailSheet';
 import { getCommentCount } from '../../services/prayerCommentStorage';
 import {
-  Heart, Plus, Check, Lock, Users, Send, X, Loader,
+  Heart, Plus, Check, Lock, Users, Send, Loader,
   Globe, Eye, Star, Paperclip, MessageCircle,
 } from 'lucide-react';
-import { PageHeaderBar, TabBar, MobileAddButton } from '../../components/common/ui';
+import { PageHeaderBar, TabBar, MobileEditorModal } from '../../components/common/ui';
 import EmptyState from '../../components/layout/EmptyState';
 
 type ChurchPrayer = {
@@ -197,7 +197,7 @@ export default function PrayerPage() {
             <Plus className="w-4 h-4" /> 기도제목
           </button>
         }
-        mobileAction={<MobileAddButton label="기도제목 작성" onClick={openForm} />}
+        mobileFab={{ label: '기도 작성', onClick: openForm }}
       />
 
       <TabBar
@@ -324,15 +324,8 @@ export default function PrayerPage() {
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end justify-center">
-          <div className="bg-white w-full max-w-lg rounded-t-3xl p-5 pb-8 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-900">새 기도제목</h3>
-              <button onClick={closeForm} className="p-2 hover:bg-gray-100 rounded-full">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <form onSubmit={handleSubmit} className="space-y-4">
+        <MobileEditorModal title="기도 작성" onClose={closeForm}>
+            <form onSubmit={handleSubmit} className="p-4 md:p-5 space-y-4">
               <input
                 type="text"
                 value={title}
@@ -397,8 +390,7 @@ export default function PrayerPage() {
                 {saving ? '저장 중...' : '등록하기'}
               </button>
             </form>
-          </div>
-        </div>
+        </MobileEditorModal>
       )}
 
       {selectedPrayer && (

@@ -13,16 +13,16 @@ export default function ContentEditorLayout({ title, onBack, children, saveButto
 
   const header = (
     <div
-      className="sticky top-0 z-20 bg-white flex items-center justify-between px-5 h-14 shrink-0"
+      className="sticky top-0 z-20 bg-white flex items-center justify-between px-4 md:px-5 h-14 shrink-0"
       style={{ borderBottom: '1px solid #E5E7EB' }}
     >
       <button
         onClick={onBack}
-        className="flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+        className="flex items-center gap-1 text-[15px] font-semibold text-gray-700 hover:text-gray-900 transition-colors"
       >
-        <ChevronLeft className="w-4 h-4" /> 뒤로가기
+        <ChevronLeft className="w-5 h-5" /> 뒤로
       </button>
-      <h2 className="absolute left-1/2 -translate-x-1/2 text-sm font-bold text-gray-900 truncate max-w-[180px]">
+      <h2 className="absolute left-1/2 -translate-x-1/2 text-[15px] font-bold text-gray-900 truncate max-w-[200px]">
         {title}
       </h2>
       <div className="flex items-center gap-2">
@@ -44,10 +44,14 @@ export default function ContentEditorLayout({ title, onBack, children, saveButto
     );
   }
 
+  /* 모바일: 앱 상단바·하단 네비게이션까지 덮는 풀스크린 작성 화면 */
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-white">
+    <div
+      className="fixed inset-0 flex flex-col bg-white"
+      style={{ zIndex: 300, paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+    >
       {header}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto overscroll-contain">
         <div className="px-4 py-4">
           {children}
         </div>

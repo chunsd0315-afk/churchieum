@@ -19,6 +19,7 @@ import { SermonYoutubeThumb, formatShortDate } from './sermonUiUtils';
 import {
   SermonShell, SermonCard, sermonPrimaryBtnClass, sermonInputClass,
 } from './sermonDesign';
+import { MobileFab } from '../ui/MobileFab';
 
 export type SermonAppProps = {
   canManage: boolean;
@@ -182,15 +183,11 @@ export default function SermonApp({
         </div>
       </div>
 
-      {/* 검색 · 등록 · 카드 목록 · 페이지네이션 */}
-      <div className="max-w-[900px] mx-auto pt-4 space-y-3">
-        {canManage && (
-          <button type="button" onClick={openCreate}
-            className="md:hidden w-full flex items-center justify-center gap-2 h-12 bg-primary-600 text-white rounded-[14px] font-bold text-[15px] hover:bg-primary-700 transition-colors">
-            <Plus className="w-5 h-5" /> 설교 등록
-          </button>
-        )}
+      {/* 모바일 전용: 플로팅 설교 등록 버튼 */}
+      {canManage && <MobileFab label="설교 등록" onClick={openCreate} />}
 
+      {/* 검색 · 카드 목록 · 페이지네이션 */}
+      <div className="max-w-[900px] mx-auto pt-4 space-y-3">
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
           <input value={search} onChange={e => setSearch(e.target.value)}
