@@ -48,6 +48,47 @@ export type ContentScope = {
   name?: string;
 };
 
+// ─── RBAC: capability model ─────────────────────────────────────────────────
+//
+// 역할(Role)별로 수행 가능한 기능(Capability)을 명시적으로 정의한다.
+// 새로운 권한이 필요하면 Capability를 추가하고 ROLE_CAPABILITIES만 갱신하면 된다.
+// (향후 서버 권한 테이블 기반 RBAC로 확장 가능하도록 단일 진입점 `can()` 제공)
+
+export type Capability =
+  // 설교 관리 (최고관리자 전용)
+  | 'sermon:create'
+  | 'sermon:update'
+  | 'sermon:delete'
+  | 'sermon:folder:manage'
+  // 설교 이용 (모든 역할)
+  | 'sermon:view'
+  | 'sermon:like'
+  | 'sermon:save'
+  | 'sermon:share'
+  | 'sermon:comment';
+
+const SERMON_MANAGE_CAPS: Capability[] = [
+  'sermon:create', 'sermon:update', 'sermon:delete', 'sermon:folder:manage',
+];
+const SERMON_USE_CAPS: Capability[] = [
+  'sermon:view', 'sermon:like', 'sermon:save', 'sermon:share',
+];
+
+const ROLE_CAPABILITIES: Record<UserRole, Capability[]> = {
+  // 최고관리자: 설교 등록/수정/삭제 + 폴더 관리 + 모든 이용 기능
+  super_admin: [...SERMON_MANAGE_CAPS, ...SERMON_USE_CAPS, 'sermon:comment'],
+  // 교역자: 조회/재생/검색/좋아요/저장/공유 + 댓글(추후) — 관리 불가
+  pastor: [...SERMON_USE_CAPS, 'sermon:comment'],
+  // 성도: 조회/재생/검색/좋아요/저장/공유 — 관리 불가
+  member: [...SERMON_USE_CAPS],
+};
+
+/** 단일 진입점: 사용자가 해당 기능을 수행할 수 있는지 검사 */
+export function can(user: AppUser | null, capability: Capability): boolean {
+  if (!user) return false;
+  return ROLE_CAPABILITIES[user.role]?.includes(capability) ?? false;
+}
+
 // ─── Core role checks ─────────────────────────────────────────────────────────
 
 export function isSuperAdmin(user: AppUser | null): boolean {
@@ -78,9 +119,14 @@ export function canCreateSchedule(user: AppUser | null, scope?: ContentScope): b
   return canCreateNotice(user, scope);
 }
 
+/** 설교 등록/수정/삭제 권한 — 최고관리자 전용 */
 export function canManageSermons(user: AppUser | null): boolean {
-  if (!user) return false;
-  return user.role === 'super_admin' || user.role === 'pastor';
+  return can(user, 'sermon:create');
+}
+
+/** 예배 폴더 생성/수정/삭제/순서변경 권한 — 최고관리자 전용 */
+export function canManageSermonFolders(user: AppUser | null): boolean {
+  return can(user, 'sermon:folder:manage');
 }
 
 export function canCreateAlbum(user: AppUser | null, scope?: ContentScope): boolean {

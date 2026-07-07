@@ -28,7 +28,7 @@ export type SermonAppProps = {
 
 type View = 'list' | 'detail' | 'form';
 
-const PAGE_SIZE = 6;
+const PAGE_SIZE = 10;
 
 export default function SermonApp({
   canManage,

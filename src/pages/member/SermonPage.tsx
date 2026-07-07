@@ -2,7 +2,7 @@
 import type { Page } from '../../components/member/Layout';
 import type { Sermon } from '../../types/sermon';
 import { useAuth } from '../../contexts/AuthContext';
-import { canManageSermons, isSuperAdmin } from '../../services/permissions';
+import { canManageSermons, canManageSermonFolders } from '../../services/permissions';
 import SermonApp from '../../components/common/sermon/SermonApp';
 import { SermonGraceFormView, GraceNoteDetailView, type SermonGraceFormCtx } from '../../components/member/GraceNotesView';
 import { useState } from 'react';
@@ -52,7 +52,7 @@ export default function SermonPage({ onNavigate: _onNavigate }: { onNavigate?: (
   return (
     <SermonApp
       canManage={canManage}
-      canManageFolders={isSuperAdmin(user)}
+      canManageFolders={canManageSermonFolders(user)}
       renderExtraActions={(sermon) => (
         <button
           type="button"

@@ -10,18 +10,23 @@ import { WORSHIP_TYPE_LABELS } from '../types/sermon';
 
 export const SERMONS_STORAGE_KEY = 'churchieum_sermons';
 export const FOLDERS_STORAGE_KEY = 'churchieum_sermon_folders';
+const SEED_VERSION_KEY = 'churchieum_sermon_seed_version';
+/** 시드 데이터 버전 — 값 변경 시 기본 폴더 + 데모 설교가 재생성됩니다. */
+const SEED_VERSION = 'flat-200-v1';
 
 export type { Sermon, SermonFolder, SermonAttachment, SermonVisibility, WorshipType, SermonStatus };
 
+/** 예배 폴더 — 평면(단일 계층) 구조 */
 const DEFAULT_FOLDERS: SermonFolder[] = [
-  { id: 'fy2026', name: '2026년', order: 1, isDefault: true, createdAt: '2026-01-01T00:00:00Z', type: 'year', year: 2026 },
-  { id: 'fm202606', name: '6월', order: 1, isDefault: true, createdAt: '2026-01-01T00:00:00Z', type: 'month', parentId: 'fy2026', year: 2026, month: 6 },
-  { id: 'fm202607', name: '7월', order: 2, isDefault: true, createdAt: '2026-01-01T00:00:00Z', type: 'month', parentId: 'fy2026', year: 2026, month: 7 },
-  { id: 'fw-sun-07', name: '주일예배', order: 1, isDefault: true, createdAt: '2026-01-01T00:00:00Z', type: 'worship', parentId: 'fm202607', worshipType: 'sunday' },
-  { id: 'fw-wed-07', name: '수요예배', order: 2, isDefault: true, createdAt: '2026-01-01T00:00:00Z', type: 'worship', parentId: 'fm202607', worshipType: 'wednesday' },
-  { id: 'fw-fri-07', name: '금요기도회', order: 3, isDefault: true, createdAt: '2026-01-01T00:00:00Z', type: 'worship', parentId: 'fm202607', worshipType: 'friday' },
-  { id: 'fw-dawn-07', name: '새벽기도회', order: 4, isDefault: true, createdAt: '2026-01-01T00:00:00Z', type: 'worship', parentId: 'fm202607', worshipType: 'dawn' },
-  { id: 'fw-spec-07', name: '특별집회', order: 5, isDefault: true, createdAt: '2026-01-01T00:00:00Z', type: 'worship', parentId: 'fm202607', worshipType: 'special' },
+  { id: 'f-sun1', name: '주일1부', order: 1, isDefault: true, createdAt: '2026-01-01T00:00:00Z', type: 'worship', worshipType: 'sunday' },
+  { id: 'f-sun2', name: '주일2부', order: 2, isDefault: true, createdAt: '2026-01-01T00:00:00Z', type: 'worship', worshipType: 'sunday' },
+  { id: 'f-sun3', name: '주일3부', order: 3, isDefault: true, createdAt: '2026-01-01T00:00:00Z', type: 'worship', worshipType: 'sunday' },
+  { id: 'f-sun4', name: '주일4부', order: 4, isDefault: true, createdAt: '2026-01-01T00:00:00Z', type: 'worship', worshipType: 'sunday' },
+  { id: 'f-sun5', name: '주일5부', order: 5, isDefault: true, createdAt: '2026-01-01T00:00:00Z', type: 'worship', worshipType: 'sunday' },
+  { id: 'f-youth', name: '청년부', order: 6, isDefault: true, createdAt: '2026-01-01T00:00:00Z', type: 'worship', worshipType: 'sunday' },
+  { id: 'f-friday', name: '금요철야', order: 7, isDefault: true, createdAt: '2026-01-01T00:00:00Z', type: 'worship', worshipType: 'friday' },
+  { id: 'f-wed', name: '수요예배', order: 8, isDefault: true, createdAt: '2026-01-01T00:00:00Z', type: 'worship', worshipType: 'wednesday' },
+  { id: 'f-dawn', name: '특별새벽예배', order: 9, isDefault: true, createdAt: '2026-01-01T00:00:00Z', type: 'worship', worshipType: 'dawn' },
 ];
 
 function inferWorshipType(folderName: string): WorshipType {
@@ -99,66 +104,143 @@ function normalizeSermon(raw: Record<string, unknown>, folders: SermonFolder[]):
   };
 }
 
-const SEED_SERMONS: Omit<Sermon, 'id' | 'createdAt' | 'updatedAt'>[] = [
-  {
-    title: '믿음의 출발', scripture: '히브리서 11:1', preacher: '김성기 목사',
-    sermonDate: '2026-06-22', worshipType: 'sunday', folderId: 'fw-sun-07', folderName: '주일예배',
-    videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', youtubeVideoId: 'dQw4w9WgXcQ',
-    summary: '믿음은 바라는 것들의 실상이요 보이지 않는 것들의 증거임을 묵상합니다.',
-    tags: ['믿음', '히브리서'], attachments: [], visibility: 'all', status: 'published',
-    viewCount: 128, likeCount: 24,
-  },
-  {
-    title: '예수님은 누구신가', scripture: '요한계시록 1:10-20', preacher: '정재명 목사',
-    sermonDate: '2026-06-21', worshipType: 'sunday', folderId: 'fw-sun-07', folderName: '주일예배',
-    videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', youtubeVideoId: 'dQw4w9WgXcQ',
-    summary: '요한이 밧모섬에서 본 영광스러운 예수님의 모습을 통해 그분을 다시 발견합니다.',
-    tags: ['예수님', '요한계시록'], attachments: [], visibility: 'all', status: 'published',
-    viewCount: 95, likeCount: 18,
-  },
-  {
-    title: '하나님의 은혜', scripture: '에베소서 2:8-9', preacher: '김성기 목사',
-    sermonDate: '2026-06-18', worshipType: 'wednesday', folderId: 'fw-wed-07', folderName: '수요예배',
-    videoUrl: '', youtubeVideoId: null,
-    summary: '은혜로 말미암아 믿음으로 구원받았음을 기억하고 감사합니다.',
-    tags: ['은혜', '구원'], attachments: [], visibility: 'all', status: 'published',
-    viewCount: 67, likeCount: 12,
-  },
-  {
-    title: '영적 전쟁에서 승리하라', scripture: '에베소서 6:10-18', preacher: '김성기 목사',
-    sermonDate: '2026-06-15', worshipType: 'friday', folderId: 'fw-fri-07', folderName: '금요기도회',
-    videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', youtubeVideoId: 'dQw4w9WgXcQ',
-    summary: '하나님의 전신갑주를 입고 기도로 승리하는 삶을 배웁니다.',
-    tags: ['영적전쟁', '기도'], attachments: [], visibility: 'all', status: 'published',
-    viewCount: 84, likeCount: 15,
-  },
-  {
-    title: '성령충만의 삶', scripture: '사도행전 2:1-4', preacher: '이준혁 목사',
-    sermonDate: '2026-06-11', worshipType: 'dawn', folderId: 'fw-dawn-07', folderName: '새벽기도회',
-    videoUrl: '', youtubeVideoId: null,
-    summary: '오순절 성령 강림의 은혜를 오늘의 삶에 적용합니다.',
-    tags: ['성령', '오순절'], attachments: [], visibility: 'all', status: 'published',
-    viewCount: 52, likeCount: 9,
-  },
-  {
-    title: '부활의 능력', scripture: '로마서 8:11', preacher: '김성기 목사',
-    sermonDate: '2026-06-08', worshipType: 'sunday', folderId: 'fw-sun-07', folderName: '주일예배',
-    videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', youtubeVideoId: 'dQw4w9WgXcQ',
-    summary: '예수님의 부활 능력이 우리 안에 역사하심을 믿습니다.',
-    tags: ['부활', '로마서'], attachments: [], visibility: 'all', status: 'published',
-    viewCount: 143, likeCount: 31,
-  },
+// ── 데모 설교 200개 생성기 ─────────────────────────────────────────────────────
+
+const SEED_TITLES = [
+  '믿음의 출발', '은혜의 강가에서', '십자가의 사랑', '부활의 능력', '성령 충만한 삶',
+  '광야를 지나며', '기도의 능력', '말씀 위에 세운 집', '다시 일어서는 믿음', '하나님의 시간표',
+  '흔들리지 않는 소망', '섬김의 기쁨', '빛으로 오신 주', '용서의 은혜', '감사의 제사',
+  '순종의 축복', '두려움을 넘어서', '주님과 동행하는 길', '회복하시는 하나님', '새 마음 새 영',
+  '겨자씨 한 알의 믿음', '잃은 양을 찾으시는 주', '거룩한 부르심', '영원한 반석', '사랑으로 하나 되어',
+  '고난 중의 찬양', '약속의 땅을 향하여', '겸손의 자리', '깨어 기도하라', '생명의 떡',
+  '주 안에서 강건하라', '참 자유를 주시는 분', '작은 자를 통해', '끝까지 견디는 믿음', '은혜 위에 은혜',
+  '아버지의 마음', '성전을 사모하는 마음', '다시 오실 주님', '오늘 내게 주신 사명', '평강의 왕',
 ];
+
+const SEED_PREACHERS = ['김성기 목사', '정재명 목사', '이준혁 목사', '박성훈 목사', '최은혜 전도사', '한상우 목사'];
+
+const SEED_SCRIPTURES = [
+  '창세기 1:1', '출애굽기 14:14', '여호수아 1:9', '시편 23:1', '시편 46:10',
+  '잠언 3:5-6', '이사야 40:31', '예레미야 29:11', '마태복음 6:33', '마태복음 11:28',
+  '마가복음 10:45', '누가복음 15:20', '요한복음 3:16', '요한복음 14:6', '사도행전 2:1-4',
+  '로마서 8:28', '로마서 12:1-2', '고린도전서 13:4-7', '고린도후서 5:17', '갈라디아서 2:20',
+  '에베소서 2:8-9', '빌립보서 4:13', '골로새서 3:23', '히브리서 11:1', '야고보서 1:2-4',
+  '베드로전서 5:7', '요한일서 4:19', '요한계시록 21:4',
+];
+
+const SEED_YOUTUBE_IDS = [
+  'dQw4w9WgXcQ', 'ScMzIvxBSi4', 'kXYiU_JCYtU', '9bZkp7q19f0', 'e-ORhEE9VVg',
+  'fJ9rUzIMcZQ', 'L_jWHffIx5E', 'ktvTqknDobU',
+];
+
+const SEED_SUMMARIES = [
+  '오늘 본문을 통해 삶의 우선순위를 다시 점검하고, 하나님을 첫자리에 모시는 결단을 나눕니다.',
+  '어려운 상황 속에서도 흔들리지 않는 믿음의 뿌리가 무엇인지 함께 묵상합니다.',
+  '하나님의 은혜가 우리 일상에 어떻게 나타나는지 구체적인 삶의 이야기로 풀어냅니다.',
+  '말씀을 듣는 데서 그치지 않고 순종으로 나아갈 때 임하는 축복을 살펴봅니다.',
+  '기도의 자리를 회복할 때 경험하는 하나님의 능력과 평강을 나눕니다.',
+  '공동체 안에서 서로 사랑하고 섬기는 것이 왜 복음의 핵심인지 되새깁니다.',
+  '고난의 시간을 지나는 성도에게 주시는 위로와 소망의 메시지입니다.',
+  '십자가의 사랑을 깊이 묵상하며 우리의 삶으로 응답하기를 결단합니다.',
+  '성령의 인도하심을 따라 살아가는 성도의 참된 자유를 이야기합니다.',
+  '다시 오실 주님을 기다리며 오늘을 깨어 살아가는 지혜를 나눕니다.',
+];
+
+const SEED_TAGS = [
+  ['믿음', '순종'], ['은혜', '감사'], ['기도', '능력'], ['사랑', '섬김'], ['소망', '위로'],
+  ['말씀', '묵상'], ['십자가', '구원'], ['성령', '충만'], ['회복', '치유'], ['소명', '헌신'],
+];
+
+/** 폴더별 설교 개수 분배 (총 200개) */
+const SEED_DISTRIBUTION: { folderId: string; count: number }[] = [
+  { folderId: 'f-sun1', count: 24 },
+  { folderId: 'f-sun2', count: 24 },
+  { folderId: 'f-sun3', count: 24 },
+  { folderId: 'f-sun4', count: 24 },
+  { folderId: 'f-sun5', count: 24 },
+  { folderId: 'f-youth', count: 20 },
+  { folderId: 'f-friday', count: 20 },
+  { folderId: 'f-wed', count: 20 },
+  { folderId: 'f-dawn', count: 20 },
+];
+
+function seedDate(offsetDays: number): string {
+  const base = new Date('2026-07-05T00:00:00Z');
+  base.setUTCDate(base.getUTCDate() - offsetDays);
+  return base.toISOString().split('T')[0];
+}
+
+function generateSeedSermons(folders: SermonFolder[]): Sermon[] {
+  const now = new Date().toISOString();
+  const out: Sermon[] = [];
+  let n = 0;
+  let dayOffset = 0;
+
+  for (const { folderId, count } of SEED_DISTRIBUTION) {
+    const folder = folders.find(f => f.id === folderId);
+    const worshipType = folder?.worshipType ?? 'sunday';
+    const folderName = folder?.name ?? '';
+
+    for (let i = 0; i < count; i++) {
+      n += 1;
+      const hasVideo = n % 5 !== 0; // 약 80%는 유튜브 영상 포함
+      const ytId = SEED_YOUTUBE_IDS[n % SEED_YOUTUBE_IDS.length];
+      const title = SEED_TITLES[n % SEED_TITLES.length];
+      const preacher = SEED_PREACHERS[(n * 3) % SEED_PREACHERS.length];
+      const scripture = SEED_SCRIPTURES[(n * 7) % SEED_SCRIPTURES.length];
+      const summary = SEED_SUMMARIES[n % SEED_SUMMARIES.length];
+      const tags = SEED_TAGS[n % SEED_TAGS.length];
+
+      out.push({
+        id: `seed_${n}`,
+        title,
+        scripture,
+        preacher,
+        sermonDate: seedDate(dayOffset),
+        worshipType,
+        folderId,
+        folderName,
+        videoUrl: hasVideo ? `https://www.youtube.com/watch?v=${ytId}` : '',
+        youtubeVideoId: hasVideo ? ytId : null,
+        thumbnailUrl: hasVideo ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : undefined,
+        summary,
+        tags,
+        attachments: [],
+        visibility: 'all',
+        status: 'published',
+        viewCount: 25 + (n * 37) % 950,
+        likeCount: 3 + (n * 13) % 240,
+        createdAt: now,
+        updatedAt: now,
+      });
+      dayOffset += 3;
+    }
+  }
+  return out;
+}
+
+// ── Seed gate ──────────────────────────────────────────────────────────────
+
+/** 시드 버전이 다르면 기본 폴더 + 데모 설교 200개를 재생성한다. */
+function ensureSeeded(): void {
+  try {
+    if (localStorage.getItem(SEED_VERSION_KEY) === SEED_VERSION) return;
+    localStorage.setItem(FOLDERS_STORAGE_KEY, JSON.stringify(DEFAULT_FOLDERS));
+    localStorage.setItem(SERMONS_STORAGE_KEY, JSON.stringify(generateSeedSermons(DEFAULT_FOLDERS)));
+    localStorage.setItem(SEED_VERSION_KEY, SEED_VERSION);
+  } catch { /* ignore */ }
+}
 
 // ── Folders ──────────────────────────────────────────────────────────────────
 
 function loadFoldersRaw(): SermonFolder[] {
+  ensureSeeded();
   try {
     const raw = localStorage.getItem(FOLDERS_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Record<string, unknown>[];
       const normalized = parsed.map(normalizeFolder);
-      if (normalized.some(f => f.type === 'year')) return normalized;
+      if (normalized.length > 0) return normalized;
     }
   } catch { /* ignore */ }
   try {
@@ -222,25 +304,10 @@ export function updateFolder(id: string, updates: Partial<Pick<SermonFolder, 'na
 
 export function deleteFolder(id: string): void {
   const list = loadFoldersRaw();
-  const toDelete = new Set<string>([id]);
-  const findChildren = (pid: string) => {
-    list.filter(f => f.parentId === pid).forEach(c => {
-      toDelete.add(c.id);
-      findChildren(c.id);
-    });
-  };
-  findChildren(id);
-  saveFolders(list.filter(f => !toDelete.has(f.id)));
-  const fallback = list.find(f => f.worshipType === 'other') ?? list.find(f => f.type === 'worship');
+  saveFolders(list.filter(f => f.id !== id));
+  // 삭제된 폴더의 설교는 지우지 않고 "전체"에만 남도록 폴더 연결만 해제한다.
   const sermons = loadSermonsRaw().map(s =>
-    toDelete.has(s.folderId)
-      ? {
-          ...s,
-          folderId: fallback?.id ?? '',
-          folderName: fallback?.name ?? '기타',
-          worshipType: fallback?.worshipType ?? 'other',
-        }
-      : s,
+    s.folderId === id ? { ...s, folderId: '', folderName: '' } : s,
   );
   saveSermons(sermons);
 }
@@ -264,13 +331,7 @@ function loadSermonsRaw(): Sermon[] {
       return parsed.map(s => normalizeSermon(s, folders));
     }
   } catch { /* ignore */ }
-  const now = new Date().toISOString();
-  const seeded = SEED_SERMONS.map((s, i) => ({
-    ...s,
-    id: `s${i + 1}`,
-    createdAt: now,
-    updatedAt: now,
-  }));
+  const seeded = generateSeedSermons(folders);
   saveSermons(seeded);
   return seeded;
 }
