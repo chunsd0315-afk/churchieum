@@ -9,6 +9,7 @@ import { EmptyState } from './EmptyState';
 import { Skeleton, SkeletonListCard } from './Skeleton';
 import { ViewToggle } from './ViewToggle';
 import type { ViewMode } from './ViewToggle';
+import { MobileAddButton } from './MobileAddButton';
 
 /* ══════════════════════════════════════════════════════════════════
    PageLayout
@@ -122,24 +123,42 @@ export function PageLayout({
   const showEmpty = !loading && !hasChildren && !!empty;
   const showContent = !loading && hasChildren;
   const hasFilters = toolbar?.filters && toolbar.filters.length > 0;
-  const hasToolbarRow = toolbar?.search || toolbar?.left || toolbar?.right || addButton ||
+  const hasToolbarRow = toolbar?.search || toolbar?.left || toolbar?.right ||
     (toolbar?.viewModes && toolbar.viewModes.length > 1);
 
   return (
     <div className={`flex flex-col gap-0 ${className}`}>
 
-      {/* ── PageHeader ──────────────────────────────────────────── */}
-      <div className="flex items-start justify-between gap-4 pb-5">
+      {/* ── PageHeader (PC 전용: 메뉴명 + 설명 + 액션) ────────────── */}
+      <div className="hidden md:flex items-start justify-between gap-4 pb-5">
         <div className="min-w-0 flex-1">
           <h1 className="text-xl font-bold text-gray-900 leading-tight">{header.title}</h1>
           {header.description && (
             <p className="mt-1 text-sm text-gray-500 leading-snug">{header.description}</p>
           )}
         </div>
-        {header.action && (
+        {header.action ? (
           <div className="shrink-0">{header.action}</div>
-        )}
+        ) : addButton ? (
+          <div className="shrink-0">
+            <Button
+              variant="primary"
+              size="sm"
+              leftIcon={<Plus size={15} />}
+              onClick={addButton.onClick}
+            >
+              {addButton.label ?? '등록'}
+            </Button>
+          </div>
+        ) : null}
       </div>
+
+      {/* ── 모바일 전용: 전체 폭 등록 버튼 ───────────────────────── */}
+      {addButton && (
+        <div className="md:hidden pb-4">
+          <MobileAddButton label={addButton.label ?? '등록'} onClick={addButton.onClick} />
+        </div>
+      )}
 
       {/* ── Toolbar row: search / filter / view toggle ───────────── */}
       {hasToolbarRow && (
@@ -171,16 +190,6 @@ export function PageLayout({
                 />
               )}
               {toolbar?.right}
-              {addButton && (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  leftIcon={<Plus size={15} />}
-                  onClick={addButton.onClick}
-                >
-                  {addButton.label ?? '등록'}
-                </Button>
-              )}
             </div>
           </div>
         </>
@@ -264,20 +273,35 @@ export function PageLayout({
 export interface PageHeaderBarProps {
   title: string;
   description?: string;
+  /** PC(데스크톱) 전용 우측 액션 — 모바일에서는 숨겨진다. */
   action?: React.ReactNode;
+  /** 모바일 전용 본문 상단 액션 — 보통 전체 폭 등록 버튼(MobileAddButton). */
+  mobileAction?: React.ReactNode;
   className?: string;
 }
 
-export function PageHeaderBar({ title, description, action, className = '' }: PageHeaderBarProps) {
+/**
+ * 메뉴 페이지 상단 헤더.
+ * - PC: 메뉴명 + 설명 + 우측 액션 표시.
+ * - 모바일: 고정 상단바에 메뉴명/설명이 이미 있으므로 본문 상단 메뉴명/설명은 숨김.
+ *   등록/작성 버튼은 mobileAction(전체 폭)으로만 노출한다.
+ */
+export function PageHeaderBar({ title, description, action, mobileAction, className = '' }: PageHeaderBarProps) {
   return (
-    <div className={`flex items-start justify-between gap-4 pb-5 ${className}`}>
-      <div className="min-w-0 flex-1">
-        <h1 className="text-xl font-bold text-gray-900 leading-tight">{title}</h1>
-        {description && (
-          <p className="mt-1 text-sm text-gray-500 leading-snug">{description}</p>
-        )}
+    <div className={className}>
+      {/* PC 전용: 메뉴명 + 설명 + 액션 */}
+      <div className="hidden md:flex items-start justify-between gap-4 pb-5">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl font-bold text-gray-900 leading-tight">{title}</h1>
+          {description && (
+            <p className="mt-1 text-sm text-gray-500 leading-snug">{description}</p>
+          )}
+        </div>
+        {action && <div className="shrink-0">{action}</div>}
       </div>
-      {action && <div className="shrink-0">{action}</div>}
+
+      {/* 모바일 전용: 전체 폭 등록/작성 버튼 */}
+      {mobileAction && <div className="md:hidden pb-4">{mobileAction}</div>}
     </div>
   );
 }

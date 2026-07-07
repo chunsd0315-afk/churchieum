@@ -7,7 +7,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { canWriteContent, getAvailableScopes, type ContentScope } from '../../services/permissions';
 import { getDistricts, getZones, getDepartments } from '../../services/orgData';
-import { PageHeaderBar } from '../../components/common/ui';
+import { PageHeaderBar, MobileAddButton } from '../../components/common/ui';
 import SearchSection from '../../components/layout/SearchSection';
 
 type Album = {
@@ -255,6 +255,20 @@ export default function AlbumPage() {
             )}
             <button onClick={() => setGridView(v => !v)} className="p-2 bg-gray-100 rounded-xl">
               {gridView ? <Rows className="w-4 h-4 text-gray-600" /> : <Grid2x2 className="w-4 h-4 text-gray-600" />}
+            </button>
+          </div>
+        }
+        mobileAction={
+          <div className="flex items-center gap-2">
+            {canWrite && (
+              <MobileAddButton label="앨범 등록" onClick={() => setShowCreateForm(true)} className="flex-1" />
+            )}
+            <button
+              onClick={() => setGridView(v => !v)}
+              className="shrink-0 w-12 h-12 flex items-center justify-center bg-gray-100 rounded-[14px]"
+              aria-label="보기 전환"
+            >
+              {gridView ? <Rows className="w-5 h-5 text-gray-600" /> : <Grid2x2 className="w-5 h-5 text-gray-600" />}
             </button>
           </div>
         }

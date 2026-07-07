@@ -135,6 +135,9 @@ export type { ChurchAvatarProps, ChurchAvatarSize } from './ChurchAvatar';
 export { ChurchPageHeader }    from './ChurchPageHeader';
 export type { ChurchPageHeaderProps } from './ChurchPageHeader';
 
+export { MobileAddButton }     from './MobileAddButton';
+export type { MobileAddButtonProps } from './MobileAddButton';
+
 export { ChurchToolbar }       from './ChurchToolbar';
 export type { ChurchToolbarProps } from './ChurchToolbar';
 

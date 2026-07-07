@@ -1,5 +1,5 @@
 ﻿import { useState, useMemo, useRef, useEffect } from 'react';
-import { PageHeaderBar } from '../../components/common/ui';
+import { PageHeaderBar, MobileAddButton } from '../../components/common/ui';
 import StatusBadge from '../../components/layout/StatusBadge';
 import EmptyState from '../../components/layout/EmptyState';
 import {
@@ -397,6 +397,7 @@ export default function AnnouncementManagementPage() {
             <Plus className="w-4 h-4" /> 공지 작성
           </button>
         }
+        mobileAction={<MobileAddButton label="공지 작성" onClick={openNew} />}
       />
 
       {/* Toolbar row */}

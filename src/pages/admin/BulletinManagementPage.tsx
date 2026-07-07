@@ -2,7 +2,7 @@
 import { supabase } from '../../services/supabase';
 import { useFileUpload } from '../../hooks/useFileUpload';
 import {
-  FileText, Plus, Edit2, Trash2, X, Calendar, Eye, Download,
+  FileText, Edit2, Trash2, X, Calendar, Eye, Download,
   Image as ImageIcon, Archive, ArchiveRestore, ExternalLink,
   Upload, Loader2, Save,
 } from 'lucide-react';
@@ -301,7 +301,8 @@ export default function BulletinManagementPage() {
       )}
 
       <PageLayout
-        header={{ title: '주보', description: '예배 순서와 주간 소식을 확인하세요.', action: <button onClick={openNew} className="flex items-center gap-2 px-5 py-2.5 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-semibold shadow-sm transition-colors"><Plus className="w-4 h-4" /> 주보 등록</button> }}
+        header={{ title: '주보', description: '예배 순서와 주간 소식을 확인하세요.' }}
+        addButton={{ label: '주보 등록', onClick: openNew }}
         toolbar={{ search: { value: search, onChange: setSearch, placeholder: '주보 검색...' } }}
         loading={loading}
         skeletonCount={4}

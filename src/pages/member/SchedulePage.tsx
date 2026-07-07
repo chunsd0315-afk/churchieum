@@ -4,7 +4,7 @@ import { Calendar, Clock, MapPin, ChevronLeft, ChevronRight, Grid, List, Loader,
 import { useAuth } from '../../contexts/AuthContext';
 import { canWriteContent, getAvailableScopes, type ContentScope } from '../../services/permissions';
 import { getDistricts, getZones, getDepartments } from '../../services/orgData';
-import { PageHeaderBar } from '../../components/common/ui';
+import { PageHeaderBar, MobileAddButton } from '../../components/common/ui';
 
 type ChurchEvent = {
   id: string;
@@ -126,6 +126,25 @@ export default function SchedulePage() {
                 <Grid className="w-4 h-4 text-gray-600" />
               </button>
               <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-white shadow-sm' : ''}`}>
+                <List className="w-4 h-4 text-gray-600" />
+              </button>
+            </div>
+          </div>
+        }
+        mobileAction={
+          <div className="flex items-center gap-2">
+            {canWrite && (
+              <MobileAddButton
+                label="일정 등록"
+                onClick={() => { setEditingEvent(null); setShowCreateForm(true); }}
+                className="flex-1"
+              />
+            )}
+            <div className="shrink-0 flex items-center gap-1 bg-gray-100 rounded-[14px] p-1 h-12">
+              <button onClick={() => setViewMode('calendar')} className={`px-3 h-full rounded-lg transition-colors ${viewMode === 'calendar' ? 'bg-white shadow-sm' : ''}`} aria-label="달력 보기">
+                <Grid className="w-4 h-4 text-gray-600" />
+              </button>
+              <button onClick={() => setViewMode('list')} className={`px-3 h-full rounded-lg transition-colors ${viewMode === 'list' ? 'bg-white shadow-sm' : ''}`} aria-label="목록 보기">
                 <List className="w-4 h-4 text-gray-600" />
               </button>
             </div>

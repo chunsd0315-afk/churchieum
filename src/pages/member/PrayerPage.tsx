@@ -36,7 +36,7 @@ import {
   Heart, Plus, Check, Lock, Users, Send, X, Loader,
   Globe, Eye, Star, Paperclip, MessageCircle,
 } from 'lucide-react';
-import { PageHeaderBar, TabBar } from '../../components/common/ui';
+import { PageHeaderBar, TabBar, MobileAddButton } from '../../components/common/ui';
 import EmptyState from '../../components/layout/EmptyState';
 
 type ChurchPrayer = {
@@ -197,6 +197,7 @@ export default function PrayerPage() {
             <Plus className="w-4 h-4" /> 기도제목
           </button>
         }
+        mobileAction={<MobileAddButton label="기도제목 작성" onClick={openForm} />}
       />
 
       <TabBar
