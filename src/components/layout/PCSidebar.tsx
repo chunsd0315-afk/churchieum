@@ -1,5 +1,5 @@
 ﻿import { useState, useRef, useEffect } from 'react';
-import { Camera, LogOut } from 'lucide-react';
+import { Camera, LogOut, Home } from 'lucide-react';
 import type { NavIcon } from '../../types/icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { getProfileImage, saveProfileImage } from '../../services/profileImage';
@@ -101,7 +101,7 @@ export default function PCSidebar<P extends string>({
 
       {/* Navigation */}
       <nav className="flex-1 space-y-0.5 overflow-y-auto scrollbar-hide">
-        {navItems.map(item => {
+        {[{ page: 'home' as P, label: '홈', icon: Home }, ...navItems].map(item => {
           const isActive = currentPage === item.page;
           return (
             <button
