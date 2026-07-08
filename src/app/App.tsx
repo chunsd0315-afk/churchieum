@@ -1,6 +1,7 @@
 ﻿import { useState, useEffect, Component, type ReactNode } from 'react';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { OrgSettingsProvider } from '../contexts/OrgSettingsContext';
+import { ToastProvider } from '../components/common/ui';
 import LoginPage from './LoginPage';
 import ModeSelectPage from './ModeSelectPage';
 import { MemberLayout, type Page } from '../components/member/Layout';
@@ -318,7 +319,9 @@ function App() {
   return (
     <AuthProvider>
       <OrgSettingsProvider>
-        <AppContent />
+        <ToastProvider>
+          <AppContent />
+        </ToastProvider>
       </OrgSettingsProvider>
     </AuthProvider>
   );

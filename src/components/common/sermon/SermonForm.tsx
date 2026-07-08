@@ -5,6 +5,7 @@ import type {
 } from '../../../types/sermon';
 import { getSelectableFolders, getYouTubeId } from '../../../services/sermonStorage';
 import { useBreakpoint } from '../../../hooks/useBreakpoint';
+import { useToast } from '../ui';
 import {
   sermonInputClass, sermonLabelClass,
   sermonPrimaryBtnClass, sermonSecondaryBtnClass,
@@ -63,6 +64,7 @@ type Props = {
 
 export default function SermonForm({ editing, onSave, onCancel }: Props) {
   const { isMobile } = useBreakpoint();
+  const toast = useToast();
   const folders = getSelectableFolders();
   const [form, setForm] = useState<SermonFormData>(() =>
     editing ? sermonToFormData(editing) : emptyForm(folders),
@@ -98,6 +100,10 @@ export default function SermonForm({ editing, onSave, onCancel }: Props) {
   };
 
   const saveDraft = () => {
+    if (!form.title.trim() || !form.preacher.trim()) {
+      toast.warning('임시저장을 위해 설교 제목과 설교자를 입력해주세요.');
+      return;
+    }
     onSave(form, 'draft');
   };
 
