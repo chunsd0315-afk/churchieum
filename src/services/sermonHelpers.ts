@@ -1,8 +1,15 @@
 import type { AppUser } from './permissions';
-import { canManageSermons } from './permissions';
+import { canManageSermons, isSuperAdmin } from './permissions';
 import type { Sermon, SermonVisibility } from '../types/sermon';
 
 export { canManageSermons };
+
+/** 예배 폴더 탭이 아닌, status=draft 설교만 모아 보는 가상 탭 ID */
+export const SERMON_DRAFT_TAB_ID = 'draft';
+
+export function canViewSermonDrafts(user: AppUser | null): boolean {
+  return isSuperAdmin(user);
+}
 
 function visibilityAllows(user: AppUser | null, visibility: SermonVisibility): boolean {
   if (!user) return visibility === 'all' || visibility === 'member';
@@ -14,7 +21,7 @@ function visibilityAllows(user: AppUser | null, visibility: SermonVisibility): b
 }
 
 export function canViewSermon(user: AppUser | null, sermon: Sermon): boolean {
-  if (sermon.status === 'draft') return canManageSermons(user);
+  if (sermon.status === 'draft') return canViewSermonDrafts(user);
   return visibilityAllows(user, sermon.visibility);
 }
 
@@ -33,6 +40,11 @@ export type SermonListFilters = {
 
 export function filterSermonList(sermons: Sermon[], filters: SermonListFilters): Sermon[] {
   return sermons.filter(s => {
+    if (filters.folderId === SERMON_DRAFT_TAB_ID) {
+      return s.status === 'draft';
+    }
+    if (s.status === 'draft') return false;
+
     if (filters.folderId && filters.folderId !== 'all' && s.folderId !== filters.folderId) {
       return false;
     }
@@ -44,7 +56,7 @@ export function filterSermonList(sermons: Sermon[], filters: SermonListFilters):
     if (filters.dateTo && s.sermonDate > filters.dateTo) return false;
     if (filters.query) {
       const q = filters.query.toLowerCase();
-      const hay = [s.title, s.scripture, s.preacher, s.summary, ...s.tags].join(' ').toLowerCase();
+      const hay = [s.title, s.scripture, s.preacher, s.summary].join(' ').toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
@@ -80,7 +92,7 @@ export async function trySyncSermonToSupabase(sermon: Sermon): Promise<void> {
       id: sermon.id,
       title: sermon.title,
       bible_verse: sermon.scripture,
-      content: sermon.summary,
+      content: sermon.summary || null,
       video_url: sermon.videoUrl || null,
       preacher: sermon.preacher,
       sermon_date: sermon.sermonDate,

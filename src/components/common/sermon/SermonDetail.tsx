@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect } from 'react';
 import {
   BookOpen, Calendar, Play, Youtube, Heart, Share2, Bookmark,
-  MessageCircle, Send, Paperclip, Edit3, Trash2, Eye,
+  MessageCircle, Send, Edit3, Trash2, Eye,
 } from 'lucide-react';
 import type { Sermon } from '../../../types/sermon';
 import { WORSHIP_TYPE_LABELS } from '../../../types/sermon';
@@ -179,28 +179,6 @@ export default function SermonDetail({
           {renderExtraActions && <div className="pt-2">{renderExtraActions(sermon)}</div>}
         </div>
       </SermonCard>
-
-      {sermon.summary && (
-        <SermonSectionCard title="설교 요약" icon={<BookOpen className="w-5 h-5 text-primary-600" />}>
-          <p className="text-[15px] text-gray-700 leading-relaxed whitespace-pre-wrap">{sermon.summary}</p>
-        </SermonSectionCard>
-      )}
-
-      {sermon.attachments.length > 0 && (
-        <SermonSectionCard title="설교 자료" icon={<Paperclip className="w-5 h-5 text-primary-600" />}>
-          <ul className="space-y-2">
-            {sermon.attachments.map(att => (
-              <li key={att.id}>
-                <a href={att.url} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-3 px-4 py-4 bg-[#F7F9FB] border border-[#E5E7EB] rounded-[14px] text-[15px] text-gray-800 font-medium hover:bg-gray-50">
-                  <Paperclip className="w-5 h-5 text-gray-400 shrink-0" />
-                  <span className="truncate">{att.name}</span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        </SermonSectionCard>
-      )}
 
       <SermonSectionCard title={`댓글 (${comments.length})`} icon={<MessageCircle className="w-5 h-5 text-primary-600" />}>
         {comments.length === 0 ? (

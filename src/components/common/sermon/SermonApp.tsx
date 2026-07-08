@@ -9,7 +9,10 @@ import {
 } from '../../../services/sermonStorage';
 import { deleteCommentsForSermon } from '../../../services/sermonCommentStorage';
 import { deleteLikesForSermon } from '../../../services/sermonEngagementStorage';
-import { filterSermonsForUser, filterSermonList, trySyncSermonToSupabase } from '../../../services/sermonHelpers';
+import {
+  filterSermonsForUser, filterSermonList, trySyncSermonToSupabase,
+  SERMON_DRAFT_TAB_ID, canViewSermonDrafts,
+} from '../../../services/sermonHelpers';
 import { useAuth } from '../../../contexts/AuthContext';
 import ContentEditorLayout from '../../layout/ContentEditorLayout';
 import SermonDetail from './SermonDetail';
@@ -74,13 +77,21 @@ export default function SermonApp({
   // 폴더/검색 변경 시 첫 페이지로 이동 + 플레이어 썸네일 상태로 초기화
   useEffect(() => { setPage(1); setPlaying(false); }, [activeFolder, search]);
 
-  const folderTabs = useMemo(
-    () => [
-      { id: 'all', label: '전체' },
-      ...folders.map(f => ({ id: f.id, label: f.name })),
-    ],
-    [folders],
-  );
+  const folderTabs = useMemo(() => {
+    const tabs = [{ id: 'all', label: '전체' }];
+    if (canViewSermonDrafts(user)) {
+      tabs.push({ id: SERMON_DRAFT_TAB_ID, label: '임시저장' });
+    }
+    tabs.push(...folders.map(f => ({ id: f.id, label: f.name })));
+    return tabs;
+  }, [folders, user]);
+
+  // 임시저장 탭은 최고관리자만 — 권한 없으면 전체로 되돌림
+  useEffect(() => {
+    if (activeFolder === SERMON_DRAFT_TAB_ID && !canViewSermonDrafts(user)) {
+      setActiveFolder('all');
+    }
+  }, [activeFolder, user]);
 
   const openCreate = () => { setEditing(null); setView('form'); };
   const openEdit = (s: Sermon) => { setEditing(s); setView('form'); };
@@ -94,9 +105,32 @@ export default function SermonApp({
   };
 
   const handleSave = (data: SermonFormData, status: SermonStatus) => {
-    if (editing) { const u = updateSermon(editing.id, { ...data, status }); if (u) trySyncSermonToSupabase(u); }
-    else { const c = addSermon({ ...data, status }); trySyncSermonToSupabase(c); }
-    refresh(); setView('list'); setEditing(null);
+    const payload = {
+      ...data,
+      thumbnailUrl: data.thumbnailUrl || undefined,
+      summary: '',
+      tags: [] as string[],
+      attachments: [],
+      status,
+    };
+    let saved: Sermon | null = null;
+    if (editing) {
+      saved = updateSermon(editing.id, payload);
+      if (saved) trySyncSermonToSupabase(saved);
+    } else {
+      saved = addSermon(payload);
+      trySyncSermonToSupabase(saved);
+    }
+    refresh();
+    setView('list');
+    setEditing(null);
+    if (status === 'draft') {
+      setActiveFolder(SERMON_DRAFT_TAB_ID);
+    } else if (saved?.folderId) {
+      setActiveFolder(saved.folderId);
+    } else {
+      setActiveFolder('all');
+    }
   };
 
   const handleDelete = (id: string) => {
@@ -129,7 +163,7 @@ export default function SermonApp({
           onBack={() => { setEditing(null); setView('list'); }}
         >
           <SermonCard className="p-5 md:p-7">
-            <SermonForm editing={editing} user={user} onSave={handleSave}
+            <SermonForm editing={editing} onSave={handleSave}
               onCancel={() => { setEditing(null); setView('list'); }} />
           </SermonCard>
         </ContentEditorLayout>
@@ -238,7 +272,11 @@ export default function SermonApp({
           <SermonCard className="py-16 text-center">
             <BookOpen className="w-14 h-14 text-gray-200 mx-auto mb-4" />
             <p className="font-bold text-[#6B7280] text-base">
-              {search || activeFolder !== 'all' ? '검색 결과가 없습니다' : '등록된 설교가 없습니다'}
+              {activeFolder === SERMON_DRAFT_TAB_ID
+                ? '임시저장된 설교가 없습니다'
+                : search || (activeFolder !== 'all' && activeFolder !== SERMON_DRAFT_TAB_ID)
+                  ? '검색 결과가 없습니다'
+                  : '등록된 설교가 없습니다'}
             </p>
             {canManage && !search && (
               <button type="button" onClick={openCreate} className={`${sermonPrimaryBtnClass} mt-5`}>설교 등록</button>
@@ -397,7 +435,16 @@ function SermonCardRow({
       </div>
 
       <div className="flex-1 min-w-0">
-        <p className="text-[15px] font-bold text-gray-900 leading-snug line-clamp-1">{sermon.title}</p>
+        <div className="flex items-center gap-2 min-w-0">
+          <p className="text-[15px] font-bold text-gray-900 leading-snug line-clamp-1">
+            {sermon.title || '(제목 없음)'}
+          </p>
+          {sermon.status === 'draft' && (
+            <span className="shrink-0 px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 text-[11px] font-bold border border-amber-200">
+              임시저장
+            </span>
+          )}
+        </div>
         {sermon.scripture && (
           <p className="text-[13px] text-primary-600 font-semibold mt-1 truncate">{sermon.scripture}</p>
         )}
