@@ -93,8 +93,31 @@ export default function SermonApp({
     }
   }, [activeFolder, user]);
 
-  const openCreate = () => { setEditing(null); setView('form'); };
-  const openEdit = (s: Sermon) => { setEditing(s); setView('form'); };
+  // 삭제되었거나 더 이상 선택할 수 없는 폴더를 보고 있으면 안전하게 전체로 복귀한다.
+  useEffect(() => {
+    if (activeFolder === 'all' || activeFolder === SERMON_DRAFT_TAB_ID) return;
+    if (!folders.some(folder => folder.id === activeFolder)) {
+      setActiveFolder('all');
+    }
+  }, [activeFolder, folders]);
+
+  // 폼/상세로 이동할 때 폴더 오버레이가 남아있지 않도록 상태를 정리한다.
+  useEffect(() => {
+    if (view !== 'list' && showFolderMgr) {
+      setShowFolderMgr(false);
+    }
+  }, [view, showFolderMgr]);
+
+  const openCreate = () => {
+    setShowFolderMgr(false);
+    setEditing(null);
+    setView('form');
+  };
+  const openEdit = (s: Sermon) => {
+    setShowFolderMgr(false);
+    setEditing(s);
+    setView('form');
+  };
 
   // 카드 선택 → 상단 고정 플레이어에서 재생
   const playSermon = (s: Sermon) => {

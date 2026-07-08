@@ -9,7 +9,9 @@ import { sermonCardStyle, sermonInputClass, sermonPrimaryBtnClass } from './serm
 type Props = { onClose: () => void; onRefresh: () => void };
 
 export default function SermonFolderManager({ onClose, onRefresh }: Props) {
-  const [folders, setFolders] = useState<SermonFolder[]>(() => getSelectableFolders());
+  const [folders, setFolders] = useState<SermonFolder[]>(() =>
+    getSelectableFolders().filter(folder => Boolean(folder?.id)),
+  );
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [newName, setNewName] = useState('');
@@ -17,7 +19,10 @@ export default function SermonFolderManager({ onClose, onRefresh }: Props) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
 
-  const reload = () => { setFolders(getSelectableFolders()); onRefresh(); };
+  const reload = () => {
+    setFolders(getSelectableFolders().filter(folder => Boolean(folder?.id)));
+    onRefresh();
+  };
 
   const handleAdd = () => {
     const name = newName.trim();

@@ -1,11 +1,12 @@
+import type { ReactNode } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
 
 type Props = {
   title: string;
   onBack: () => void;
-  children: React.ReactNode;
-  saveButton?: React.ReactNode;
+  children: ReactNode;
+  saveButton?: ReactNode;
 };
 
 export default function ContentEditorLayout({ title, onBack, children, saveButton }: Props) {
