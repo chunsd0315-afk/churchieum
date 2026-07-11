@@ -177,7 +177,7 @@ export function AdminLayout({ children, currentPage, onNavigate }: Props) {
         isHomePage={isHome}
         mobileHomeHeader={mobileHomeHeader}
         mobileSubHeader={mobileSubHeader}
-        sidebarNavItems={SIDEBAR_NAV_ITEMS.map(i => ({ page: i.page as AdminPage, label: i.label, icon: i.icon, iconColor: i.iconColor }))}
+        sidebarNavItems={SIDEBAR_NAV_ITEMS.map(i => ({ page: i.page as AdminPage, label: i.label, iconKey: i.iconKey }))}
         userPosition={userPosition}
         showSettingsButton
         onSettingsClick={() => setShowSettings(true)}
@@ -196,4 +196,4 @@ export function AdminLayout({ children, currentPage, onNavigate }: Props) {
 }
 
 // Backward-compat export
-export const MENU_ITEMS = SIDEBAR_NAV_ITEMS.map(i => ({ id: i.page, label: i.label, icon: i.icon }));
+export const MENU_ITEMS = SIDEBAR_NAV_ITEMS.map(i => ({ id: i.page, label: i.label, iconKey: i.iconKey }));

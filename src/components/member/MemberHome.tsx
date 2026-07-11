@@ -10,5 +10,12 @@ export default function MemberHome({ onNavigate }: Props) {
     page => onNavigate(page as Page),
   );
 
-  return <HomeDashboard menuItems={menuItems} />;
+  return (
+    <HomeDashboard
+      menuItems={menuItems}
+      mode="member"
+      onSchedulesMore={() => onNavigate('schedule')}
+      onNoticesMore={() => onNavigate('announcement')}
+    />
+  );
 }

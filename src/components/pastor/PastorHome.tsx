@@ -14,5 +14,12 @@ export default function PastorHome({ onNavigate }: Props) {
     { onSettings: openSettings },
   );
 
-  return <HomeDashboard menuItems={menuItems} />;
+  return (
+    <HomeDashboard
+      menuItems={menuItems}
+      mode="pastor"
+      onSchedulesMore={() => onNavigate('events')}
+      onNoticesMore={() => onNavigate('announcements')}
+    />
+  );
 }

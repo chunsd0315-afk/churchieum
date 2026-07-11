@@ -20,7 +20,7 @@
   /* ── Design System (canonical) ───────────────────── */
   --color-brand-primary:    #2563EB;
   --color-brand-secondary:  #4F46E5;
-  --color-brand-background: #F8FAFC;
+  --color-brand-background: #FFFFFF;
   --color-brand-success:    #16A34A;
   --color-brand-warning:    #F59E0B;
   --color-brand-error:      #DC2626;
@@ -106,11 +106,11 @@
   --color-neutral-950: #030712;
 
   /* ── Color: Surface / Background ───────────────── */
-  --color-bg-page:    #F8FAFC;
+  --color-bg-page:    #FFFFFF;
   --color-bg-surface: #FFFFFF;
-  --color-bg-sunken:  #F1F5F9;
+  --color-bg-sunken:  #FAFAFA;
   --color-bg-raised:  #FFFFFF;
-  --color-bg-warm:    #F8FAFC;
+  --color-bg-warm:    #FFFFFF;
 
   /* ── Color: Border ───────────────────────────────── */
   --color-border-subtle:  #F3F4F6;

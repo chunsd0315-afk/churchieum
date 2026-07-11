@@ -1,14 +1,15 @@
 ﻿import { useState, useRef, useEffect } from 'react';
-import { Camera, LogOut, Home } from 'lucide-react';
-import type { NavIcon } from '../../types/icons';
+import { Camera, LogOut } from 'lucide-react';
+import type { MenuIconKey } from '../common/design-system';
+import { SidebarMenuItem } from '../common/design-system';
 import { useAuth } from '../../contexts/AuthContext';
 import { getProfileImage, saveProfileImage } from '../../services/profileImage';
+import { DS } from '../common/design-system/tokens';
 
 type NavItem<P extends string> = {
   page: P;
   label: string;
-  icon: NavIcon;
-  iconColor?: string;
+  iconKey: MenuIconKey;
 };
 
 type Props<P extends string> = {
@@ -50,22 +51,27 @@ export default function PCSidebar<P extends string>({
   };
 
   const initial = (user?.name || '?')[0];
+  const homeActive = currentPage === ('home' as P);
 
   return (
     <aside
       className="h-full flex flex-col shrink-0 overflow-y-auto scrollbar-hide"
       style={{
-        width: '240px',
-        background: '#111827',
-        borderRight: '1px solid #1F2937',
+        width: DS.layout.sidebarWidth,
+        background: DS.colors.bgSidebar,
+        borderRight: `1px solid ${DS.colors.borderDefault}`,
         padding: '18px 14px',
       }}
     >
       {/* User profile */}
-      <div className="mb-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '16px' }}>
+      <div
+        className="mb-4"
+        style={{ borderBottom: `1px solid ${DS.colors.borderSubtle}`, paddingBottom: 16 }}
+      >
         <div className="flex items-center gap-3">
           <div className="relative group shrink-0">
             <button
+              type="button"
               onClick={() => fileInputRef.current?.click()}
               className="w-11 h-11 rounded-2xl overflow-hidden flex items-center justify-center shadow-sm relative"
               style={{ background: 'linear-gradient(135deg, #2563EB 0%, #22C55E 100%)' }}
@@ -86,10 +92,10 @@ export default function PCSidebar<P extends string>({
           </div>
 
           <div className="min-w-0">
-            <p className="font-bold text-white truncate" style={{ fontSize: '14px' }}>
+            <p className="font-bold truncate" style={{ fontSize: 14, color: DS.colors.textPrimary }}>
               {user?.name || '사용자'}
             </p>
-            <p className="truncate mt-0.5" style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)' }}>
+            <p className="truncate mt-0.5" style={{ fontSize: 12, color: DS.colors.textMuted }}>
               {user?.position || userPosition || '-'}
             </p>
           </div>
@@ -102,48 +108,37 @@ export default function PCSidebar<P extends string>({
 
       {/* Navigation */}
       <nav className="flex-1 space-y-0.5 overflow-y-auto scrollbar-hide">
-        {[{ page: 'home' as P, label: '홈', icon: Home, iconColor: 'text-blue-500' }, ...navItems].map(item => {
-          const isActive = currentPage === item.page;
-          return (
-            <button
-              key={item.page}
-              onClick={() => onNavigate(item.page)}
-              className="w-full flex items-center gap-[10px] group"
-              style={{
-                height: '44px',
-                borderRadius: '14px',
-                padding: '0 14px',
-                fontSize: '14px',
-                fontWeight: isActive ? 700 : 500,
-                color: isActive ? '#FFFFFF' : 'rgba(255,255,255,0.82)',
-                background: isActive ? '#2563EB' : 'transparent',
-                boxShadow: isActive ? '0 6px 16px rgba(37,99,235,0.45)' : 'none',
-                transition: 'background-color 200ms ease, color 200ms ease, box-shadow 200ms ease',
-              }}
-              onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
-              onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
-            >
-              <item.icon
-                className={`w-5 h-5 shrink-0 transition-[filter] duration-150 ${
-                  isActive
-                    ? 'text-white'
-                    : `${item.iconColor ?? 'text-blue-500'} brightness-110 group-hover:brightness-150`
-                }`}
-              />
-              <span className="flex-1 text-left truncate">{item.label}</span>
-            </button>
-          );
-        })}
+        <SidebarMenuItem
+          page={'home' as P}
+          label="홈"
+          iconKey="home"
+          isActive={homeActive}
+          onNavigate={onNavigate}
+        />
+        {navItems.map(item => (
+          <SidebarMenuItem
+            key={item.page}
+            page={item.page}
+            label={item.label}
+            iconKey={item.iconKey}
+            isActive={currentPage === item.page}
+            onNavigate={onNavigate}
+          />
+        ))}
       </nav>
 
       {/* Footer */}
-      <div className="mt-4 pt-3 space-y-1" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+      <div
+        className="mt-4 pt-3 space-y-1"
+        style={{ borderTop: `1px solid ${DS.colors.borderSubtle}` }}
+      >
         {footerContent}
         <button
+          type="button"
           onClick={signOut}
           className="w-full flex items-center justify-center gap-2 rounded-[14px] text-sm font-semibold transition-colors"
-          style={{ height: '44px', color: '#F87171' }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(248,113,113,0.12)'; }}
+          style={{ height: 44, color: '#DC2626' }}
+          onMouseEnter={e => { e.currentTarget.style.background = '#FEF2F2'; }}
           onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
         >
           <LogOut className="w-4 h-4" /> 로그아웃

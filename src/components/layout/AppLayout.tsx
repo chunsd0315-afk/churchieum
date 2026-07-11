@@ -1,5 +1,5 @@
 import React from 'react';
-import type { NavIcon } from '../../types/icons';
+import type { MenuIconKey } from '../common/design-system';
 import PCTopHeader from './PCTopHeader';
 import PCSidebar from './PCSidebar';
 import MobileBottomNav, { type BottomNavItem } from './MobileBottomNav';
@@ -15,8 +15,7 @@ import { useBreakpoint } from '../../hooks/useBreakpoint';
 export interface AppLayoutNavItem<P extends string> {
   page: P;
   label: string;
-  icon: NavIcon;
-  iconColor?: string;
+  iconKey: MenuIconKey;
   badge?: number | boolean;
 }
 
@@ -81,7 +80,7 @@ function DesktopAppLayout<P extends string>({
   children,
 }: AppLayoutConfig<P>) {
   return (
-    <div className="flex flex-col h-screen overflow-hidden" style={{ background: 'var(--color-bg-page)' }}>
+    <div className="flex flex-col h-screen overflow-hidden" style={{ background: '#FFFFFF' }}>
       <PCTopHeader
         showSettings={showSettingsButton}
         onSettingsClick={onSettingsClick}
@@ -99,7 +98,7 @@ function DesktopAppLayout<P extends string>({
 
         <main
           className="flex-1 overflow-y-auto min-w-0"
-          style={{ background: 'var(--color-bg-page)' }}
+          style={{ background: '#FFFFFF' }}
         >
           <PageContentWell>
             {children}
@@ -132,7 +131,7 @@ function MobileAppLayout<P extends string>({
   const hasBottomNav = bottomNavItems && bottomNavItems.length > 0;
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: 'var(--color-bg-page)' }}>
+    <div className="min-h-screen flex flex-col" style={{ background: '#FFFFFF' }}>
       {/* Header — switches between home header and sub-page header */}
       {isHomePage ? mobileHomeHeader : mobileSubHeader}
 

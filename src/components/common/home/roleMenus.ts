@@ -1,4 +1,4 @@
-import type { NavIcon } from '../../../types/icons';
+import type { MenuIconKey } from '../../config/menuIconMap';
 import { HOME_MENU_CATALOG } from './homeMenuCatalog';
 import type { HomeMenuItem } from './HomeDashboard';
 
@@ -9,7 +9,7 @@ export type RoleMenuEntry = {
   page: string;
 };
 
-/** 관리자 — 홈 카드 · 사이드바 공통 순서 */
+/** 역할별 메뉴 구성 — 권한 정책 유지 */
 export const ADMIN_ROLE_MENUS: RoleMenuEntry[] = [
   { catalogKey: 'sermon', page: 'sermons' },
   { catalogKey: 'grace', page: 'qt' },
@@ -31,7 +31,6 @@ export const ADMIN_ROLE_MENUS: RoleMenuEntry[] = [
   { catalogKey: 'settings', page: 'settings' },
 ];
 
-/** 교역자 — 홈 카드 · 사이드바 공통 순서 */
 export const PASTOR_ROLE_MENUS: RoleMenuEntry[] = [
   { catalogKey: 'sermon', page: 'sermons' },
   { catalogKey: 'grace', page: 'grace-notes' },
@@ -48,7 +47,6 @@ export const PASTOR_ROLE_MENUS: RoleMenuEntry[] = [
   { catalogKey: 'settings', page: 'settings' },
 ];
 
-/** 성도 — 홈 카드 · 사이드바 공통 순서 */
 export const MEMBER_ROLE_MENUS: RoleMenuEntry[] = [
   { catalogKey: 'sermon', page: 'sermon' },
   { catalogKey: 'grace', page: 'grace-notes' },
@@ -66,10 +64,10 @@ export const MEMBER_ROLE_MENUS: RoleMenuEntry[] = [
 
 export function buildSidebarNavItems<T extends string>(
   entries: RoleMenuEntry[],
-): { page: T; label: string; icon: NavIcon; iconColor: string }[] {
+): { page: T; label: string; iconKey: MenuIconKey }[] {
   return entries.map(({ catalogKey, page }) => {
     const meta = HOME_MENU_CATALOG[catalogKey];
-    return { page: page as T, label: meta.label, icon: meta.icon, iconColor: meta.iconColor };
+    return { page: page as T, label: meta.label, iconKey: meta.iconKey };
   });
 }
 
@@ -84,9 +82,7 @@ export function buildHomeMenuItems(
       id: page,
       label: meta.label,
       description: meta.description,
-      icon: meta.icon,
-      bg: meta.bg,
-      iconColor: meta.iconColor,
+      iconKey: meta.iconKey,
       onClick: () => {
         if (page === 'settings') {
           options?.onSettings?.();
@@ -98,7 +94,6 @@ export function buildHomeMenuItems(
   });
 }
 
-/** 페이지 헤더 라벨 — 카탈로그 메뉴명과 동일 */
 export function catalogPageLabels(
   entries: RoleMenuEntry[],
 ): Record<string, string> {

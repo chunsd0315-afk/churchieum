@@ -14,5 +14,12 @@ export default function AdminHome({ onNavigate }: Props) {
     { onSettings: openSettings },
   );
 
-  return <HomeDashboard menuItems={menuItems} />;
+  return (
+    <HomeDashboard
+      menuItems={menuItems}
+      mode="admin"
+      onSchedulesMore={() => onNavigate('events')}
+      onNoticesMore={() => onNavigate('announcements')}
+    />
+  );
 }
