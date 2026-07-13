@@ -1,4 +1,5 @@
 import type { ReactNode, CSSProperties } from 'react';
+import { PageHeaderBar } from '../ui';
 
 /** Churchieum 1.0 설교 메뉴 디자인 토큰 */
 export const SERMON_PAGE_BG = '#F8FAFC';
@@ -65,24 +66,19 @@ export function SermonSectionCard({ title, icon, children }: SectionProps) {
   );
 }
 
-type HeaderProps = {
+export type SermonPageHeaderProps = {
   title: string;
   description?: string;
   action?: ReactNode;
 };
 
-export function SermonPageHeader({ title, description, action }: HeaderProps) {
+export function SermonPageHeader({ title, description, action }: SermonPageHeaderProps) {
   return (
-    <div className="flex items-start justify-between gap-4 mb-6 pt-1">
-      <div className="min-w-0 flex-1">
-        <h1 className="text-[28px] font-extrabold text-gray-900 leading-tight tracking-tight">
-          {title}
-        </h1>
-        {description && (
-          <p className="mt-2 text-[15px] text-[#6B7280] leading-relaxed">{description}</p>
-        )}
-      </div>
-      {action && <div className="shrink-0 pt-1">{action}</div>}
-    </div>
+    <PageHeaderBar
+      title={title}
+      description={description}
+      action={action}
+      className="pt-1"
+    />
   );
 }

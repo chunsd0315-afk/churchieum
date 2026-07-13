@@ -1,5 +1,9 @@
 import React from 'react';
 import { ChevronLeft } from 'lucide-react';
+import {
+  PAGE_HEADER_TITLE_CLASS,
+  PAGE_HEADER_DESCRIPTION_CLASS,
+} from './PageHeaderTypography';
 
 export interface PageHeaderProps {
   title: string;
@@ -25,9 +29,9 @@ export function PageHeader({ title, subtitle, onBack, actions, className = '' }:
       )}
 
       <div className="flex-1 min-w-0">
-        <h1 className="text-xl font-bold text-gray-900 leading-tight truncate">{title}</h1>
+        <h1 className={`${PAGE_HEADER_TITLE_CLASS} truncate`}>{title}</h1>
         {subtitle && (
-          <p className="text-sm text-gray-500 mt-0.5 leading-snug">{subtitle}</p>
+          <p className={`${PAGE_HEADER_DESCRIPTION_CLASS} truncate`}>{subtitle}</p>
         )}
       </div>
 

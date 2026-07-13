@@ -448,6 +448,17 @@ export function getActiveProgressIds(): string[] {
     .map(p => p.id);
 }
 
+/** 통독 진행률 (0–100) */
+export function getProgressPercent(progress: ReadingProgress): number {
+  const plan = READING_PLANS.find(p => p.id === progress.planId);
+  if (!plan || plan.durationDays <= 0) return 0;
+  return Math.min(100, Math.round((progress.currentDay / plan.durationDays) * 100));
+}
+
+export function getPlanColor(planId: PlanId): string {
+  return READING_PLANS.find(p => p.id === planId)?.color ?? 'from-primary-500 to-primary-700';
+}
+
 export function markProgressDayComplete(id: string, dayNumber: number): void {
   const all = getAllProgresses();
   const idx = all.findIndex(p => p.id === id);
@@ -501,12 +512,6 @@ export function restartProgress(id: string): ReadingProgress {
   if (!old) throw new Error('Progress not found');
   setProgressStatus(id, 'abandoned');
   return addProgress(old.planId, 1, 'incomplete');
-}
-
-export function getProgressPercent(progress: ReadingProgress): number {
-  const plan = READING_PLANS.find(p => p.id === progress.planId);
-  if (!plan) return 0;
-  return Math.round((progress.completedDays.length / plan.durationDays) * 100);
 }
 
 function calcStreak(completedDays: number[]): number {

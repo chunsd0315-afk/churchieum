@@ -522,6 +522,7 @@ function ChapterView({ book, chapter, totalChapters, highlightVerse, translation
   const [copiedToast, setCopiedToast] = useState(false);
   const [verseInput, setVerseInput] = useState('');
   const [batchGraceModal, setBatchGraceModal] = useState(false);
+  const [chapterGraceModal, setChapterGraceModal] = useState(false);
 
   useEffect(() => {
     if (highlightVerse && verseRefs.current[highlightVerse]) {
@@ -575,6 +576,12 @@ function ChapterView({ book, chapter, totalChapters, highlightVerse, translation
         <AddToGraceModal
           verses={selectedVerses}
           onClose={() => { setBatchGraceModal(false); setSelected(new Set()); setSelectMode(false); }}
+        />
+      )}
+      {chapterGraceModal && verses[0] && (
+        <AddToGraceModal
+          verse={verses[0]}
+          onClose={() => setChapterGraceModal(false)}
         />
       )}
 
@@ -670,6 +677,20 @@ function ChapterView({ book, chapter, totalChapters, highlightVerse, translation
               verseRef={el => { verseRefs.current[v.verse] = el; }}
             />
           ))}
+        </div>
+      )}
+
+      {hasData && (
+        <div className="px-4 py-4 bg-white border-t border-gray-100 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setChapterGraceModal(true)}
+            className="flex items-center gap-2 min-h-[44px] px-4 py-2.5 rounded-xl bg-primary-600 text-white text-sm font-bold hover:bg-primary-700 transition-colors touch-target"
+          >
+            <Heart className="w-4 h-4" />
+            <span className="hidden sm:inline">오늘 말씀 은혜기록 작성</span>
+            <span className="sm:hidden">은혜기록</span>
+          </button>
         </div>
       )}
 

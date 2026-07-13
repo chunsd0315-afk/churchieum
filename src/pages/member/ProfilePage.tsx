@@ -5,6 +5,8 @@ import {
   Bell, Lock, Moon, Globe, HelpCircle, Info, Settings, Award,
 } from 'lucide-react';
 import { PageHeaderBar } from '../../components/common/ui';
+import { getFaithReportSummary } from '../../data/faithTimeline';
+import { getEarnedBadgeCount } from '../../data/graceBadges';
 
 type ReadingRecord = {
   date: string;
@@ -16,6 +18,9 @@ export default function ProfilePage() {
   const [bibleProgress, setBibleProgress] = useState(0);
   const [readingStreak, setReadingStreak] = useState(0);
   const [readingRecords, setReadingRecords] = useState<ReadingRecord[]>([]);
+
+  const [reportYear] = useState(new Date().getFullYear());
+  const faithReport = getFaithReportSummary(reportYear);
 
   useEffect(() => {
     const bibleData = localStorage.getItem('bible_progress');
@@ -73,6 +78,52 @@ export default function ProfilePage() {
           <Award className="w-6 h-6 text-accent-500 mx-auto mb-2" />
           <p className="text-2xl font-bold text-gray-900">{readingStreak}</p>
           <p className="text-xs text-gray-500">연속 통독일</p>
+        </div>
+      </div>
+
+      {/* 나의 신앙 리포트 */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
+          <Sparkles className="w-4 h-4 text-primary-500" />
+          <h3 className="font-bold text-gray-900 text-sm">나의 신앙 리포트 ({reportYear})</h3>
+        </div>
+        <div className="p-4 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-gray-50 rounded-xl p-3 text-center">
+              <p className="text-xl font-bold text-gray-900">{faithReport.yearTotal}</p>
+              <p className="text-[10px] text-gray-500">은혜기록</p>
+            </div>
+            <div className="bg-gray-50 rounded-xl p-3 text-center">
+              <p className="text-xl font-bold text-gray-900">{faithReport.streak}일</p>
+              <p className="text-[10px] text-gray-500">연속 기록</p>
+            </div>
+            <div className="bg-gray-50 rounded-xl p-3 text-center">
+              <p className="text-lg font-bold text-gray-900">{faithReport.sermonTotal}</p>
+              <p className="text-[10px] text-gray-500">설교 은혜</p>
+            </div>
+            <div className="bg-gray-50 rounded-xl p-3 text-center">
+              <p className="text-lg font-bold text-gray-900">{faithReport.readingTotal}</p>
+              <p className="text-[10px] text-gray-500">성경통독 은혜</p>
+            </div>
+          </div>
+          {faithReport.topBooks.length > 0 && (
+            <div>
+              <p className="text-xs font-bold text-gray-500 mb-1">가장 많이 묵상한 성경</p>
+              <p className="text-sm text-gray-800">{faithReport.topBooks.join(' · ')}</p>
+            </div>
+          )}
+          {faithReport.topKeywords.length > 0 && (
+            <div>
+              <p className="text-xs font-bold text-gray-500 mb-1">자주 기록한 키워드</p>
+              <div className="flex flex-wrap gap-1.5">
+                {faithReport.topKeywords.map(kw => (
+                  <span key={kw} className="text-xs bg-primary-50 text-primary-700 px-2 py-1 rounded-full font-medium">{kw}</span>
+                ))}
+              </div>
+            </div>
+          )}
+          <p className="text-sm text-gray-600 bg-amber-50/60 rounded-xl p-3 leading-relaxed">{faithReport.monthGrowth}</p>
+          <p className="text-xs text-gray-400 text-center">획득 배지 {getEarnedBadgeCount()}개</p>
         </div>
       </div>
 

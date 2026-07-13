@@ -7,18 +7,80 @@
  * - PlanGraceNotesSummary : 통독 계획 내 은혜기록 요약 (BibleReadingCenter에서 사용)
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   ArrowLeft, Heart, BookOpen, Edit3, Trash2, Copy, Search,
   Filter, X, CheckCircle, ChevronDown, BookMarked,
-  Sparkles, Mic, Lock, Users, Eye,
+  Sparkles, Mic, Lock, Users, Eye, MessageCircle, HandHeart, Star,
 } from 'lucide-react';
 import {
   getAllGraceNotes, getGraceNote, getGraceNotesByProgress,
   createGraceNote, updateGraceNote, deleteGraceNote,
+  toggleGraceNoteLike, addGraceNotePrayer, addGraceNoteAmen, addGraceNoteComment,
+  isGraceNoteLikedByMe, formatReadingLabel,
   type GraceNote, type GraceNoteInput, type GraceNoteType, type GraceNoteVisibility,
 } from '../../data/graceNotes';
-import { READING_PLANS } from '../../data/readingPlans';
+import { formatSharedPastorLabel, formatSharedGroupLabel } from '../../data/graceNoteSeed';
+import { READING_PLANS, getPlanColor } from '../../data/readingPlans';
+import { GraceNoteShareSelector, defaultShareState, shareStateToInput, type GraceNoteShareState } from './GraceNoteShareSelector';
+import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../common/ui';
+import ContentEditorLayout, { ContentFormCard } from '../layout/ContentEditorLayout';
+
+/** 은혜기록 작성 화면 공통 제목·설명 */
+export const GRACE_FORM_HEADERS = {
+  reading: {
+    title: '성경통독 은혜기록',
+    editTitle: '성경통독 은혜기록 수정',
+    description: '오늘 읽은 말씀의 은혜를 기록해 보세요.',
+  },
+  sermon: {
+    title: '설교 은혜기록',
+    editTitle: '설교 은혜기록 수정',
+    description: '설교를 통해 받은 은혜를 기록해 보세요.',
+  },
+  personal: {
+    title: '자유 은혜기록',
+    editTitle: '자유 은혜기록 수정',
+    description: '일상 속 하나님의 은혜를 자유롭게 기록해 보세요.',
+  },
+} as const;
+
+function GraceFormSaveButton({
+  saved,
+  disabled,
+  onClick,
+}: {
+  saved: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`flex items-center gap-1.5 px-4 py-2 rounded-xl font-semibold text-[13px] transition-colors ${
+        saved
+          ? 'bg-green-500 text-white'
+          : disabled
+            ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+            : 'bg-primary-600 text-white hover:bg-primary-700'
+      }`}
+    >
+      {saved ? '저장됨 ✓' : '저장'}
+    </button>
+  );
+}
+
+function persistGraceNote(input: GraceNoteInput, editId: string | undefined, userId?: string): string {
+  const payload = { ...input, userId: input.userId ?? userId };
+  if (editId) {
+    updateGraceNote(editId, payload);
+    return editId;
+  }
+  return createGraceNote(payload, userId).id;
+}
 
 // ─── Reading Grace Form Context ───────────────────────────────────────────────
 
@@ -40,7 +102,12 @@ export type SermonGraceFormCtx = {
   sermonPreacher?: string;
   sermonDate?: string;
   bibleReference?: string;
+  worshipType?: string;
+  thumbnailUrl?: string;
+  videoUrl?: string;
   editId?: string;
+  /** 설교 페이지에서 연결된 경우 — 설교 정보 읽기 전용 */
+  linkedFromSermon?: boolean;
 };
 
 // ─── Shared field row ─────────────────────────────────────────────────────────
@@ -75,45 +142,20 @@ function FieldBlock({
 
 // ─── Visibility helpers ───────────────────────────────────────────────────────
 
-const VISIBILITY_OPTIONS: { value: GraceNoteVisibility; label: string; desc: string; icon: React.ReactNode; color: string }[] = [
-  { value: 'private', label: '나만 보기', desc: '나만 볼 수 있어요', icon: <Lock className="w-3.5 h-3.5" />, color: 'text-gray-600 bg-gray-100' },
-  { value: 'pastor', label: '담당 교역자와 공유', desc: '담당 교역자만 볼 수 있어요', icon: <Eye className="w-3.5 h-3.5" />, color: 'text-blue-600 bg-blue-50' },
-  { value: 'group', label: '교구/부서 내 공유', desc: '같은 교구·구역·부서원이 볼 수 있어요', icon: <Users className="w-3.5 h-3.5" />, color: 'text-emerald-600 bg-emerald-50' },
-];
-
 export function visibilityMeta(v: GraceNoteVisibility) {
-  return VISIBILITY_OPTIONS.find(o => o.value === v) ?? VISIBILITY_OPTIONS[0];
+  const opts = [
+    { value: 'private' as const, label: '나만 보기', desc: '나만 볼 수 있어요', icon: <Lock className="w-3.5 h-3.5" />, color: 'text-gray-600 bg-gray-100' },
+    { value: 'pastor' as const, label: '담당 교역자와 공유', desc: '선택한 교역자와 공유', icon: <Eye className="w-3.5 h-3.5" />, color: 'text-blue-600 bg-blue-50' },
+    { value: 'group' as const, label: '교구/부서 공유', desc: '선택한 교구·부서와 공유', icon: <Users className="w-3.5 h-3.5" />, color: 'text-emerald-600 bg-emerald-50' },
+    { value: 'public' as const, label: '전체 공개', desc: '교회 성도 모두에게 공개', icon: <Eye className="w-3.5 h-3.5" />, color: 'text-violet-600 bg-violet-50' },
+  ];
+  return opts.find(o => o.value === v) ?? opts[0];
 }
 
-function VisibilitySelector({ value, onChange }: { value: GraceNoteVisibility; onChange: (v: GraceNoteVisibility) => void }) {
-  return (
-    <div>
-      <label className="text-sm font-bold text-gray-800 mb-2 flex items-center gap-1.5">
-        <Lock className="w-4 h-4 text-gray-500" /> 공개 범위
-      </label>
-      <div className="grid grid-cols-3 gap-2">
-        {VISIBILITY_OPTIONS.map(opt => (
-          <button
-            key={opt.value}
-            type="button"
-            onClick={() => onChange(opt.value)}
-            className={`flex flex-col items-center gap-1.5 p-3 rounded-2xl border-2 text-center transition-all ${
-              value === opt.value
-                ? 'border-primary-400 bg-primary-50'
-                : 'border-gray-200 bg-white hover:border-gray-300'
-            }`}>
-            <span className={`w-8 h-8 rounded-xl flex items-center justify-center ${value === opt.value ? 'bg-primary-100 text-primary-600' : opt.color}`}>
-              {opt.icon}
-            </span>
-            <span className={`text-[11px] font-bold leading-tight ${value === opt.value ? 'text-primary-700' : 'text-gray-700'}`}>
-              {opt.label}
-            </span>
-          </button>
-        ))}
-      </div>
-      <p className="text-xs text-gray-400 mt-1.5 text-center">{visibilityMeta(value).desc}</p>
-    </div>
-  );
+function shareSummary(note: GraceNote): string | null {
+  if (note.visibility === 'pastor') return formatSharedPastorLabel(note);
+  if (note.visibility === 'group') return formatSharedGroupLabel(note);
+  return null;
 }
 
 // ─── Reading Grace Form View ──────────────────────────────────────────────────
@@ -123,163 +165,161 @@ export function GraceNoteFormView({ ctx, onSave, onBack }: {
   onSave: (id: string) => void;
   onBack: () => void;
 }) {
+  const { user } = useAuth();
+  const toast = useToast();
   const existing = ctx.editId ? getGraceNote(ctx.editId) : null;
 
   const [graceContent, setGraceContent] = useState(existing?.graceContent ?? '');
   const [memorableVerse, setMemorableVerse] = useState(existing?.memorableVerse ?? '');
   const [application, setApplication] = useState(existing?.application ?? '');
   const [prayer, setPrayer] = useState(existing?.prayer ?? '');
-  const [visibility, setVisibility] = useState<GraceNoteVisibility>(existing?.visibility ?? 'private');
+  const [share, setShare] = useState<GraceNoteShareState>(() => defaultShareState(existing ?? undefined));
   const [saved, setSaved] = useState(false);
+  const [readingRef, setReadingRef] = useState(existing?.bibleReference ?? ctx.readingReferences);
+  const planColor = ctx.planId ? getPlanColor(ctx.planId as import('../../data/readingPlans').PlanId) : ctx.planColor;
 
   const handleSave = () => {
     if (!graceContent.trim()) return;
     const input: GraceNoteInput = {
       type: 'reading',
-      visibility,
+      authorName: existing?.authorName ?? user?.name,
+      ...shareStateToInput(share),
       sourceId: ctx.progressId,
       sourceTitle: ctx.planName,
       planId: ctx.planId,
       planName: ctx.planName,
-      planColor: ctx.planColor,
+      planColor,
       day: ctx.day,
-      bibleReference: ctx.readingReferences,
+      bibleReference: readingRef,
       memorableVerse,
       graceContent,
       application,
       prayer,
     };
-    let id: string;
-    if (ctx.editId) {
-      updateGraceNote(ctx.editId, input);
-      id = ctx.editId;
-    } else {
-      id = createGraceNote(input).id;
+    try {
+      const id = persistGraceNote(input, ctx.editId, user?.id);
+      setSaved(true);
+      setTimeout(() => { onSave(id); }, 700);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '저장할 수 없습니다.');
     }
-    setSaved(true);
-    setTimeout(() => { onSave(id); }, 700);
   };
 
   const hasContent = graceContent.trim().length > 0;
+  const headerTitle = ctx.editId ? GRACE_FORM_HEADERS.reading.editTitle : GRACE_FORM_HEADERS.reading.title;
+  const saveBtn = (
+    <GraceFormSaveButton saved={saved} disabled={!hasContent || saved} onClick={handleSave} />
+  );
 
   return (
-    <div
-      className="flex flex-col fixed inset-0 bg-white overflow-y-auto overscroll-contain md:static md:inset-auto md:z-auto md:overflow-visible md:bg-transparent"
-      style={{ minHeight: 'calc(100vh - 120px)', zIndex: 300 }}
+    <ContentEditorLayout
+      title={headerTitle}
+      description={GRACE_FORM_HEADERS.reading.description}
+      onBack={onBack}
+      saveButton={saveBtn}
+      mobileHeaderVariant="subpage"
     >
-      <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-3 sticky top-0 z-10">
-        <button onClick={onBack} className="flex items-center gap-1 text-gray-700 hover:text-gray-900">
-          <ArrowLeft className="w-5 h-5" /> <span className="text-[15px] font-semibold md:hidden">뒤로</span>
-        </button>
-        <div className="flex-1">
-          <h2 className="font-bold text-gray-900 text-sm">{ctx.editId ? '성경통독 은혜기록 수정' : '성경통독 은혜기록'}</h2>
-          <p className="text-xs text-gray-400">{ctx.planName} · {ctx.day}일차</p>
-        </div>
-        <button
-          onClick={handleSave}
-          disabled={!hasContent || saved}
-          className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
-            saved ? 'bg-green-500 text-white' : hasContent ? `bg-gradient-to-r ${ctx.planColor} text-white hover:opacity-90` : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-          }`}>
-          {saved ? '저장됨 ✓' : '저장'}
-        </button>
-      </div>
-
-      <div className="flex-1 bg-gray-50 lg:grid lg:grid-cols-2 lg:gap-0">
-        {/* Left: plan info */}
-        <div className="lg:border-r lg:border-gray-100 p-4 space-y-3">
-          <div className={`bg-gradient-to-br ${ctx.planColor} rounded-2xl p-4 text-white`}>
-            <div className="flex items-center gap-2 mb-1">
-              <BookOpen className="w-5 h-5 opacity-80" />
-              <span className="font-bold">{ctx.planName}</span>
-            </div>
-            <p className="text-white/70 text-xs">{ctx.day}일차 · {ctx.readingReferences}</p>
+      <ContentFormCard className="space-y-5">
+        <div className={`bg-gradient-to-br ${planColor} rounded-2xl p-4 text-white`}>
+          <div className="flex items-center gap-2 mb-1">
+            <BookOpen className="w-5 h-5 opacity-80" />
+            <span className="font-bold">{ctx.planName}</span>
           </div>
-          <div className="bg-white rounded-2xl border border-gray-100 p-4">
-            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-              <BookMarked className="w-3.5 h-3.5" /> 오늘 읽은 말씀
-            </h3>
-            <p className="text-sm font-semibold text-gray-800">{ctx.readingReferences}</p>
-            <p className="text-xs text-gray-400 mt-1">위 말씀을 바탕으로 은혜를 기록하세요.</p>
-          </div>
-          <div className="bg-amber-50 rounded-2xl border border-amber-100 p-4">
-            <h3 className="text-xs font-bold text-amber-700 mb-2 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5" /> 기록 도움말
-            </h3>
-            <ul className="text-xs text-amber-600 space-y-1">
-              <li>• 오늘 읽은 말씀을 통해 받은 깨달음을 적어보세요</li>
-              <li>• 마음에 남는 구절을 기억해두면 좋아요</li>
-              <li>• 삶에 적용할 한 가지를 정해보세요</li>
-            </ul>
-          </div>
+          <p className="text-white/70 text-xs">{ctx.day}일차</p>
         </div>
 
-        {/* Right: form fields */}
-        <div className="p-4 space-y-4">
-          <FieldBlock
-            icon={<Heart className="w-4 h-4 text-rose-500" />}
-            label="받은 은혜" required
-            value={graceContent} onChange={setGraceContent}
-            placeholder="하나님께서 오늘 말씀을 통해 주신 은혜를 적어보세요."
-            rows={5}
+        <div>
+          <label className="text-sm font-bold text-gray-800 mb-2 flex items-center gap-1.5">
+            <BookMarked className="w-4 h-4 text-primary-500" /> 오늘 읽은 말씀
+          </label>
+          <input
+            value={readingRef}
+            onChange={e => setReadingRef(e.target.value)}
+            placeholder="예: 창세기 12장"
+            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary-400 bg-gray-50 font-semibold text-gray-800"
           />
-          <FieldBlock
-            icon={<BookMarked className="w-4 h-4 text-primary-500" />}
-            label="마음에 남은 말씀"
-            value={memorableVerse} onChange={setMemorableVerse}
-            placeholder="예: 창세기 1장 1절 - 태초에 하나님이 천지를 창조하시니라"
-            rows={3}
-          />
-          <FieldBlock
-            icon={<CheckCircle className="w-4 h-4 text-emerald-500" />}
-            label="적용할 점"
-            value={application} onChange={setApplication}
-            placeholder="예: 하루의 시작을 말씀과 기도로 시작하겠습니다."
-            rows={3}
-          />
-          <FieldBlock
-            icon={<Sparkles className="w-4 h-4 text-violet-500" />}
-            label="기도문"
-            value={prayer} onChange={setPrayer}
-            placeholder="예: 주님, 오늘도 말씀 안에서 하루를 시작하게 하소서."
-            rows={3}
-          />
-          <VisibilitySelector value={visibility} onChange={setVisibility} />
-          <div className="pt-2 pb-4 lg:hidden">
-            <button
-              onClick={handleSave}
-              disabled={!hasContent || saved}
-              className={`w-full py-3.5 rounded-2xl text-sm font-bold transition-all shadow-sm ${
-                saved ? 'bg-green-500 text-white' : hasContent ? `bg-gradient-to-r ${ctx.planColor} text-white` : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-              }`}>
-              {saved ? '저장됨 ✓' : '은혜기록 저장'}
-            </button>
-          </div>
         </div>
-      </div>
-    </div>
+
+        <FieldBlock
+          icon={<Heart className="w-4 h-4 text-rose-500" />}
+          label="받은 은혜" required
+          value={graceContent} onChange={setGraceContent}
+          placeholder="하나님께서 오늘 말씀을 통해 주신 은혜를 적어보세요."
+          rows={5}
+        />
+        <FieldBlock
+          icon={<BookMarked className="w-4 h-4 text-primary-500" />}
+          label="마음에 남은 말씀"
+          value={memorableVerse} onChange={setMemorableVerse}
+          placeholder="예: 창세기 1장 1절 - 태초에 하나님이 천지를 창조하시니라"
+          rows={3}
+        />
+        <FieldBlock
+          icon={<CheckCircle className="w-4 h-4 text-emerald-500" />}
+          label="적용할 점"
+          value={application} onChange={setApplication}
+          placeholder="예: 하루의 시작을 말씀과 기도로 시작하겠습니다."
+          rows={3}
+        />
+        <FieldBlock
+          icon={<Sparkles className="w-4 h-4 text-violet-500" />}
+          label="기도문"
+          value={prayer} onChange={setPrayer}
+          placeholder="예: 주님, 오늘도 말씀 안에서 하루를 시작하게 하소서."
+          rows={3}
+        />
+        <GraceNoteShareSelector value={share} onChange={setShare} />
+      </ContentFormCard>
+    </ContentEditorLayout>
   );
 }
 
 // ─── Sermon Grace Form View ───────────────────────────────────────────────────
+
+function ReadOnlyField({ label, value }: { label: string; value?: string }) {
+  if (!value) return null;
+  return (
+    <div>
+      <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">{label}</p>
+      <p className="text-sm font-semibold text-gray-800">{value}</p>
+    </div>
+  );
+}
 
 export function SermonGraceFormView({ ctx, onSave, onBack }: {
   ctx: SermonGraceFormCtx;
   onSave: (id: string) => void;
   onBack: () => void;
 }) {
+  const { user } = useAuth();
+  const toast = useToast();
   const existing = ctx.editId ? getGraceNote(ctx.editId) : null;
+  const linked = ctx.linkedFromSermon && !ctx.editId;
 
-  const [sermonTitle, setSermonTitle] = useState(existing?.sermonTitle ?? ctx.sermonTitle ?? '');
-  const [sermonPreacher, setSermonPreacher] = useState(existing?.sermonPreacher ?? ctx.sermonPreacher ?? '');
-  const [sermonDate, setSermonDate] = useState(existing?.sermonDate ?? ctx.sermonDate ?? new Date().toISOString().slice(0, 10));
-  const [bibleRef, setBibleRef] = useState(existing?.bibleReference ?? ctx.bibleReference ?? '');
-  const [memorableVerse, setMemorableVerse] = useState(existing?.memorableVerse ?? '');
+  const [sermonTitle] = useState(existing?.sermonTitle ?? ctx.sermonTitle ?? '');
+  const [sermonPreacher] = useState(existing?.sermonPreacher ?? ctx.sermonPreacher ?? '');
+  const [sermonDate] = useState(existing?.sermonDate ?? ctx.sermonDate ?? new Date().toISOString().slice(0, 10));
+  const [bibleRef] = useState(existing?.bibleReference ?? ctx.bibleReference ?? '');
+  const [worshipType] = useState(existing?.worshipType ?? ctx.worshipType ?? '');
+  const [graceTitle, setGraceTitle] = useState(existing?.graceTitle ?? '');
   const [graceContent, setGraceContent] = useState(existing?.graceContent ?? '');
+  const [memorableVerse, setMemorableVerse] = useState(existing?.memorableVerse ?? '');
   const [application, setApplication] = useState(existing?.application ?? '');
   const [prayer, setPrayer] = useState(existing?.prayer ?? '');
-  const [visibility, setVisibility] = useState<GraceNoteVisibility>(existing?.visibility ?? 'private');
+  const [isFavorite, setIsFavorite] = useState(existing?.isFavorite ?? false);
+  const [share, setShare] = useState<GraceNoteShareState>(() => defaultShareState(existing ?? undefined));
   const [saved, setSaved] = useState(false);
+
+  // 수동 입력 모드 (은혜기록 메뉴에서 직접 작성)
+  const [editTitle, setEditTitle] = useState(sermonTitle);
+  const [editPreacher, setEditPreacher] = useState(sermonPreacher);
+  const [editDate, setEditDate] = useState(sermonDate);
+  const [editBibleRef, setEditBibleRef] = useState(bibleRef);
+
+  const finalTitle = linked ? sermonTitle : editTitle;
+  const finalPreacher = linked ? sermonPreacher : editPreacher;
+  const finalDate = linked ? sermonDate : editDate;
+  const finalBibleRef = linked ? bibleRef : editBibleRef;
 
   const hasContent = graceContent.trim().length > 0;
 
@@ -287,158 +327,218 @@ export function SermonGraceFormView({ ctx, onSave, onBack }: {
     if (!hasContent) return;
     const input: GraceNoteInput = {
       type: 'sermon',
-      visibility,
+      authorName: existing?.authorName ?? user?.name,
+      ...shareStateToInput(share),
       sourceId: ctx.sermonId,
-      sourceTitle: sermonTitle,
-      sermonTitle,
-      sermonPreacher,
-      sermonDate,
-      bibleReference: bibleRef,
+      sourceTitle: finalTitle,
+      sermonTitle: finalTitle,
+      sermonPreacher: finalPreacher,
+      sermonDate: finalDate,
+      bibleReference: finalBibleRef,
+      worshipType: worshipType || ctx.worshipType,
+      thumbnailUrl: ctx.thumbnailUrl,
+      videoUrl: ctx.videoUrl,
+      graceTitle: graceTitle.trim() || undefined,
+      isFavorite,
+      memorableVerse: linked ? '' : memorableVerse,
+      graceContent,
+      application: linked ? '' : application,
+      prayer: linked ? '' : prayer,
+    };
+    try {
+      const id = persistGraceNote(input, ctx.editId, user?.id);
+      setSaved(true);
+      setTimeout(() => { onSave(id); }, linked ? 400 : 700);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '저장할 수 없습니다.');
+    }
+  };
+
+  const headerTitle = ctx.editId ? GRACE_FORM_HEADERS.sermon.editTitle : GRACE_FORM_HEADERS.sermon.title;
+  const saveBtn = (
+    <GraceFormSaveButton saved={saved} disabled={!hasContent || saved} onClick={handleSave} />
+  );
+
+  return (
+    <ContentEditorLayout
+      title={headerTitle}
+      description={GRACE_FORM_HEADERS.sermon.description}
+      onBack={onBack}
+      saveButton={saveBtn}
+      mobileHeaderVariant="subpage"
+    >
+      <ContentFormCard className="space-y-5">
+        <div className="space-y-3">
+          <p className="text-xs font-bold text-gray-500">연결된 설교</p>
+          {linked ? (
+            <>
+              {ctx.thumbnailUrl && (
+                <img src={ctx.thumbnailUrl} alt="" className="w-full h-36 object-cover rounded-xl" />
+              )}
+              <ReadOnlyField label="설교 제목" value={sermonTitle} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <ReadOnlyField label="설교자" value={sermonPreacher} />
+                <ReadOnlyField label="예배 종류" value={worshipType} />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <ReadOnlyField label="설교 날짜" value={sermonDate?.replace(/-/g, '.')} />
+                <ReadOnlyField label="성경 본문" value={bibleRef} />
+              </div>
+            </>
+          ) : (
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-gray-500 mb-1.5 block">설교 제목</label>
+                <input value={editTitle} onChange={e => setEditTitle(e.target.value)}
+                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs font-bold text-gray-500 mb-1.5 block">설교자</label>
+                  <input value={editPreacher} onChange={e => setEditPreacher(e.target.value)}
+                    className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-500 mb-1.5 block">날짜</label>
+                  <input type="date" value={editDate} onChange={e => setEditDate(e.target.value)}
+                    className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 mb-1.5 block">성경 본문</label>
+                <input value={editBibleRef} onChange={e => setEditBibleRef(e.target.value)}
+                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50" />
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div>
+          <label className="text-sm font-bold text-gray-800 mb-2 block">은혜 제목 (선택)</label>
+          <input
+            value={graceTitle}
+            onChange={e => setGraceTitle(e.target.value)}
+            placeholder="예: 십자가의 사랑이 마음에 와닿았습니다"
+            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-sm focus:outline-none focus:border-primary-400"
+          />
+        </div>
+        <FieldBlock
+          icon={<Heart className="w-4 h-4 text-rose-500" />}
+          label="은혜 내용" required
+          value={graceContent} onChange={setGraceContent}
+          placeholder="설교를 통해 하나님께서 주신 은혜를 적어보세요."
+          rows={linked ? 8 : 5}
+        />
+        {!linked && (
+          <>
+            <FieldBlock icon={<BookMarked className="w-4 h-4 text-primary-500" />} label="마음에 남은 말씀"
+              value={memorableVerse} onChange={setMemorableVerse} placeholder="마음에 남은 말씀을 적어보세요." rows={3} />
+            <FieldBlock icon={<CheckCircle className="w-4 h-4 text-emerald-500" />} label="결단 / 적용"
+              value={application} onChange={setApplication} placeholder="삶에 적용할 내용을 적어보세요." rows={3} />
+            <FieldBlock icon={<Sparkles className="w-4 h-4 text-violet-500" />} label="기도문"
+              value={prayer} onChange={setPrayer} placeholder="기도의 마음을 적어보세요." rows={3} />
+          </>
+        )}
+        <GraceNoteShareSelector value={share} onChange={setShare} />
+        <label className="flex items-center gap-3 touch-target cursor-pointer py-2">
+          <button type="button" onClick={() => setIsFavorite(v => !v)}
+            className={`w-10 h-10 rounded-xl flex items-center justify-center border-2 transition-colors ${
+              isFavorite ? 'border-amber-400 bg-amber-50 text-amber-500' : 'border-gray-200 text-gray-400'
+            }`}>
+            <Star className={`w-5 h-5 ${isFavorite ? 'fill-amber-400' : ''}`} />
+          </button>
+          <span className="text-sm font-semibold text-gray-700">즐겨찾기에 추가</span>
+        </label>
+      </ContentFormCard>
+    </ContentEditorLayout>
+  );
+}
+
+// ─── Personal (Free) Grace Form View ──────────────────────────────────────────
+
+export function PersonalGraceFormView({ editId, onSave, onBack }: {
+  editId?: string;
+  onSave: (id: string) => void;
+  onBack: () => void;
+}) {
+  const { user } = useAuth();
+  const toast = useToast();
+  const existing = editId ? getGraceNote(editId) : null;
+
+  const [graceContent, setGraceContent] = useState(existing?.graceContent ?? '');
+  const [memorableVerse, setMemorableVerse] = useState(existing?.memorableVerse ?? '');
+  const [application, setApplication] = useState(existing?.application ?? '');
+  const [prayer, setPrayer] = useState(existing?.prayer ?? '');
+  const [share, setShare] = useState<GraceNoteShareState>(() => defaultShareState(existing ?? undefined));
+  const [saved, setSaved] = useState(false);
+
+  const hasContent = graceContent.trim().length > 0;
+
+  const handleSave = () => {
+    if (!hasContent) return;
+    const input: GraceNoteInput = {
+      type: 'personal',
+      authorName: existing?.authorName ?? user?.name,
+      ...shareStateToInput(share),
       memorableVerse,
       graceContent,
       application,
       prayer,
     };
-    let id: string;
-    if (ctx.editId) {
-      updateGraceNote(ctx.editId, input);
-      id = ctx.editId;
-    } else {
-      id = createGraceNote(input).id;
+    try {
+      const id = persistGraceNote(input, editId, user?.id);
+      setSaved(true);
+      setTimeout(() => { onSave(id); }, 700);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '저장할 수 없습니다.');
     }
-    setSaved(true);
-    setTimeout(() => { onSave(id); }, 700);
   };
 
+  const headerTitle = editId ? GRACE_FORM_HEADERS.personal.editTitle : GRACE_FORM_HEADERS.personal.title;
+  const saveBtn = (
+    <GraceFormSaveButton saved={saved} disabled={!hasContent || saved} onClick={handleSave} />
+  );
+
   return (
-    <div
-      className="flex flex-col fixed inset-0 bg-white overflow-y-auto overscroll-contain md:static md:inset-auto md:z-auto md:overflow-visible md:bg-transparent"
-      style={{ minHeight: 'calc(100vh - 120px)', zIndex: 300 }}
+    <ContentEditorLayout
+      title={headerTitle}
+      description={GRACE_FORM_HEADERS.personal.description}
+      onBack={onBack}
+      saveButton={saveBtn}
+      mobileHeaderVariant="subpage"
     >
-      <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-3 sticky top-0 z-10">
-        <button onClick={onBack} className="flex items-center gap-1 text-gray-700 hover:text-gray-900">
-          <ArrowLeft className="w-5 h-5" /> <span className="text-[15px] font-semibold md:hidden">뒤로</span>
-        </button>
-        <div className="flex-1">
-          <h2 className="font-bold text-gray-900 text-sm">{ctx.editId ? '설교 은혜기록 수정' : '설교 은혜기록'}</h2>
-          <p className="text-xs text-gray-400">{sermonTitle || '설교 은혜를 기록하세요'}</p>
-        </div>
-        <button
-          onClick={handleSave}
-          disabled={!hasContent || saved}
-          className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
-            saved ? 'bg-green-500 text-white' : hasContent ? 'bg-gradient-to-r from-secondary-500 to-primary-600 text-white hover:opacity-90' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-          }`}>
-          {saved ? '저장됨 ✓' : '저장'}
-        </button>
-      </div>
-
-      <div className="flex-1 bg-gray-50 lg:grid lg:grid-cols-2 lg:gap-0">
-        {/* Left: sermon info fields */}
-        <div className="lg:border-r lg:border-gray-100 p-4 space-y-3">
-          <div className="bg-gradient-to-br from-secondary-500 to-primary-600 rounded-2xl p-4 text-white">
-            <div className="flex items-center gap-2 mb-1">
-              <Mic className="w-5 h-5 opacity-80" />
-              <span className="font-bold text-sm">설교 은혜기록</span>
-            </div>
-            <p className="text-white/70 text-xs">설교를 통해 받은 은혜를 기록하세요</p>
-          </div>
-          <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-3">
-            <div>
-              <label className="text-xs font-bold text-gray-500 mb-1.5 block">설교 제목</label>
-              <input
-                value={sermonTitle}
-                onChange={e => setSermonTitle(e.target.value)}
-                placeholder="설교 제목을 입력하세요"
-                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary-400 bg-gray-50"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-xs font-bold text-gray-500 mb-1.5 block">설교자</label>
-                <input
-                  value={sermonPreacher}
-                  onChange={e => setSermonPreacher(e.target.value)}
-                  placeholder="설교자"
-                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary-400 bg-gray-50"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-bold text-gray-500 mb-1.5 block">날짜</label>
-                <input
-                  type="date"
-                  value={sermonDate}
-                  onChange={e => setSermonDate(e.target.value)}
-                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary-400 bg-gray-50"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="text-xs font-bold text-gray-500 mb-1.5 block">설교 본문</label>
-              <input
-                value={bibleRef}
-                onChange={e => setBibleRef(e.target.value)}
-                placeholder="예: 히브리서 11:1"
-                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary-400 bg-gray-50"
-              />
-            </div>
-          </div>
-          <div className="bg-amber-50 rounded-2xl border border-amber-100 p-4">
-            <h3 className="text-xs font-bold text-amber-700 mb-2 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5" /> 기록 도움말
-            </h3>
-            <ul className="text-xs text-amber-600 space-y-1">
-              <li>• 설교를 통해 마음에 울림이 온 말씀을 기록하세요</li>
-              <li>• 하나님께서 나에게 주시는 메시지를 적어보세요</li>
-              <li>• 결단하고 삶에 적용할 한 가지를 정해보세요</li>
-            </ul>
-          </div>
-        </div>
-
-        {/* Right: grace fields */}
-        <div className="p-4 space-y-4">
-          <FieldBlock
-            icon={<Heart className="w-4 h-4 text-rose-500" />}
-            label="받은 은혜" required
-            value={graceContent} onChange={setGraceContent}
-            placeholder="설교를 통해 하나님께서 주신 은혜를 적어보세요."
-            rows={5}
-          />
-          <FieldBlock
-            icon={<BookMarked className="w-4 h-4 text-primary-500" />}
-            label="마음에 남은 말씀"
-            value={memorableVerse} onChange={setMemorableVerse}
-            placeholder="마음에 남은 성경 구절이나 설교 내용을 적어보세요."
-            rows={3}
-          />
-          <FieldBlock
-            icon={<CheckCircle className="w-4 h-4 text-emerald-500" />}
-            label="결단 / 적용"
-            value={application} onChange={setApplication}
-            placeholder="설교를 듣고 삶에 적용하거나 결단할 내용을 적어보세요."
-            rows={3}
-          />
-          <FieldBlock
-            icon={<Sparkles className="w-4 h-4 text-violet-500" />}
-            label="기도문"
-            value={prayer} onChange={setPrayer}
-            placeholder="예: 주님, 오늘 말씀대로 살아갈 수 있도록 도와주세요."
-            rows={3}
-          />
-          <VisibilitySelector value={visibility} onChange={setVisibility} />
-          <div className="pt-2 pb-4 lg:hidden">
-            <button
-              onClick={handleSave}
-              disabled={!hasContent || saved}
-              className={`w-full py-3.5 rounded-2xl text-sm font-bold transition-all shadow-sm ${
-                saved ? 'bg-green-500 text-white' : hasContent ? 'bg-gradient-to-r from-secondary-500 to-primary-600 text-white' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-              }`}>
-              {saved ? '저장됨 ✓' : '은혜기록 저장'}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+      <ContentFormCard className="space-y-5">
+        <FieldBlock
+          icon={<Heart className="w-4 h-4 text-rose-500" />}
+          label="받은 은혜" required
+          value={graceContent} onChange={setGraceContent}
+          placeholder="하나님께서 주신 은혜와 감사한 마음을 적어보세요."
+          rows={6}
+        />
+        <FieldBlock
+          icon={<BookMarked className="w-4 h-4 text-primary-500" />}
+          label="마음에 남은 말씀 (선택)"
+          value={memorableVerse} onChange={setMemorableVerse}
+          placeholder="떠오르는 성경 구절이 있다면 적어보세요."
+          rows={3}
+        />
+        <FieldBlock
+          icon={<CheckCircle className="w-4 h-4 text-emerald-500" />}
+          label="적용할 점 (선택)"
+          value={application} onChange={setApplication}
+          placeholder="오늘 삶에 적용하고 싶은 한 가지를 적어보세요."
+          rows={3}
+        />
+        <FieldBlock
+          icon={<Sparkles className="w-4 h-4 text-violet-500" />}
+          label="기도문 (선택)"
+          value={prayer} onChange={setPrayer}
+          placeholder="감사와 기도의 마음을 적어보세요."
+          rows={3}
+        />
+        <GraceNoteShareSelector value={share} onChange={setShare} />
+      </ContentFormCard>
+    </ContentEditorLayout>
   );
 }
 
@@ -469,8 +569,8 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
       if (search) {
         const q = search.toLowerCase();
         const searchable = [
-          n.planName, n.sermonTitle, n.sermonPreacher, n.bibleReference,
-          n.graceContent, n.memorableVerse, n.application,
+          n.authorName, n.authorRole, n.planName, n.sermonTitle, n.sermonPreacher, n.bibleReference,
+          n.graceContent, n.memorableVerse, n.application, n.prayer,
         ].filter(Boolean).join(' ').toLowerCase();
         if (!searchable.includes(q)) return false;
       }
@@ -485,9 +585,9 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
   };
 
   const typeLabel = (type: GraceNoteType) =>
-    type === 'reading' ? '성경통독' : type === 'sermon' ? '설교' : '개인';
+    type === 'reading' ? '성경통독' : type === 'sermon' ? '설교' : '자유';
   const typeBadgeClass = (type: GraceNoteType) =>
-    type === 'reading' ? 'bg-green-100 text-green-700' : type === 'sermon' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600';
+    type === 'reading' ? 'bg-green-50 text-green-700' : type === 'sermon' ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700';
 
   return (
     <>
@@ -537,12 +637,12 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
 
             {/* Type tabs */}
             <div className="flex gap-1.5">
-              {(['', 'reading', 'sermon'] as const).map(t => (
+              {(['', 'reading', 'sermon', 'personal'] as const).map(t => (
                 <button
                   key={t}
                   onClick={() => setTypeFilter(t)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${typeFilter === t ? 'bg-primary-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-                  {t === '' ? '전체' : t === 'reading' ? '성경통독' : '설교'}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${typeFilter === t ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                  {t === '' ? '전체' : t === 'reading' ? '성경통독' : t === 'sermon' ? '설교' : '자유'}
                 </button>
               ))}
             </div>
@@ -598,13 +698,11 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
                       <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${typeBadgeClass(note.type)}`}>
                         {typeLabel(note.type)}
                       </span>
-                      {note.type === 'reading' && note.planName && (
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold bg-gradient-to-r ${accentColor} text-white`}>
-                          {note.planName}
-                        </span>
+                      {note.authorName && (
+                        <span className="text-[10px] text-gray-500">{note.authorName}</span>
                       )}
-                      {note.type === 'reading' && note.day && (
-                        <span className="text-[10px] text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full">{note.day}일차</span>
+                      {note.type === 'reading' && note.planName && (
+                        <span className="text-[10px] text-gray-600 font-medium">{note.planName}</span>
                       )}
                       {note.type === 'sermon' && note.sermonTitle && (
                         <span className="text-[10px] text-gray-600 font-medium">{note.sermonTitle}</span>
@@ -615,12 +713,23 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
                     </span>
                   </div>
 
-                  {note.bibleReference && (
+                  {note.type === 'reading' && note.bibleReference && (
+                    <p className="text-sm font-semibold text-gray-800 mb-1">{note.bibleReference}</p>
+                  )}
+                  {note.type !== 'reading' && note.bibleReference && (
                     <p className="text-xs text-gray-500 mb-1.5 flex items-center gap-1">
                       <BookOpen className="w-3 h-3" /> {note.bibleReference}
                     </p>
                   )}
                   <p className="text-sm text-gray-700 leading-relaxed line-clamp-2">{note.graceContent}</p>
+
+                  {(note.visibility !== 'private') && (
+                    <div className="flex items-center gap-3 mt-2 text-[10px] text-gray-400">
+                      <span className="flex items-center gap-0.5"><Heart className="w-3 h-3" />{note.likeCount ?? 0}</span>
+                      <span className="flex items-center gap-0.5"><MessageCircle className="w-3 h-3" />{(note.comments ?? []).length}</span>
+                      <span className="flex items-center gap-0.5"><HandHeart className="w-3 h-3" />{note.prayCount ?? 0}</span>
+                    </div>
+                  )}
 
                   {note.memorableVerse && (
                     <div className="mt-2 bg-primary-50 rounded-xl px-3 py-2 border-l-2 border-primary-300">
@@ -662,9 +771,25 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const { user } = useAuth();
   const [note, setNote] = useState(() => getGraceNote(noteId));
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [liked, setLiked] = useState(() => isGraceNoteLikedByMe(noteId));
+  const [likeCount, setLikeCount] = useState(() => getGraceNote(noteId)?.likeCount ?? 0);
+  const [prayCount, setPrayCount] = useState(() => getGraceNote(noteId)?.prayCount ?? 0);
+  const [amenCount, setAmenCount] = useState(() => getGraceNote(noteId)?.amenCount ?? 0);
+  const [commentText, setCommentText] = useState('');
+
+  useEffect(() => {
+    const fresh = getGraceNote(noteId);
+    if (fresh) {
+      setNote(fresh);
+      setLikeCount(fresh.likeCount ?? 0);
+      setPrayCount(fresh.prayCount ?? 0);
+      setAmenCount(fresh.amenCount ?? 0);
+    }
+  }, [noteId]);
 
   if (!note) {
     return (
@@ -678,11 +803,21 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
   const plan = note.planId ? READING_PLANS.find(p => p.id === note.planId) : undefined;
   const bannerGradient = note.type === 'sermon'
     ? 'from-secondary-500 to-primary-600'
-    : (note.planColor ?? plan?.color ?? 'from-primary-500 to-primary-700');
+    : note.type === 'personal'
+      ? 'from-amber-400 to-orange-500'
+      : (note.planColor ?? plan?.color ?? 'from-primary-500 to-primary-700');
+  const isPublic = note.visibility !== 'private';
+  const shareLabel = shareSummary(note);
+  const authorName = user?.name ?? '성도';
+
+  const refreshNote = () => {
+    const fresh = getGraceNote(noteId);
+    if (fresh) setNote(fresh);
+  };
 
   const handleCopy = () => {
     const typeStr = note.type === 'reading'
-      ? `[${note.planName} ${note.day}일차] ${note.bibleReference ?? ''}`
+      ? formatReadingLabel(note)
       : `[설교] ${note.sermonTitle ?? ''} · ${note.sermonPreacher ?? ''} (${note.bibleReference ?? ''})`;
     const text = [
       typeStr,
@@ -702,6 +837,29 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
     onDelete();
   };
 
+  const handleLike = () => {
+    const result = toggleGraceNoteLike(noteId);
+    setLiked(result.liked);
+    setLikeCount(result.likeCount);
+  };
+
+  const handlePray = () => {
+    setPrayCount(addGraceNotePrayer(noteId, authorName));
+    refreshNote();
+  };
+
+  const handleAmen = () => {
+    setAmenCount(addGraceNoteAmen(noteId, authorName));
+    refreshNote();
+  };
+
+  const handleComment = () => {
+    if (!commentText.trim()) return;
+    addGraceNoteComment(noteId, authorName, commentText);
+    setCommentText('');
+    refreshNote();
+  };
+
   return (
     <>
       {confirmDelete && (
@@ -719,10 +877,10 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
 
       <div className="flex flex-col" style={{ minHeight: 'calc(100vh - 120px)' }}>
         <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-2 sticky top-0 z-10">
-          <button onClick={onBack} className="p-1.5 hover:bg-gray-100 rounded-lg">
+          <button onClick={onBack} className="p-1.5 hover:bg-gray-100 rounded-lg touch-target">
             <ArrowLeft className="w-5 h-5 text-gray-600" />
           </button>
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <h2 className="font-bold text-gray-900 text-sm">은혜기록</h2>
             <p className="text-xs text-gray-400">{note.createdAt.slice(0, 10).replace(/-/g, '.')}</p>
           </div>
@@ -740,16 +898,25 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
         </div>
 
         <div className="flex-1 bg-gray-50 p-4 space-y-4">
-          {/* Banner */}
           <div className={`bg-gradient-to-br ${bannerGradient} rounded-2xl p-4 text-white`}>
+            {note.authorName && (
+              <p className="text-white/80 text-xs mb-2">{note.authorName}{note.authorRole ? ` · ${note.authorRole}` : ''}</p>
+            )}
             {note.type === 'reading' ? (
               <>
                 <div className="flex items-center gap-2 mb-1">
                   <BookOpen className="w-4 h-4 opacity-80" />
                   <span className="font-bold text-sm">{note.planName}</span>
-                  {note.day && <span className="text-white/60 text-xs">· {note.day}일차</span>}
                 </div>
-                <p className="text-white/70 text-xs">{note.bibleReference}</p>
+                <p className="text-white/90 text-sm font-medium">{note.bibleReference}</p>
+                {note.day && <p className="text-white/60 text-xs mt-1">{note.day}일차</p>}
+              </>
+            ) : note.type === 'personal' ? (
+              <>
+                <div className="flex items-center gap-2 mb-1">
+                  <Heart className="w-4 h-4 opacity-80" />
+                  <span className="font-bold text-sm">자유 은혜기록</span>
+                </div>
               </>
             ) : (
               <>
@@ -762,8 +929,7 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
                 </p>
               </>
             )}
-            <p className="text-white/50 text-[10px] mt-1.5">{note.createdAt.slice(0, 10).replace(/-/g, '.')}</p>
-            <div className="mt-2">
+            <div className="mt-2 flex flex-wrap gap-1.5">
               {(() => {
                 const vm = visibilityMeta(note.visibility ?? 'private');
                 return (
@@ -772,12 +938,17 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
                   </span>
                 );
               })()}
+              {shareLabel && (
+                <span className="inline-flex items-center gap-1 bg-white/20 text-white/80 text-[10px] px-2 py-0.5 rounded-full font-medium">
+                  {shareLabel}
+                </span>
+              )}
             </div>
           </div>
 
           <Section icon={<Heart className="w-3.5 h-3.5 text-rose-500" />} label="받은 은혜" text={note.graceContent} />
           {note.memorableVerse && (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <div className="bg-white rounded-2xl border border-gray-100 p-4">
               <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                 <BookMarked className="w-3.5 h-3.5 text-primary-500" /> 마음에 남은 말씀
               </h3>
@@ -791,12 +962,75 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
               label={note.type === 'sermon' ? '결단 / 적용' : '적용할 점'} text={note.application} />
           )}
           {note.prayer && (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <div className="bg-white rounded-2xl border border-gray-100 p-4">
               <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-violet-500" /> 기도문
               </h3>
               <div className="bg-violet-50 rounded-xl px-4 py-3 border-l-4 border-violet-400">
                 <p className="text-sm text-violet-800 leading-relaxed whitespace-pre-wrap">{note.prayer}</p>
+              </div>
+            </div>
+          )}
+
+          {isPublic && (
+            <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-4">
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={handleLike}
+                  className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold touch-target ${
+                    liked ? 'bg-rose-50 text-rose-600 border border-rose-200' : 'bg-gray-50 text-gray-700 border border-gray-100'
+                  }`}>
+                  <Heart className={`w-4 h-4 ${liked ? 'fill-rose-500' : ''}`} />
+                  좋아요 {likeCount}
+                </button>
+                <button
+                  onClick={handlePray}
+                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold bg-gray-50 text-gray-700 border border-gray-100 touch-target">
+                  <Sparkles className="w-4 h-4" />
+                  기도합니다 {prayCount}
+                </button>
+                <button
+                  onClick={handleAmen}
+                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold bg-gray-50 text-gray-700 border border-gray-100 touch-target">
+                  <HandHeart className="w-4 h-4" />
+                  아멘 {amenCount}
+                </button>
+              </div>
+
+              <div>
+                <h3 className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1">
+                  <MessageCircle className="w-3.5 h-3.5" /> 댓글 {(note.comments ?? []).length}
+                </h3>
+                <div className="space-y-2 mb-3 max-h-48 overflow-y-auto">
+                  {(note.comments ?? []).length === 0 ? (
+                    <p className="text-xs text-gray-400 py-2">아직 댓글이 없습니다.</p>
+                  ) : (note.comments ?? []).map(c => (
+                    <div key={c.id} className="bg-gray-50 rounded-xl px-3 py-2">
+                      <div className="flex items-center justify-between gap-2 mb-0.5">
+                        <span className="text-xs font-semibold text-gray-700">{c.authorName}</span>
+                        <span className="text-[10px] text-gray-400">
+                          {c.type === 'prayer' ? '기도' : c.type === 'amen' ? '아멘' : ''}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600">{c.content}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    value={commentText}
+                    onChange={e => setCommentText(e.target.value)}
+                    placeholder="댓글을 남겨보세요"
+                    className="flex-1 px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary-400 bg-gray-50"
+                    onKeyDown={e => { if (e.key === 'Enter') handleComment(); }}
+                  />
+                  <button
+                    onClick={handleComment}
+                    disabled={!commentText.trim()}
+                    className="px-4 py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl disabled:opacity-40 touch-target">
+                    등록
+                  </button>
+                </div>
               </div>
             </div>
           )}

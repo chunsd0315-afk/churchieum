@@ -8,6 +8,7 @@ import { getProfileImage } from '../../services/profileImage';
 import { useChurchOrg } from '../../hooks/useChurchOrg';
 import { getUnreadNotificationCount } from '../../services/prayerNotificationStorage';
 import { AppLayout } from '../layout/AppLayout';
+import { MobileSubPageHeader } from '../common/ui/PageLayout';
 import PrayerNotificationSheet from '../layout/PrayerNotificationSheet';
 import {
   MEMBER_ROLE_MENUS,
@@ -158,27 +159,19 @@ export function MemberLayout({ children, currentPage, onNavigate, onSwitchMode, 
   );
 
   const mobileSubHeader = (
-    <header className="bg-white sticky top-0 z-sticky" style={{ borderBottom: '1px solid #F1F5F9' }}>
-      <div className="px-2 flex items-center" style={{ minHeight: '56px' }}>
+    <MobileSubPageHeader
+      title={pageLabel}
+      description={pageSubtitle}
+      leading={(
         <button
           onClick={() => onNavigate('home')}
-          className="flex items-center gap-1 px-3 py-2 hover:bg-gray-100 rounded-[10px] transition-colors text-gray-600 shrink-0"
+          className="flex items-center gap-1 px-3 py-2 hover:bg-gray-100 rounded-[10px] transition-colors text-gray-600"
         >
           <ChevronLeft className="w-5 h-5" />
           <span className="text-sm font-medium">뒤로</span>
         </button>
-        <div className="flex-1 flex flex-col items-center pr-16">
-          <span style={{ fontSize: '17px', fontWeight: 800, color: '#111827', lineHeight: 1.3 }}>
-            {pageLabel}
-          </span>
-          {pageSubtitle && (
-            <span style={{ fontSize: '12px', fontWeight: 400, color: '#6B7280', marginTop: '2px', lineHeight: 1.3, textAlign: 'center' }}>
-              {pageSubtitle}
-            </span>
-          )}
-        </div>
-      </div>
-    </header>
+      )}
+    />
   );
 
   return (

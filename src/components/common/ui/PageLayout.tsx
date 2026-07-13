@@ -1,5 +1,6 @@
 import React from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, ChevronLeft } from 'lucide-react';
+import { useBreakpoint } from '../../../hooks/useBreakpoint';
 import { Button } from './Button';
 import { SearchInput } from './SearchInput';
 import { FilterBar } from './FilterBar';
@@ -10,6 +11,12 @@ import { Skeleton, SkeletonListCard } from './Skeleton';
 import { ViewToggle } from './ViewToggle';
 import type { ViewMode } from './ViewToggle';
 import { MobileFab } from './MobileFab';
+import {
+  PageHeaderTextBlock,
+  MobilePageHeaderCenter,
+  PAGE_HEADER_SPACING_COMPACT,
+  PAGE_HEADER_SPACING_DEFAULT,
+} from './PageHeaderTypography';
 
 /* ══════════════════════════════════════════════════════════════════
    PageLayout
@@ -130,12 +137,9 @@ export function PageLayout({
     <div className={`flex flex-col gap-0 ${className}`}>
 
       {/* ── PageHeader (PC 전용: 메뉴명 + 설명 + 액션 — 모바일은 고정 App Header 사용) ── */}
-      <div className="hidden md:flex items-start justify-between gap-4 mb-8">
+      <div className={`hidden md:flex items-start justify-between gap-4 ${PAGE_HEADER_SPACING_DEFAULT}`}>
         <div className="min-w-0 flex-1">
-          <h1 className="text-[28px] font-bold text-[#111827] leading-tight">{header.title}</h1>
-          {header.description && (
-            <p className="mt-2 text-[15px] font-normal text-[#64748B] leading-snug">{header.description}</p>
-          )}
+          <PageHeaderTextBlock title={header.title} description={header.description} />
         </div>
         {header.action ? (
           <div className="shrink-0">{header.action}</div>
@@ -271,42 +275,211 @@ export function PageLayout({
 export interface PageHeaderBarProps {
   title: string;
   description?: string;
-  /** PC(데스크톱) 전용 우측 액션 — 모바일에서는 숨겨진다. */
+  /** PC(데스크톱) 전용 우측 액션 — 모바일에서는 숨겨진다. (align=center일 때는 FormPageHeader 툴바 사용) */
   action?: React.ReactNode;
   /** 모바일 전용 본문 상단 인라인 콘텐츠 (예: 보기 전환 토글). */
   mobileAction?: React.ReactNode;
   /** 모바일 전용 플로팅 등록/작성 버튼 (오른쪽 하단 고정). */
   mobileFab?: { label: string; onClick: () => void };
+  /** 제목·설명 정렬 (기본: 왼쪽) */
+  align?: 'left' | 'center';
+  /** desktop: PC만 표시(기본). all: PC·모바일 모두 표시 */
+  visibility?: 'desktop' | 'all';
+  /** 작성 화면 등 여백 축소 */
+  compact?: boolean;
   className?: string;
 }
 
 /**
  * 메뉴 페이지 상단 헤더.
  * - PC: 메뉴명 + 설명 + 우측 액션 표시.
- * - 모바일: 고정 상단바에 메뉴명/설명이 이미 있으므로 본문 상단 메뉴명/설명은 숨김.
- *   등록/작성 버튼은 오른쪽 하단 플로팅 버튼(mobileFab)으로 노출한다.
+ * - 모바일: 기본적으로 고정 상단바와 중복되므로 숨김 (visibility=all이면 표시).
  */
-export function PageHeaderBar({ title, description, action, mobileAction, mobileFab, className = '' }: PageHeaderBarProps) {
+export function PageHeaderBar({
+  title,
+  description,
+  action,
+  mobileAction,
+  mobileFab,
+  align = 'left',
+  visibility = 'desktop',
+  compact = false,
+  className = '',
+}: PageHeaderBarProps) {
+  const mb = compact ? PAGE_HEADER_SPACING_COMPACT : PAGE_HEADER_SPACING_DEFAULT;
+  const showHeader = visibility === 'all' ? 'flex' : 'hidden md:flex';
+
   return (
     <div className={className}>
-      {/* 메뉴명 + 설명 + 액션 (PC 전용 — 모바일은 고정 App Header 사용) */}
-      <div className="hidden md:flex items-start justify-between gap-4 mb-8">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-[28px] font-bold text-[#111827] leading-tight">{title}</h1>
-          {description && (
-            <p className="mt-2 text-[15px] font-normal text-[#64748B] leading-snug">{description}</p>
-          )}
+      {align === 'center' ? (
+        <div className={`${showHeader} flex-col items-center text-center w-full ${mb}`}>
+          <PageHeaderTextBlock title={title} description={description} center />
         </div>
-        {action && <div className="shrink-0">{action}</div>}
-      </div>
+      ) : (
+        <div className={`hidden md:flex items-start justify-between gap-4 ${mb}`}>
+          <div className="min-w-0 flex-1">
+            <PageHeaderTextBlock title={title} description={description} />
+          </div>
+          {action && <div className="shrink-0">{action}</div>}
+        </div>
+      )}
 
-      {/* 모바일 전용: 인라인 콘텐츠(토글 등) */}
       {mobileAction && <div className="md:hidden flex justify-end pb-3">{mobileAction}</div>}
-
-      {/* 모바일 전용: 플로팅 등록/작성 버튼 */}
       {mobileFab && <MobileFab label={mobileFab.label} onClick={mobileFab.onClick} />}
     </div>
   );
+}
+
+export interface MobileSubPageHeaderProps {
+  title: string;
+  description?: string;
+  /** 좌측 영역 (뒤로가기 등) */
+  leading?: React.ReactNode;
+  /** 우측 영역 (저장 등) */
+  trailing?: React.ReactNode;
+  className?: string;
+}
+
+/**
+ * 모바일 서브 페이지 고정 헤더 — 설교·은혜기록 등 메뉴 페이지와 동일한 구조.
+ * 뒤로가기(좌) + 화면 중앙 제목/설명 + (선택) 우측 액션 — 한 줄 배치.
+ */
+export function MobileSubPageHeader({
+  title,
+  description,
+  leading,
+  trailing,
+  className = '',
+}: MobileSubPageHeaderProps) {
+  return (
+    <header
+      className={`bg-white sticky top-0 z-sticky shrink-0 ${className}`}
+      style={{ borderBottom: '1px solid #F1F5F9' }}
+    >
+      <div className="relative px-2 flex items-center justify-between" style={{ minHeight: '56px' }}>
+        <div
+          className="absolute inset-0 flex items-center justify-center pointer-events-none px-20"
+        >
+          <MobilePageHeaderCenter title={title} description={description} />
+        </div>
+        <div className="relative z-10 shrink-0 flex items-center">{leading}</div>
+        <div className="relative z-10 shrink-0 flex items-center justify-end min-w-[48px]">
+          {trailing ?? null}
+        </div>
+      </div>
+    </header>
+  );
+}
+
+export interface EditorPageHeaderProps {
+  title: string;
+  description?: string;
+  /** 좌측 — 뒤로가기 버튼 */
+  leading?: React.ReactNode;
+  /** 우측 — 저장·닫기 등 */
+  trailing?: React.ReactNode;
+  className?: string;
+}
+
+/**
+ * 등록/작성/수정 화면 PC 전용 헤더.
+ * ← 뒤로 | 메뉴명 + 메뉴설명(왼쪽 정렬) | 우측 액션
+ */
+export function EditorPageHeader({
+  title,
+  description,
+  leading,
+  trailing,
+  className = '',
+}: EditorPageHeaderProps) {
+  return (
+    <header
+      className={`bg-white shrink-0 ${className}`}
+      style={{ borderBottom: '1px solid #F1F5F9' }}
+    >
+      <div
+        className={`flex items-center gap-6 px-6 pt-4 ${PAGE_HEADER_SPACING_COMPACT}`}
+      >
+        {leading ? <div className="shrink-0">{leading}</div> : null}
+        <div className="flex-1 min-w-0">
+          <PageHeaderTextBlock title={title} description={description} />
+        </div>
+        {trailing ? <div className="shrink-0">{trailing}</div> : null}
+      </div>
+    </header>
+  );
+}
+
+/**
+ * 등록/작성/수정 화면 모바일 전용 헤더.
+ * 1행: 뒤로 + 저장 | 2행: 가운데 정렬 제목·설명
+ */
+export function MobileEditorPageHeader({
+  title,
+  description,
+  leading,
+  trailing,
+  className = '',
+}: EditorPageHeaderProps) {
+  return (
+    <header
+      className={`bg-white shrink-0 ${className}`}
+      style={{ borderBottom: '1px solid #F1F5F9' }}
+    >
+      <div className="flex items-center justify-between gap-3 px-4 min-h-[52px]">
+        {leading ?? <div className="w-10" />}
+        {trailing ?? <div className="w-10" />}
+      </div>
+      <PageHeaderBar
+        title={title}
+        description={description}
+        align="center"
+        visibility="all"
+        compact
+        className="px-4"
+      />
+    </header>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   FormPageHeader
+   작성/등록 화면용 — 뒤로가기·저장 툴바 + 가운데 정렬 제목·설명
+   ══════════════════════════════════════════════════════════════════ */
+
+export interface FormPageHeaderProps {
+  title: string;
+  description?: string;
+  onBack?: () => void;
+  action?: React.ReactNode;
+  className?: string;
+}
+
+export function FormPageHeader({ title, description, onBack, action, className = '' }: FormPageHeaderProps) {
+  const { isPc } = useBreakpoint();
+  const leading = onBack ? (
+    <button
+      type="button"
+      onClick={onBack}
+      className="flex items-center gap-1 px-3 py-2 hover:bg-gray-100 rounded-[10px] transition-colors text-gray-600 touch-target"
+    >
+      <ChevronLeft className="w-5 h-5" />
+      <span className="text-sm font-medium">뒤로</span>
+    </button>
+  ) : undefined;
+
+  const headerProps = {
+    title,
+    description,
+    leading,
+    trailing: action,
+    className: `sticky top-0 z-10 ${className}`,
+  };
+
+  if (isPc) {
+    return <EditorPageHeader {...headerProps} />;
+  }
+  return <MobileEditorPageHeader {...headerProps} />;
 }
 
 /* ══════════════════════════════════════════════════════════════════

@@ -96,6 +96,10 @@ export type { ViewToggleProps, ViewMode } from './ViewToggle';
 export {
   PageLayout,
   PageHeaderBar,
+  MobileSubPageHeader,
+  EditorPageHeader,
+  MobileEditorPageHeader,
+  FormPageHeader,
   PageToolbar,
   ContentGrid,
   ContentList,
@@ -105,6 +109,9 @@ export type {
   PageHeaderConfig,
   ToolbarConfig,
   PageHeaderBarProps,
+  MobileSubPageHeaderProps,
+  EditorPageHeaderProps,
+  FormPageHeaderProps,
   PageToolbarProps,
   ContentGridProps,
   ContentListProps,
@@ -137,6 +144,17 @@ export type { ChurchPageHeaderProps } from './ChurchPageHeader';
 
 export { MobileFab }           from './MobileFab';
 export type { MobileFabProps } from './MobileFab';
+
+export {
+  PageHeaderTitle,
+  PageHeaderDescription,
+  PageHeaderTextBlock,
+  MobilePageHeaderCenter,
+  PAGE_HEADER_TITLE_CLASS,
+  PAGE_HEADER_DESCRIPTION_CLASS,
+  PAGE_HEADER_SPACING_COMPACT,
+  PAGE_HEADER_SPACING_DEFAULT,
+} from './PageHeaderTypography';
 
 export { MobileEditorModal }   from './MobileEditorModal';
 export type { MobileEditorModalProps } from './MobileEditorModal';

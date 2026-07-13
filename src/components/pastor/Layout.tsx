@@ -7,6 +7,7 @@ import { getProfileImage } from '../../services/profileImage';
 import { useChurchOrg } from '../../hooks/useChurchOrg';
 import { getUnreadNotificationCount } from '../../services/prayerNotificationStorage';
 import { AppLayout } from '../layout/AppLayout';
+import { MobilePageHeaderCenter } from '../common/ui/PageHeaderTypography';
 import PrayerNotificationSheet from '../layout/PrayerNotificationSheet';
 import ChurchSettingsPage from '../../pages/admin/ChurchSettingsPage';
 import { HomeLayoutProvider } from '../common/home/HomeLayoutContext';
@@ -148,12 +149,7 @@ export function PastorLayout({ children, currentPage, onNavigate }: Props) {
           <span className="text-sm font-medium">뒤로</span>
         </button>
         <div className="flex-1 flex flex-col items-center pr-16">
-          <span style={{ fontSize: '17px', fontWeight: 800, color: '#111827', lineHeight: 1.3 }}>{pageLabel}</span>
-          {pageSubtitle && (
-            <span style={{ fontSize: '12px', fontWeight: 400, color: '#6B7280', marginTop: '2px', lineHeight: 1.3, textAlign: 'center' }}>
-              {pageSubtitle}
-            </span>
-          )}
+          <MobilePageHeaderCenter title={pageLabel} description={pageSubtitle} />
         </div>
       </div>
     </header>

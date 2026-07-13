@@ -1,8 +1,9 @@
 ﻿import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   Plus, Search, X, BookOpen, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Play, Youtube,
-  Pencil, Trash2,
+  Pencil, Trash2, PenLine,
 } from 'lucide-react';
+import { countGraceNotesBySermon } from '../../../data/graceNotes';
 import type { Sermon, SermonFolder, SermonStatus } from '../../../types/sermon';
 import {
   getAllSermons, addSermon, updateSermon, deleteSermon, getSelectableFolders,
@@ -14,6 +15,7 @@ import {
   SERMON_DRAFT_TAB_ID, canViewSermonDrafts,
 } from '../../../services/sermonHelpers';
 import { useAuth } from '../../../contexts/AuthContext';
+import { PageHeaderBar, MobileFab } from '../ui';
 import ContentEditorLayout from '../../layout/ContentEditorLayout';
 import SermonDetail from './SermonDetail';
 import SermonForm, { type SermonFormData } from './SermonForm';
@@ -23,12 +25,15 @@ import { SermonYoutubeThumb, formatShortDate } from './sermonUiUtils';
 import {
   SermonShell, SermonCard, sermonPrimaryBtnClass, sermonInputClass,
 } from './sermonDesign';
-import { MobileFab } from '../ui/MobileFab';
 
 export type SermonAppProps = {
   canManage: boolean;
   canManageFolders?: boolean;
   renderExtraActions?: (sermon: Sermon) => React.ReactNode;
+  /** 설교 플레이어에서 은혜기록 작성 */
+  onGraceWrite?: (sermon: Sermon) => void;
+  /** 은혜기록 작성 후 돌아올 때 유지할 설교 ID */
+  initialSelectedId?: string | null;
 };
 
 type View = 'list' | 'detail' | 'form';
@@ -39,13 +44,15 @@ export default function SermonApp({
   canManage,
   canManageFolders = false,
   renderExtraActions,
+  onGraceWrite,
+  initialSelectedId,
 }: SermonAppProps) {
   const { user } = useAuth();
 
   const [sermons, setSermons] = useState(() => getAllSermons());
   const [folders, setFolders] = useState<SermonFolder[]>(() => getSelectableFolders());
   const [view, setView] = useState<View>('list');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId ?? null);
   const [editing, setEditing] = useState<Sermon | null>(null);
   const [showFolderMgr, setShowFolderMgr] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -58,6 +65,14 @@ export default function SermonApp({
     setSermons(getAllSermons());
     setFolders(getSelectableFolders());
   }, []);
+
+  // 외부에서 선택 설교 복원 (은혜기록 작성 후 돌아올 때)
+  useEffect(() => {
+    if (initialSelectedId) {
+      setSelectedId(initialSelectedId);
+      setPlaying(true);
+    }
+  }, [initialSelectedId]);
 
   const visible = useMemo(() => filterSermonsForUser(sermons, user), [sermons, user]);
   const filtered = useMemo(
@@ -222,13 +237,11 @@ export default function SermonApp({
   return (
     <SermonShell>
       {/* 메뉴명 + 설명 + 등록 버튼 (PC 전용 — 모바일은 고정 App Header 사용) */}
-      <div className="hidden md:flex items-start justify-between gap-4 mb-8">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-[28px] font-bold text-[#111827] leading-tight">설교</h1>
-          <p className="mt-2 text-[15px] font-normal text-[#64748B] leading-snug">예배 설교 말씀을 다시 보고 묵상하세요.</p>
-        </div>
-        {registerBtn && <div className="shrink-0">{registerBtn}</div>}
-      </div>
+      <PageHeaderBar
+        title="설교"
+        description="예배 설교 말씀을 다시 보고 묵상하세요."
+        action={registerBtn}
+      />
 
       {/* 상단 고정: 예배 폴더 탭 + 플레이어 */}
       <div className="sticky top-14 md:top-0 z-30 -mx-6 bg-[#F8FAFC]">
@@ -251,6 +264,7 @@ export default function SermonApp({
               canManage={canManage}
               onEdit={() => { if (selected) openEdit(selected); }}
               onDelete={() => { if (selected) setDeleteId(selected.id); }}
+              onGraceWrite={onGraceWrite ? () => { if (selected) onGraceWrite(selected); } : undefined}
             />
           </div>
         </div>
@@ -348,7 +362,7 @@ function SermonManageActions({
 
 /* ── 상단 고정 플레이어 ── */
 function StickyPlayer({
-  sermon, playing, onPlay, canManage, onEdit, onDelete,
+  sermon, playing, onPlay, canManage, onEdit, onDelete, onGraceWrite,
 }: {
   sermon: Sermon | null;
   playing: boolean;
@@ -356,12 +370,16 @@ function StickyPlayer({
   canManage: boolean;
   onEdit: () => void;
   onDelete: () => void;
+  onGraceWrite?: () => void;
 }) {
   if (!sermon) {
     return (
-      <div className="rounded-2xl bg-white border border-[#E5E7EB] py-12 text-center">
+      <div className="rounded-2xl bg-white border border-[#E5E7EB] py-12 text-center px-4">
         <BookOpen className="w-12 h-12 text-gray-200 mx-auto mb-3" />
         <p className="text-[15px] font-semibold text-[#6B7280]">아래 목록에서 설교를 선택하세요</p>
+        {onGraceWrite && (
+          <p className="text-[13px] text-gray-400 mt-3">은혜기록을 작성할 설교를 먼저 선택해주세요.</p>
+        )}
       </div>
     );
   }
@@ -399,20 +417,37 @@ function StickyPlayer({
         )}
       </div>
 
-      <div className="flex items-center gap-2 p-3">
-        <div className="min-w-0 flex-1">
-          <h3 className="text-[16px] font-extrabold text-gray-900 leading-snug line-clamp-1">{sermon.title}</h3>
-          <div className="flex items-center gap-2 mt-1 text-[12px] text-[#6B7280]">
-            {sermon.scripture && <span className="text-primary-600 font-semibold truncate">{sermon.scripture}</span>}
-            {sermon.scripture && <span className="text-gray-300">·</span>}
+      <div className="p-3">
+        <div className="flex items-start gap-2">
+          <h3 className="min-w-0 flex-1 text-[16px] font-extrabold text-gray-900 leading-snug line-clamp-2">
+            {sermon.title}
+          </h3>
+          {canManage && (
+            <SermonManageActions className="shrink-0" onEdit={onEdit} onDelete={onDelete} />
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 mt-1">
+          <div className="flex items-center gap-2 min-w-0 flex-1 text-[12px] text-[#6B7280]">
+            {sermon.scripture && (
+              <span className="text-primary-600 font-semibold truncate">{sermon.scripture}</span>
+            )}
+            {sermon.scripture && <span className="text-gray-300 shrink-0">·</span>}
             <span className="truncate">{sermon.preacher}</span>
-            <span className="text-gray-300">·</span>
+            <span className="text-gray-300 shrink-0">·</span>
             <span className="shrink-0">{formatShortDate(sermon.sermonDate)}</span>
           </div>
+          {onGraceWrite && (
+            <button
+              type="button"
+              onClick={onGraceWrite}
+              className="inline-flex items-center justify-center gap-1 shrink-0 h-8 sm:h-[34px] px-2.5 sm:px-3 rounded-lg sm:rounded-[10px] text-[12px] sm:text-[13px] font-semibold bg-primary-50 text-primary-700 border border-primary-200 hover:bg-primary-100 hover:border-primary-300 transition-colors"
+            >
+              <PenLine className="w-3.5 h-3.5 shrink-0" />
+              <span className="hidden sm:inline">은혜기록 작성</span>
+              <span className="sm:hidden">은혜기록</span>
+            </button>
+          )}
         </div>
-        {canManage && (
-          <SermonManageActions className="shrink-0" onEdit={onEdit} onDelete={onDelete} />
-        )}
       </div>
     </div>
   );
@@ -430,6 +465,7 @@ function SermonCardRow({
   onDelete: () => void;
 }) {
   const ytId = sermon.youtubeVideoId;
+  const graceCount = countGraceNotesBySermon(sermon.id);
   return (
     <div
       role="button"
@@ -474,6 +510,11 @@ function SermonCardRow({
         <p className="text-[12px] text-[#6B7280] mt-0.5 truncate">
           {sermon.preacher} · {formatShortDate(sermon.sermonDate)}
         </p>
+        {graceCount > 0 && (
+          <p className="text-[11px] text-primary-600 font-semibold mt-1 flex items-center gap-1">
+            <PenLine className="w-3 h-3" /> 은혜기록 {graceCount}개
+          </p>
+        )}
       </div>
 
       {canManage ? (

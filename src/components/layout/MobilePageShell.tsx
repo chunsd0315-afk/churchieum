@@ -1,5 +1,9 @@
 import type { ReactNode } from 'react';
 import { ChevronLeft } from 'lucide-react';
+import {
+  PAGE_HEADER_TITLE_CLASS,
+  PAGE_HEADER_DESCRIPTION_CLASS,
+} from '../common/ui/PageHeaderTypography';
 
 export type MobilePageShellProps = {
   title: string;
@@ -34,9 +38,9 @@ export function MobilePageShell({
           </button>
         )}
         <div className="flex-1 min-w-0">
-          <p className="font-bold text-gray-900 text-base leading-tight truncate">{title}</p>
+          <p className={`${PAGE_HEADER_TITLE_CLASS} truncate`}>{title}</p>
           {subtitle && (
-            <p className="text-xs text-gray-400 truncate">{subtitle}</p>
+            <p className={`${PAGE_HEADER_DESCRIPTION_CLASS} truncate`}>{subtitle}</p>
           )}
         </div>
         {action && (
