@@ -15,6 +15,8 @@ import {
 } from '../../services/sharingStorage';
 import ContentEditorLayout from '../../components/layout/ContentEditorLayout';
 import { PageHeaderBar } from '../../components/common/ui';
+import { FeatureHubPage, HubBackBar } from '../../components/common/feature-hub';
+import { SHARING_HUB } from '../../config/featureHub/memberHubs';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -704,7 +706,7 @@ export default function ChurchSharingPage() {
   const isPastor = user?.role === 'pastor';
   const canCreate = isAdmin || isPastor;
 
-  const [view, setView] = useState<ViewState>('list');
+  const [view, setView] = useState<ViewState | 'hub'>('hub');
   const [posts, setPosts] = useState<SharingPost[]>(() => getAllPosts());
   const [selected, setSelected] = useState<SharingPost | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>('all');
@@ -878,6 +880,32 @@ export default function ChurchSharingPage() {
     );
   }
 
+  // ── Hub ─────────────────────────────────────────────────────────────────
+  if (view === 'hub') {
+    return (
+      <FeatureHubPage
+        title={SHARING_HUB.title}
+        description={SHARING_HUB.description}
+        features={SHARING_HUB.features}
+        viewer={{ isPastor: Boolean(isPastor), isAdmin, role: user?.role }}
+        onSelect={id => {
+          if (id === 'create') {
+            if (!canCreate) return;
+            setView('create');
+            return;
+          }
+          if (id === 'offer') setActiveTab('give');
+          else if (id === 'need') setActiveTab('need');
+          else if (id === 'ministry') setActiveTab('ministry');
+          else if (id === 'resource') setActiveTab('resource');
+          else if (id === 'event') setActiveTab('event');
+          else setActiveTab('all');
+          setView('list');
+        }}
+      />
+    );
+  }
+
   // ── List view ─────────────────────────────────────────────────────────────
   const requestCounts = Object.fromEntries(
     filtered.map(p => [p.id, getAllRequests(p.id).length])
@@ -888,21 +916,20 @@ export default function ChurchSharingPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Page header */}
       <div className="bg-white pb-4">
-        <PageHeaderBar
+        <HubBackBar
           title="교회나눔"
           description="교회와 교회가 필요한 것을 나누고 함께 성장합니다."
-          action={
-            canCreate ? (
-              <button onClick={() => setView('create')}
-                className="flex items-center gap-1.5 px-4 py-2.5 bg-primary-500 text-white rounded-xl text-sm font-bold hover:bg-primary-600 transition-colors shadow-sm shrink-0">
-                <Plus className="w-4 h-4" /> 나눔 등록
-              </button>
-            ) : undefined
-          }
-          mobileFab={canCreate ? { label: '교회나눔 작성', onClick: () => setView('create') } : undefined}
+          onBack={() => setView('hub')}
         />
+        <div className="hidden md:flex justify-end mb-3">
+          {canCreate && (
+            <button type="button" onClick={() => setView('create')}
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-primary-500 text-white rounded-xl text-sm font-bold hover:bg-primary-600 transition-colors shadow-sm shrink-0">
+              <Plus className="w-4 h-4" /> 나눔 등록
+            </button>
+          )}
+        </div>
 
         {/* Search */}
         <div className="relative mt-3">

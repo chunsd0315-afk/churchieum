@@ -4,6 +4,9 @@
 } from 'lucide-react';
 import { useState } from 'react';
 import { PageHeaderBar } from '../../components/common/ui';
+import { FeatureHubPage, HubBackBar } from '../../components/common/feature-hub';
+import { CHURCH_INFO_HUB } from '../../config/featureHub/memberHubs';
+import { useAuth } from '../../contexts/AuthContext';
 
 const CHURCH = {
   name: '순복음성북교회',
@@ -35,6 +38,8 @@ const CHURCH = {
 };
 
 export default function ChurchInfoPage() {
+  const { isPastor, isAdmin, user } = useAuth();
+  const [hubView, setHubView] = useState(true);
   const [copiedPhone, setCopiedPhone] = useState(false);
 
   const copyPhone = () => {
@@ -43,11 +48,24 @@ export default function ChurchInfoPage() {
     setTimeout(() => setCopiedPhone(false), 2000);
   };
 
+  if (hubView) {
+    return (
+      <FeatureHubPage
+        title={CHURCH_INFO_HUB.title}
+        description={CHURCH_INFO_HUB.description}
+        features={CHURCH_INFO_HUB.features}
+        viewer={{ isPastor, isAdmin, role: user?.role }}
+        onSelect={() => setHubView(false)}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <PageHeaderBar
+      <HubBackBar
         title="교회정보"
         description="우리 교회의 기본 정보를 확인하세요."
+        onBack={() => setHubView(true)}
       />
       {/* Hero */}
       <div className="relative overflow-hidden rounded-3xl shadow-xl">

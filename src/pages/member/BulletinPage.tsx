@@ -4,7 +4,11 @@ import {
   FileText, Calendar, Eye, Download, ExternalLink, ChevronRight,
   ChevronLeft, Archive, Loader, X, BookOpen,
 } from 'lucide-react';
-import { PageHeaderBar, TabBar } from '../../components/common/ui';
+import { TabBar } from '../../components/common/ui';
+import { FeatureHubPage, HubBackBar } from '../../components/common/feature-hub';
+import { BULLETIN_HUB } from '../../config/featureHub/memberHubs';
+import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../components/common/ui';
 
 type Bulletin = {
   id: string;
@@ -29,6 +33,9 @@ const DEMO: Bulletin[] = [
 ];
 
 export default function BulletinPage() {
+  const { isPastor, isAdmin, user } = useAuth();
+  const toast = useToast();
+  const [hubView, setHubView] = useState(true);
   const [bulletins, setBulletins] = useState<Bulletin[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Bulletin | null>(null);
@@ -84,11 +91,32 @@ export default function BulletinPage() {
     );
   }
 
+  if (hubView) {
+    return (
+      <FeatureHubPage
+        title={BULLETIN_HUB.title}
+        description={BULLETIN_HUB.description}
+        features={BULLETIN_HUB.features}
+        viewer={{ isPastor, isAdmin, role: user?.role }}
+        onSelect={id => {
+          if (id === 'create' || id === 'manage') {
+            toast.info('관리자 모드의 주보 메뉴에서 등록·관리할 수 있습니다.');
+            return;
+          }
+          if (id === 'archive') setTab('archive');
+          else setTab('current');
+          setHubView(false);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="pb-8">
-      <PageHeaderBar
+      <HubBackBar
         title="주보"
         description="예배 순서와 주간 소식을 확인하세요."
+        onBack={() => setHubView(true)}
       />
       <TabBar
         tabs={[

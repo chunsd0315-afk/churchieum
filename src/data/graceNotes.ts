@@ -1,9 +1,10 @@
-import { applyGraceShareValidation, canPastorViewSharedGraceNote, getCurrentUserFromStorage } from '../services/graceNoteShareScope';
+import { applyGraceShareValidation, canPastorViewSharedGraceNote, getCurrentUserFromStorage, splitOrganizationShareIds, composeSharedGroupIds } from '../services/graceNoteShareScope';
 import type { AppUser } from '../services/permissions';
 
 const LS_KEY = 'graceNotesV2';
-const LS_DEMO_SEEDED = 'graceNotesV2_demo_seeded';
+const LS_DEMO_SEEDED = 'graceNotesV2_demo_seeded_v3';
 const LS_LIKES = 'graceNotes_likes_by_me';
+const DEMO_SEED_VERSION = 'v3';
 
 export type GraceNoteType = 'reading' | 'sermon' | 'personal';
 
@@ -30,10 +31,20 @@ export type GraceNote = {
   sharedPastorAll?: boolean;
   /** 담당 교역자 공유 — 선택 ID (clergy id) */
   sharedPastorIds?: string[];
-  /** 교구/부서 공유 — 전체 선택 */
+  /** 조직/부서 공유 — 전체 선택 (레거시) */
   sharedGroupAll?: boolean;
-  /** 교구/부서 공유 — 선택 ID (district / department id) */
+  /** 조직/부서 공유 — 통합 ID (상위·하위·부서, 레거시 호환) */
   sharedGroupIds?: string[];
+  /** 조직 공유 — 상위조직 ID */
+  sharedUpperOrganizationIds?: string[];
+  /** 조직 공유 — 하위조직 ID */
+  sharedLowerOrganizationIds?: string[];
+  /** 조직 공유 — 부서 ID */
+  sharedDepartmentIds?: string[];
+  /** 작성자 소속 (시드·권한 판별용) */
+  authorDistrictId?: string;
+  authorZoneId?: string;
+  authorDepartmentIds?: string[];
   // source info
   sourceId?: string;        // progressId (reading) | sermonId (sermon)
   sourceTitle?: string;     // plan name (reading) | sermon title (sermon)
@@ -72,13 +83,22 @@ export type GraceNote = {
 export type GraceNoteInput = Omit<GraceNote, 'id' | 'createdAt' | 'updatedAt'>;
 
 function normalizeNote(n: GraceNote): GraceNote {
+  const split = splitOrganizationShareIds({
+    sharedGroupIds: n.sharedGroupIds,
+    sharedUpperOrganizationIds: n.sharedUpperOrganizationIds,
+    sharedLowerOrganizationIds: n.sharedLowerOrganizationIds,
+    sharedDepartmentIds: n.sharedDepartmentIds,
+  });
   return {
     ...n,
     visibility: n.visibility ?? 'private',
     sharedPastorIds: n.sharedPastorIds ?? [],
-    sharedGroupIds: n.sharedGroupIds ?? [],
     sharedPastorAll: n.sharedPastorAll ?? false,
     sharedGroupAll: n.sharedGroupAll ?? false,
+    sharedUpperOrganizationIds: split.upper,
+    sharedLowerOrganizationIds: split.lower,
+    sharedDepartmentIds: split.departments,
+    sharedGroupIds: composeSharedGroupIds(split.upper, split.lower, split.departments),
     likeCount: n.likeCount ?? 0,
     amenCount: n.amenCount ?? 0,
     prayCount: n.prayCount ?? 0,
@@ -172,7 +192,7 @@ export function countGraceNotesBySermon(sermonId: string): number {
   return load().filter(n => n.type === 'sermon' && n.sourceId === sermonId).length;
 }
 
-/** 목회자가 볼 수 있는 공유 은혜기록 (나만 보기 제외, 본인에게 공유된 것만) */
+/** 목회자가 볼 수 있는 공유 은혜기록 (나만 보기 제외, 담당 성도 범위) */
 export function getSharedGraceNotesForPastor(viewer?: AppUser | null): GraceNote[] {
   const user = viewer ?? getCurrentUserFromStorage();
   return load()
@@ -193,6 +213,9 @@ export function createGraceNote(input: GraceNoteInput, userId?: string): GraceNo
     sharedPastorIds: input.sharedPastorIds,
     sharedGroupAll: input.sharedGroupAll,
     sharedGroupIds: input.sharedGroupIds,
+    sharedUpperOrganizationIds: input.sharedUpperOrganizationIds,
+    sharedLowerOrganizationIds: input.sharedLowerOrganizationIds,
+    sharedDepartmentIds: input.sharedDepartmentIds,
   });
   const note: GraceNote = normalizeNote({
     ...input,
@@ -220,7 +243,10 @@ export function updateGraceNote(id: string, updates: Partial<Omit<GraceNote, 'id
     updates.sharedPastorAll !== undefined ||
     updates.sharedPastorIds !== undefined ||
     updates.sharedGroupAll !== undefined ||
-    updates.sharedGroupIds !== undefined;
+    updates.sharedGroupIds !== undefined ||
+    updates.sharedUpperOrganizationIds !== undefined ||
+    updates.sharedLowerOrganizationIds !== undefined ||
+    updates.sharedDepartmentIds !== undefined;
 
   let finalUpdates = updates;
   if (hasShareUpdate) {
@@ -230,6 +256,9 @@ export function updateGraceNote(id: string, updates: Partial<Omit<GraceNote, 'id
       sharedPastorIds: merged.sharedPastorIds,
       sharedGroupAll: merged.sharedGroupAll,
       sharedGroupIds: merged.sharedGroupIds,
+      sharedUpperOrganizationIds: merged.sharedUpperOrganizationIds,
+      sharedLowerOrganizationIds: merged.sharedLowerOrganizationIds,
+      sharedDepartmentIds: merged.sharedDepartmentIds,
     });
     finalUpdates = { ...updates, ...share };
   }
@@ -338,11 +367,11 @@ export function addGraceNoteComment(noteId: string, authorName: string, content:
 }
 
 export function isDemoGraceNotesSeeded(): boolean {
-  try { return localStorage.getItem(LS_DEMO_SEEDED) === '1'; } catch { return false; }
+  try { return localStorage.getItem(LS_DEMO_SEEDED) === DEMO_SEED_VERSION; } catch { return false; }
 }
 
 export function markDemoGraceNotesSeeded(): void {
-  try { localStorage.setItem(LS_DEMO_SEEDED, '1'); } catch { /* ignore */ }
+  try { localStorage.setItem(LS_DEMO_SEEDED, DEMO_SEED_VERSION); } catch { /* ignore */ }
 }
 
 export function replaceAllGraceNotes(notes: GraceNote[]): void {

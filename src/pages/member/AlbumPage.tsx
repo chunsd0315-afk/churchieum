@@ -9,6 +9,9 @@ import { canWriteContent, getAvailableScopes, type ContentScope } from '../../se
 import { getDistricts, getZones, getDepartments } from '../../services/orgData';
 import { PageHeaderBar, MobileEditorModal } from '../../components/common/ui';
 import SearchSection from '../../components/layout/SearchSection';
+import { FeatureHubPage, HubBackBar } from '../../components/common/feature-hub';
+import { ALBUM_HUB } from '../../config/featureHub/memberHubs';
+import { useToast } from '../../components/common/ui';
 
 type Album = {
   id: string;
@@ -52,7 +55,9 @@ const DEMO_PHOTOS: Photo[] = [
 const CAT_LABELS = ['전체', '교구', '부서', '교회학교', '행사'];
 
 export default function AlbumPage() {
-  const { user } = useAuth();
+  const { user, isPastor, isAdmin } = useAuth();
+  const toast = useToast();
+  const [hubView, setHubView] = useState(true);
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Album | null>(null);
@@ -238,11 +243,42 @@ export default function AlbumPage() {
   }
 
   /* ── Album list ── */
+  if (hubView) {
+    return (
+      <FeatureHubPage
+        title={ALBUM_HUB.title}
+        description={ALBUM_HUB.description}
+        features={ALBUM_HUB.features}
+        viewer={{ isPastor, isAdmin, role: user?.role }}
+        onSelect={id => {
+          if (id === 'manage') {
+            toast.info('관리자 모드의 앨범 메뉴에서 관리할 수 있습니다.');
+            return;
+          }
+          if (id === 'create') {
+            if (!canWrite) {
+              toast.info('앨범 등록 권한이 없습니다.');
+              return;
+            }
+            setShowCreateForm(true);
+          }
+          setHubView(false);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="pb-8">
-      <PageHeaderBar
+      <HubBackBar
         title="앨범"
         description="교회 공동체의 소중한 순간을 함께 나누세요."
+        onBack={() => setHubView(true)}
+      />
+      <PageHeaderBar
+        title=""
+        description=""
+        visibility="desktop"
         action={
           <div className="flex items-center gap-2">
             {canWrite && (

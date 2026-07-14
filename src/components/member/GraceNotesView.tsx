@@ -24,8 +24,10 @@ import { formatSharedPastorLabel, formatSharedGroupLabel } from '../../data/grac
 import { READING_PLANS, getPlanColor } from '../../data/readingPlans';
 import { GraceNoteShareSelector, defaultShareState, shareStateToInput, type GraceNoteShareState } from './GraceNoteShareSelector';
 import { useAuth } from '../../contexts/AuthContext';
+import { readOrgSettings } from '../../contexts/OrgSettingsContext';
 import { useToast } from '../common/ui';
-import ContentEditorLayout, { ContentFormCard } from '../layout/ContentEditorLayout';
+import ContentEditorLayout, { ContentFormCard, MobileFullScreenPage } from '../layout/ContentEditorLayout';
+import { getGraceNoteViewInfo, getVisibleGraceNotesForMember, sortGraceNotesForMemberView, type GraceNoteViewKind } from '../../services/graceNoteShareScope';
 
 /** 은혜기록 작성 화면 공통 제목·설명 */
 export const GRACE_FORM_HEADERS = {
@@ -146,7 +148,7 @@ export function visibilityMeta(v: GraceNoteVisibility) {
   const opts = [
     { value: 'private' as const, label: '나만 보기', desc: '나만 볼 수 있어요', icon: <Lock className="w-3.5 h-3.5" />, color: 'text-gray-600 bg-gray-100' },
     { value: 'pastor' as const, label: '담당 교역자와 공유', desc: '선택한 교역자와 공유', icon: <Eye className="w-3.5 h-3.5" />, color: 'text-blue-600 bg-blue-50' },
-    { value: 'group' as const, label: '교구/부서 공유', desc: '선택한 교구·부서와 공유', icon: <Users className="w-3.5 h-3.5" />, color: 'text-emerald-600 bg-emerald-50' },
+    { value: 'group' as const, label: `${readOrgSettings().level1Label}/${readOrgSettings().departmentLabel} 공유`, desc: `선택한 ${readOrgSettings().level1Label}·${readOrgSettings().departmentLabel}와 공유`, icon: <Users className="w-3.5 h-3.5" />, color: 'text-emerald-600 bg-emerald-50' },
     { value: 'public' as const, label: '전체 공개', desc: '교회 성도 모두에게 공개', icon: <Eye className="w-3.5 h-3.5" />, color: 'text-violet-600 bg-violet-50' },
   ];
   return opts.find(o => o.value === v) ?? opts[0];
@@ -551,21 +553,41 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
   initialPlanId?: string;
   initialType?: GraceNoteType;
 }) {
+  const { user } = useAuth();
+  const orgLabels = readOrgSettings();
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<GraceNoteType | ''>(initialType ?? '');
   const [planFilter, setPlanFilter] = useState(initialPlanId ?? '');
+  type RelationFilter = '' | 'own' | 'pastor_author' | 'group_org' | 'group_dept' | 'public';
+  const [relationFilter, setRelationFilter] = useState<RelationFilter>('');
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [notes, setNotes] = useState(() => getAllGraceNotes());
 
+  const accessible = useMemo(() => {
+    return getVisibleGraceNotesForMember(notes, user);
+  }, [notes, user]);
+
   const filtered = useMemo(() => {
-    return notes.filter(n => {
+    let list = accessible.filter(n => {
       if (typeFilter && n.type !== typeFilter) return false;
       if (planFilter && n.planId !== planFilter) return false;
+      if (favoritesOnly && !n.isFavorite) return false;
       if (dateFrom && n.createdAt.slice(0, 10) < dateFrom) return false;
-      if (dateTo   && n.createdAt.slice(0, 10) > dateTo)   return false;
+      if (dateTo && n.createdAt.slice(0, 10) > dateTo) return false;
+      if (relationFilter) {
+        const info = getGraceNoteViewInfo(n, user);
+        if (!info) return false;
+        if (relationFilter === 'own' && info.kind !== 'own') return false;
+        if (relationFilter === 'pastor_author' && info.kind !== 'pastor_author') return false;
+        if (relationFilter === 'group_org' && info.kind !== 'group_upper' && info.kind !== 'group_lower') return false;
+        if (relationFilter === 'group_dept' && info.kind !== 'group_department') return false;
+        if (relationFilter === 'public' && info.kind !== 'public') return false;
+      }
       if (search) {
         const q = search.toLowerCase();
         const searchable = [
@@ -576,7 +598,11 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
       }
       return true;
     });
-  }, [notes, search, typeFilter, planFilter, dateFrom, dateTo]);
+    list = sortGraceNotesForMemberView(list, user, sortOrder);
+    return list;
+  }, [accessible, search, typeFilter, planFilter, relationFilter, favoritesOnly, dateFrom, dateTo, sortOrder, user]);
+
+  const isOwn = (note: GraceNote) => Boolean(user?.id && note.userId === user.id);
 
   const handleDelete = (id: string) => {
     deleteGraceNote(id);
@@ -589,10 +615,26 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
   const typeBadgeClass = (type: GraceNoteType) =>
     type === 'reading' ? 'bg-green-50 text-green-700' : type === 'sermon' ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700';
 
+  const relationBadgeClass = (kind: GraceNoteViewKind) => {
+    if (kind === 'own') return 'bg-primary-50 text-primary-700';
+    if (kind === 'pastor_author') return 'bg-blue-50 text-blue-700';
+    if (kind === 'public') return 'bg-violet-50 text-violet-700';
+    return 'bg-emerald-50 text-emerald-700';
+  };
+
+  const relationTabs: { id: RelationFilter; label: string }[] = [
+    { id: '', label: '전체' },
+    { id: 'own', label: '내 기록' },
+    { id: 'pastor_author', label: '담당 교역자' },
+    { id: 'group_org', label: '조직 공유' },
+    { id: 'group_dept', label: `${orgLabels.departmentLabel} 공유` },
+    { id: 'public', label: '전체 공개' },
+  ];
+
   return (
     <>
       {deleteId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl">
             <h3 className="font-bold text-gray-900 mb-2">은혜기록을 삭제하시겠습니까?</h3>
             <p className="text-sm text-gray-500 mb-5">삭제한 기록은 복구할 수 없습니다.</p>
@@ -604,19 +646,17 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
         </div>
       )}
 
-      <div className="flex flex-col" style={{ minHeight: 'calc(100vh - 120px)' }}>
-        <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-3 sticky top-0 z-10">
-          <button onClick={onBack} className="p-1.5 hover:bg-gray-100 rounded-lg">
-            <ArrowLeft className="w-5 h-5 text-gray-600" />
-          </button>
-          <div className="flex-1">
-            <h2 className="font-bold text-gray-900">은혜기록 모아보기</h2>
-          </div>
-          <span className="text-xs text-gray-400">{notes.length}개</span>
-        </div>
-
-        <div className="flex-1 bg-gray-50 p-4 space-y-3">
-          {/* Search & Filter */}
+      <MobileFullScreenPage
+        title="은혜기록 모아보기"
+        description="나와 관련된 은혜기록을 확인합니다."
+        onBack={onBack}
+        saveButton={
+          <span className="text-xs text-gray-400 font-medium px-2 shrink-0">
+            {filtered.length}개
+          </span>
+        }
+      >
+        <div className="space-y-3">
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 space-y-2">
             <div className="flex gap-2">
               <div className="flex-1 relative">
@@ -635,16 +675,51 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
               </button>
             </div>
 
-            {/* Type tabs */}
-            <div className="flex gap-1.5">
+            <div className="flex gap-1.5 flex-wrap">
               {(['', 'reading', 'sermon', 'personal'] as const).map(t => (
                 <button
-                  key={t}
+                  key={t || 'all-type'}
+                  type="button"
                   onClick={() => setTypeFilter(t)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${typeFilter === t ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-                  {t === '' ? '전체' : t === 'reading' ? '성경통독' : t === 'sermon' ? '설교' : '자유'}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${
+                    typeFilter === t ? 'bg-primary-500 text-white' : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  {t === '' ? '유형 전체' : typeLabel(t)}
                 </button>
               ))}
+            </div>
+
+            <div className="flex gap-1.5 flex-wrap">
+              {relationTabs.map(tab => (
+                <button
+                  key={tab.id || 'all-rel'}
+                  type="button"
+                  onClick={() => setRelationFilter(tab.id)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${
+                    relationFilter === tab.id ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setSortOrder(o => (o === 'newest' ? 'oldest' : 'newest'))}
+                className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200"
+              >
+                {sortOrder === 'newest' ? '최신순' : '오래된순'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setFavoritesOnly(v => !v)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${favoritesOnly ? 'bg-amber-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+              >
+                즐겨찾기
+              </button>
             </div>
 
             {showFilters && (
@@ -658,18 +733,22 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
                 </select>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-xs text-gray-500 mb-1 block">시작 날짜</label>
+                    <label className="text-[11px] text-gray-400">시작일</label>
                     <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
                       className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none bg-gray-50" />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 mb-1 block">종료 날짜</label>
+                    <label className="text-[11px] text-gray-400">종료일</label>
                     <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
                       className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none bg-gray-50" />
                   </div>
                 </div>
                 <button
-                  onClick={() => { setSearch(''); setPlanFilter(''); setDateFrom(''); setDateTo(''); setTypeFilter(''); }}
+                  type="button"
+                  onClick={() => {
+                    setSearch(''); setPlanFilter(''); setDateFrom(''); setDateTo('');
+                    setTypeFilter(''); setRelationFilter(''); setFavoritesOnly(false); setSortOrder('newest');
+                  }}
                   className="text-xs text-gray-500 hover:text-red-500 flex items-center gap-1">
                   <X className="w-3 h-3" /> 필터 초기화
                 </button>
@@ -679,16 +758,16 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
             <p className="text-xs text-gray-400">{filtered.length}개의 기록</p>
           </div>
 
-          {/* Notes list */}
           {filtered.length === 0 ? (
             <div className="bg-white rounded-2xl p-10 text-center border border-gray-100">
               <Heart className="w-12 h-12 text-rose-200 mx-auto mb-3" />
-              <p className="font-semibold text-gray-500 text-sm">은혜기록이 없습니다</p>
-              <p className="text-xs text-gray-400 mt-1">말씀과 설교를 통해 받은 은혜를 기록해보세요.</p>
+              <p className="font-semibold text-gray-500 text-sm">볼 수 있는 은혜기록이 없습니다</p>
+              <p className="text-xs text-gray-400 mt-1">내 기록이나 공유받은 기록만 표시됩니다.</p>
             </div>
           ) : filtered.map(note => {
             const plan = note.planId ? READING_PLANS.find(p => p.id === note.planId) : undefined;
             const accentColor = plan?.color ?? 'from-primary-500 to-secondary-500';
+            const viewInfo = getGraceNoteViewInfo(note, user);
             return (
               <div key={note.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className={`h-1 bg-gradient-to-r ${accentColor}`} />
@@ -698,6 +777,11 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
                       <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${typeBadgeClass(note.type)}`}>
                         {typeLabel(note.type)}
                       </span>
+                      {viewInfo && (
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${relationBadgeClass(viewInfo.kind)}`}>
+                          {viewInfo.badgeLabel}
+                        </span>
+                      )}
                       {note.authorName && (
                         <span className="text-[10px] text-gray-500">{note.authorName}</span>
                       )}
@@ -740,29 +824,34 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
                   )}
 
                   <div className="flex items-center gap-2 mt-3">
-                    <button onClick={() => onDetail(note.id)}
-                      className="flex-1 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 text-xs font-semibold rounded-xl transition-colors">
-                      자세히 보기
+                    <button type="button" onClick={() => onDetail(note.id)}
+                      className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-primary-50 text-primary-700 hover:bg-primary-100 touch-target">
+                      상세 보기
                     </button>
-                    <button onClick={() => onEdit(note)}
-                      className="py-2 px-3 bg-primary-50 hover:bg-primary-100 text-primary-600 text-xs font-semibold rounded-xl transition-colors">
-                      <Edit3 className="w-3.5 h-3.5" />
-                    </button>
-                    <button onClick={() => setDeleteId(note.id)}
-                      className="py-2 px-3 bg-gray-50 hover:bg-red-50 text-gray-500 hover:text-red-500 text-xs font-semibold rounded-xl transition-colors">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {isOwn(note) && (
+                      <>
+                        <button type="button" onClick={() => onEdit(note)}
+                          className="px-3 py-2.5 rounded-xl text-sm font-bold bg-gray-100 text-gray-700 hover:bg-gray-200 touch-target"
+                          aria-label="수정">
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button type="button" onClick={() => setDeleteId(note.id)}
+                          className="px-3 py-2.5 rounded-xl text-sm font-bold bg-red-50 text-red-600 hover:bg-red-100 touch-target"
+                          aria-label="삭제">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
             );
           })}
         </div>
-      </div>
+      </MobileFullScreenPage>
     </>
   );
 }
-
 // ─── Grace Note Detail View ───────────────────────────────────────────────────
 
 export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {

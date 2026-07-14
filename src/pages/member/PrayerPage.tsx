@@ -36,8 +36,11 @@ import {
   Heart, Plus, Check, Lock, Users, Send, Loader,
   Globe, Eye, Star, Paperclip, MessageCircle,
 } from 'lucide-react';
-import { PageHeaderBar, TabBar, MobileEditorModal } from '../../components/common/ui';
+import { TabBar, MobileEditorModal, MobileFab } from '../../components/common/ui';
 import EmptyState from '../../components/layout/EmptyState';
+import { FeatureHubPage, HubBackBar } from '../../components/common/feature-hub';
+import { PRAYER_HUB } from '../../config/featureHub/memberHubs';
+import { useToast } from '../../components/common/ui';
 
 type ChurchPrayer = {
   id: string;
@@ -68,7 +71,9 @@ function formatDate(iso: string) {
 }
 
 export default function PrayerPage() {
-  const { user, isPastor } = useAuth();
+  const { user, isPastor, isAdmin } = useAuth();
+  const toast = useToast();
+  const [hubView, setHubView] = useState(true);
   const [prayers, setPrayers] = useState<Prayer[]>([]);
   const [churchPrayers, setChurchPrayers] = useState<ChurchPrayer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -184,21 +189,54 @@ export default function PrayerPage() {
     );
   }
 
+  if (hubView) {
+    return (
+      <FeatureHubPage
+        title={PRAYER_HUB.title}
+        description={PRAYER_HUB.description}
+        features={PRAYER_HUB.features}
+        viewer={{ isPastor, isAdmin, role: user?.role }}
+        onSelect={id => {
+          if (id === 'create') {
+            setHubView(false);
+            openForm();
+            return;
+          }
+          if (id === 'answered') {
+            setActiveTab('my');
+            setHubView(false);
+            toast.info('나의 기도에서 응답된 기도를 확인할 수 있습니다.');
+            return;
+          }
+          if (id === 'pastor-inbox') {
+            setActiveTab('my');
+            setHubView(false);
+            return;
+          }
+          if (id === 'my' || id === 'church' || id === 'intercession') {
+            setActiveTab(id);
+          }
+          setHubView(false);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="pb-8">
-      <PageHeaderBar
+      <HubBackBar
         title="기도"
         description="기도제목을 나누고 함께 기도하세요."
-        action={
-          <button
-            onClick={openForm}
-            className="flex items-center gap-1.5 bg-primary-500 text-white px-4 py-2.5 rounded-xl font-medium text-sm shadow-sm hover:bg-primary-600 transition-colors"
-          >
-            <Plus className="w-4 h-4" /> 기도제목
-          </button>
-        }
-        mobileFab={{ label: '기도 작성', onClick: openForm }}
+        onBack={() => setHubView(true)}
       />
+      <div className="hidden md:flex justify-end mb-4">
+        <button
+          onClick={openForm}
+          className="flex items-center gap-1.5 bg-primary-500 text-white px-4 py-2.5 rounded-xl font-medium text-sm shadow-sm hover:bg-primary-600 transition-colors"
+        >
+          <Plus className="w-4 h-4" /> 기도제목
+        </button>
+      </div>
 
       <TabBar
         tabs={[
@@ -209,6 +247,7 @@ export default function PrayerPage() {
         activeTab={activeTab}
         onChange={id => setActiveTab(id as PrayerTab)}
       />
+      <MobileFab label="기도 작성" onClick={openForm} />
 
       {isPastor && pastorInbox.length > 0 && (
         <div className="mb-4">

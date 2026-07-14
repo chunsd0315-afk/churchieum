@@ -156,7 +156,7 @@ function AppContent() {
         isAdmin={isAdmin}
       >
         {memberPage === 'home' && <SafePage><MemberHome onNavigate={setMemberPage} /></SafePage>}
-        {memberPage === 'sermon' && <SafePage><SermonPage onNavigate={setMemberPage} /></SafePage>}
+        {memberPage === 'sermon' && <SafePage><SermonPage /></SafePage>}
         {memberPage === 'grace-notes' && <SafePage><GraceNotesPage /></SafePage>}
         {memberPage === 'prayer' && <SafePage><PrayerPage /></SafePage>}
         {memberPage === 'announcement' && <SafePage><AnnouncementPage /></SafePage>}

@@ -30,9 +30,9 @@ export function ContentFormCard({ children, className = '' }: { children: ReactN
 }
 
 /**
- * 등록/작성 화면 공통 레이아웃
+ * 등록/작성/목록 화면 공통 레이아웃
  * - PC: EditorPageHeader (뒤로 + 제목/설명 Flex) + 900px 폼
- * - 모바일: mobileHeaderVariant에 따라 2단(editor) 또는 메뉴형(subpage) 헤더
+ * - 모바일: 고정 상단/하단 네비까지 덮는 Full Screen (z-300)
  */
 export default function ContentEditorLayout({
   title,
@@ -74,7 +74,7 @@ export default function ContentEditorLayout({
       <div className="flex-1 overflow-y-auto overscroll-contain min-h-0">
         <div
           className="w-full max-w-[900px] mx-auto"
-          style={{ padding: '24px 24px 40px' }}
+          style={{ padding: '24px 24px calc(24px + env(safe-area-inset-bottom, 0px))' }}
         >
           {children}
         </div>
@@ -97,10 +97,23 @@ export default function ContentEditorLayout({
 
   return (
     <div
-      className="fixed inset-0 flex flex-col bg-[#F8FAFC]"
-      style={{ zIndex: 300, paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      className="fixed inset-0 flex flex-col bg-white"
+      style={{
+        zIndex: 300,
+        width: '100%',
+        height: '100dvh',
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+      }}
     >
       {body}
     </div>
   );
+}
+
+/**
+ * 은혜기록 모아보기·담당 성도 등 — 모바일 메뉴형 헤더 + Full Screen
+ * (ContentEditorLayout mobileHeaderVariant="subpage" 별칭)
+ */
+export function MobileFullScreenPage(props: Omit<ContentEditorLayoutProps, 'mobileHeaderVariant'>) {
+  return <ContentEditorLayout {...props} mobileHeaderVariant="subpage" />;
 }

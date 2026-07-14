@@ -5,6 +5,9 @@ import { useAuth } from '../../contexts/AuthContext';
 import { canWriteContent, getAvailableScopes, type ContentScope } from '../../services/permissions';
 import { getDistricts, getZones, getDepartments } from '../../services/orgData';
 import { PageHeaderBar, MobileEditorModal } from '../../components/common/ui';
+import { FeatureHubPage, HubBackBar } from '../../components/common/feature-hub';
+import { SCHEDULE_HUB } from '../../config/featureHub/memberHubs';
+import { useToast } from '../../components/common/ui';
 
 type ChurchEvent = {
   id: string;
@@ -41,7 +44,9 @@ const EVENT_LABELS: Record<string, string> = {
 };
 
 export default function SchedulePage() {
-  const { user } = useAuth();
+  const { user, isPastor, isAdmin } = useAuth();
+  const toast = useToast();
+  const [hubView, setHubView] = useState(true);
   const [events, setEvents] = useState<ChurchEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date(2026, 5, 1));
@@ -106,43 +111,62 @@ export default function SchedulePage() {
     return <div className="flex items-center justify-center h-48"><Loader className="w-6 h-6 animate-spin text-primary-500" /></div>;
   }
 
+  if (hubView) {
+    return (
+      <FeatureHubPage
+        title={SCHEDULE_HUB.title}
+        description={SCHEDULE_HUB.description}
+        features={SCHEDULE_HUB.features}
+        viewer={{ isPastor, isAdmin, role: user?.role }}
+        onSelect={id => {
+          if (id === 'manage') {
+            toast.info('관리자 모드의 일정 메뉴에서 관리할 수 있습니다.');
+            return;
+          }
+          if (id === 'create') {
+            if (!canWrite) {
+              toast.info('일정 등록 권한이 없습니다.');
+              return;
+            }
+            setEditingEvent(null);
+            setShowCreateForm(true);
+            setHubView(false);
+            return;
+          }
+          if (id === 'week') setViewMode('list');
+          else setViewMode('calendar');
+          setHubView(false);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="pb-8 space-y-4">
-      <PageHeaderBar
+      <HubBackBar
         title="일정"
         description="교회 예배와 행사 일정을 확인하세요."
-        action={
-          <div className="flex items-center gap-2">
-            {canWrite && (
-              <button
-                onClick={() => { setEditingEvent(null); setShowCreateForm(true); }}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-primary-500 text-white rounded-full text-sm font-semibold hover:bg-primary-600 transition-colors shadow-sm"
-              >
-                <Plus className="w-4 h-4" /> 일정 등록
-              </button>
-            )}
-            <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
-              <button onClick={() => setViewMode('calendar')} className={`p-2 rounded-lg transition-colors ${viewMode === 'calendar' ? 'bg-white shadow-sm' : ''}`}>
-                <Grid className="w-4 h-4 text-gray-600" />
-              </button>
-              <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-white shadow-sm' : ''}`}>
-                <List className="w-4 h-4 text-gray-600" />
-              </button>
-            </div>
-          </div>
-        }
-        mobileAction={
-          <div className="flex items-center gap-1 bg-gray-100 rounded-[14px] p-1">
-            <button onClick={() => setViewMode('calendar')} className={`px-3 py-2 rounded-lg transition-colors ${viewMode === 'calendar' ? 'bg-white shadow-sm' : ''}`} aria-label="달력 보기">
-              <Grid className="w-4 h-4 text-gray-600" />
-            </button>
-            <button onClick={() => setViewMode('list')} className={`px-3 py-2 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-white shadow-sm' : ''}`} aria-label="목록 보기">
-              <List className="w-4 h-4 text-gray-600" />
-            </button>
-          </div>
-        }
-        mobileFab={canWrite ? { label: '일정 등록', onClick: () => { setEditingEvent(null); setShowCreateForm(true); } } : undefined}
+        onBack={() => setHubView(true)}
       />
+      <div className="flex items-center justify-end gap-2">
+        {canWrite && (
+          <button
+            type="button"
+            onClick={() => { setEditingEvent(null); setShowCreateForm(true); }}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-primary-500 text-white rounded-full text-sm font-semibold hover:bg-primary-600 transition-colors shadow-sm"
+          >
+            <Plus className="w-4 h-4" /> 일정 등록
+          </button>
+        )}
+        <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
+          <button type="button" onClick={() => setViewMode('calendar')} className={`p-2 rounded-lg transition-colors ${viewMode === 'calendar' ? 'bg-white shadow-sm' : ''}`} aria-label="달력 보기">
+            <Grid className="w-4 h-4 text-gray-600" />
+          </button>
+          <button type="button" onClick={() => setViewMode('list')} className={`p-2 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-white shadow-sm' : ''}`} aria-label="목록 보기">
+            <List className="w-4 h-4 text-gray-600" />
+          </button>
+        </div>
+      </div>
 
       {/* Month nav */}
       <div className="flex items-center justify-between bg-white rounded-2xl p-4 shadow-sm border border-gray-100">

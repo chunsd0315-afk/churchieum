@@ -1,5 +1,4 @@
-﻿import type { Page } from '../../components/member/Layout';
-import type { Sermon } from '../../types/sermon';
+﻿import type { Sermon } from '../../types/sermon';
 import { WORSHIP_TYPE_LABELS } from '../../types/sermon';
 import { useAuth } from '../../contexts/AuthContext';
 import { canManageSermons, canManageSermonFolders } from '../../services/permissions';
@@ -10,7 +9,7 @@ import { useToast } from '../../components/common/ui';
 
 type SubView = 'list' | 'grace-form';
 
-export default function SermonPage({ onNavigate: _onNavigate }: { onNavigate?: (page: Page) => void }) {
+export default function SermonPage() {
   const { user } = useAuth();
   const toast = useToast();
   const [subView, setSubView] = useState<SubView>('list');

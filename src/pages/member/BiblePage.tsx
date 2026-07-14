@@ -25,6 +25,9 @@ import {
 } from '../../services/bibleTranslation';
 import TranslationSelector from '../../components/member/TranslationSelector';
 import { PageHeaderBar } from '../../components/common/ui';
+import { FeatureHubPage, HubBackBar } from '../../components/common/feature-hub';
+import { BIBLE_HUB } from '../../config/featureHub/memberHubs';
+import { useAuth } from '../../contexts/AuthContext';
 
 type Props = { onNavigate?: (page: Page) => void; initialRef?: BibleRef | null };
 type Tab = 'browse' | 'search' | 'saved';
@@ -202,6 +205,8 @@ function Breadcrumb({ testament, book, chapter, onGoRoot, onGoTestament, onGoBoo
 /* ─── Main ──────────────────────────────────────────────────────────────────── */
 
 export default function BiblePage({ onNavigate, initialRef }: Props) {
+  const { isPastor, isAdmin, user } = useAuth();
+  const [hubView, setHubView] = useState(!initialRef);
   const [tab, setTab] = useState<Tab>('browse');
   const [testament, setTestament] = useState<'old' | 'new' | null>(null);
   const [selectedBook, setSelectedBook] = useState<string | null>(null);
@@ -253,12 +258,29 @@ export default function BiblePage({ onNavigate, initialRef }: Props) {
     if (selectedBook) pushRecentReading(selectedBook, ch);
   };
 
+  if (hubView) {
+    return (
+      <FeatureHubPage
+        title={BIBLE_HUB.title}
+        description={BIBLE_HUB.description}
+        features={BIBLE_HUB.features}
+        viewer={{ isPastor, isAdmin, role: user?.role }}
+        onSelect={id => {
+          if (id === 'saved' || id === 'memo') setTab('saved');
+          else if (id === 'search') setTab('search');
+          else setTab('browse');
+          setHubView(false);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col" style={{ minHeight: 'calc(100vh - 120px)' }}>
-      {/* Page header */}
-      <PageHeaderBar
+      <HubBackBar
         title="성경"
         description="하나님의 말씀을 읽고 묵상하세요."
+        onBack={() => setHubView(true)}
       />
       {/* Quick-reference bar */}
       <div className="bg-white border-b border-gray-100 px-4 py-2.5 sticky top-0 z-20">

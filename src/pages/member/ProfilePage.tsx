@@ -5,6 +5,8 @@ import {
   Bell, Lock, Moon, Globe, HelpCircle, Info, Settings, Award,
 } from 'lucide-react';
 import { PageHeaderBar } from '../../components/common/ui';
+import { FeatureHubPage, HubBackBar } from '../../components/common/feature-hub';
+import { PROFILE_HUB } from '../../config/featureHub/memberHubs';
 import { getFaithReportSummary } from '../../data/faithTimeline';
 import { getEarnedBadgeCount } from '../../data/graceBadges';
 
@@ -14,7 +16,8 @@ type ReadingRecord = {
 };
 
 export default function ProfilePage() {
-  const { user, isAdmin, signOut } = useAuth();
+  const { user, isAdmin, isPastor, signOut } = useAuth();
+  const [hubView, setHubView] = useState(true);
   const [bibleProgress, setBibleProgress] = useState(0);
   const [readingStreak, setReadingStreak] = useState(0);
   const [readingRecords, setReadingRecords] = useState<ReadingRecord[]>([]);
@@ -41,11 +44,24 @@ export default function ProfilePage() {
     { icon: Info,       label: '교회이음 정보', desc: '버전 1.0.0' },
   ];
 
+  if (hubView) {
+    return (
+      <FeatureHubPage
+        title={PROFILE_HUB.title}
+        description={PROFILE_HUB.description}
+        features={PROFILE_HUB.features}
+        viewer={{ isPastor, isAdmin, role: user?.role }}
+        onSelect={() => setHubView(false)}
+      />
+    );
+  }
+
   return (
     <div className="pb-8 space-y-4">
-      <PageHeaderBar
+      <HubBackBar
         title="내정보"
         description="나의 프로필과 소속 정보를 확인하세요."
+        onBack={() => setHubView(true)}
       />
       {/* Profile Header */}
       <div className="bg-gradient-to-br from-primary-500 via-primary-600 to-accent-600 rounded-3xl p-6 text-white relative overflow-hidden">

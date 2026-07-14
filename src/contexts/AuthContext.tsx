@@ -53,7 +53,7 @@ const DEMO_ACCOUNTS: Record<string, {
     name: '강수아',
     role: 'member',
     districtId: 'd1',
-    zoneId: 'z3',
+    zoneId: 'z1',
     departmentIds: ['dep3', 'dep5'],
   },
 };
