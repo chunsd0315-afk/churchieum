@@ -12,28 +12,12 @@ import { HOME_MENU_CATALOG } from '../../components/common/home/homeMenuCatalog'
 
 export const GRACE_HUB_FEATURES: FeatureCardConfig[] = [
   {
-    id: 'reading',
-    title: '성경통독 은혜기록',
-    description: '오늘 읽은 말씀에서 받은 은혜를 기록합니다.',
-    icon: BookOpen,
-    iconBg: 'bg-emerald-50',
-    iconColor: 'text-emerald-600',
-  },
-  {
-    id: 'sermon',
-    title: '설교 은혜기록',
-    description: '예배와 설교를 통해 받은 은혜를 기록합니다.',
-    icon: Mic,
+    id: 'write',
+    title: '은혜기록 작성',
+    description: '성경통독·설교·일상에서 받은 은혜를 한곳에서 기록합니다.',
+    icon: PenLine,
     iconBg: 'bg-primary-50',
     iconColor: 'text-primary-600',
-  },
-  {
-    id: 'personal',
-    title: '자유 은혜기록',
-    description: '일상 속 은혜와 감사를 자유롭게 기록합니다.',
-    icon: PenLine,
-    iconBg: 'bg-violet-50',
-    iconColor: 'text-violet-600',
   },
   {
     id: 'all-list',

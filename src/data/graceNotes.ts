@@ -2,9 +2,9 @@ import { applyGraceShareValidation, canPastorViewSharedGraceNote, getCurrentUser
 import type { AppUser } from '../services/permissions';
 
 const LS_KEY = 'graceNotesV2';
-const LS_DEMO_SEEDED = 'graceNotesV2_demo_seeded_v3';
+const LS_DEMO_SEEDED = 'graceNotesV2_demo_seeded_v4';
 const LS_LIKES = 'graceNotes_likes_by_me';
-const DEMO_SEED_VERSION = 'v3';
+const DEMO_SEED_VERSION = 'v4';
 
 export type GraceNoteType = 'reading' | 'sermon' | 'personal';
 
@@ -203,6 +203,24 @@ export function getSharedGraceNotesForPastor(viewer?: AppUser | null): GraceNote
 /** 즐겨찾기 은혜기록 */
 export function getFavoriteGraceNotes(): GraceNote[] {
   return load().filter(n => n.isFavorite).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+/**
+ * 현재 사용자가 직접 작성한 최근 은혜기록
+ * (공유받은 기록·타인 기록 제외 — 메인 "최근 은혜기록"용)
+ * @param currentUserId GraceNote.userId (작성자 ID)
+ */
+export function getMyRecentGraceNotes(
+  currentUserId: string | undefined | null,
+  notes?: GraceNote[],
+  limit = 5,
+): GraceNote[] {
+  if (!currentUserId) return [];
+  const source = notes ?? load();
+  return source
+    .filter(n => n.userId === currentUserId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .slice(0, Math.max(1, limit));
 }
 
 export function createGraceNote(input: GraceNoteInput, userId?: string): GraceNote {

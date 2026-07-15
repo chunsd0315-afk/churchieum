@@ -661,322 +661,521 @@ export function pastorShepherdsMembership(
 
 export type GraceNoteViewKind =
   | 'own'
-  | 'pastor_author'
+  | 'pastor_share'
   | 'group_upper'
   | 'group_lower'
   | 'group_department'
   | 'public';
 
+export type GraceNoteFilterBucket =
+  | 'own'
+  | 'pastor_share'
+  | 'group_org'
+  | 'group_dept'
+  | 'public';
+
 export type GraceNoteViewInfo = {
   kind: GraceNoteViewKind;
   badgeLabel: string;
+  badges: string[];
+  buckets: GraceNoteFilterBucket[];
 };
 
-function viewerMembershipIds(membership: UserOrgMembership | null): {
-  upper: Set<string>;
-  lower: Set<string>;
-  dept: Set<string>;
-  all: Set<string>;
-} {
-  const upper = new Set<string>();
-  const lower = new Set<string>();
-  const dept = new Set<string>();
-  if (membership?.districtId) upper.add(membership.districtId);
-  if (membership?.zoneId) lower.add(membership.zoneId);
-  for (const id of membership?.departmentIds ?? []) dept.add(id);
-  return { upper, lower, dept, all: new Set([...upper, ...lower, ...dept]) };
-}
-
-function noteSharedGroupParts(note: {
-  sharedGroupAll?: boolean;
-  sharedGroupIds?: string[];
-  sharedUpperOrganizationIds?: string[];
-  sharedLowerOrganizationIds?: string[];
-  sharedDepartmentIds?: string[];
-}): { upper: string[]; lower: string[]; departments: string[] } {
-  if (note.sharedGroupAll) {
-    return { upper: [], lower: [], departments: [] };
-  }
-  return splitOrganizationShareIds(note);
-}
-
-/** 성도 모아보기 — 열람 가능 여부 */
-export function canMemberViewGraceNote(
-  note: {
-    visibility?: string;
-    userId?: string;
-    authorName?: string;
-    authorDistrictId?: string;
-    authorZoneId?: string;
-    authorDepartmentIds?: string[];
-    sharedGroupAll?: boolean;
-    sharedGroupIds?: string[];
-    sharedUpperOrganizationIds?: string[];
-    sharedLowerOrganizationIds?: string[];
-    sharedDepartmentIds?: string[];
-    sharedPastorAll?: boolean;
-    sharedPastorIds?: string[];
-  },
-  viewer: AppUser | null,
-): boolean {
-  return getGraceNoteViewInfo(note, viewer) !== null;
-}
-
-/** 성도 모아보기 — 관계 배지/분류 (열람 불가 시 null) */
-export function getGraceNoteViewInfo(
-  note: {
-    visibility?: string;
-    userId?: string;
-    authorName?: string;
-    authorDistrictId?: string;
-    authorZoneId?: string;
-    authorDepartmentIds?: string[];
-    sharedGroupAll?: boolean;
-    sharedGroupIds?: string[];
-    sharedUpperOrganizationIds?: string[];
-    sharedLowerOrganizationIds?: string[];
-    sharedDepartmentIds?: string[];
-  },
-  viewer: AppUser | null,
-): GraceNoteViewInfo | null {
-  if (!viewer) return null;
-
-  const isOwn = Boolean(viewer.id && note.userId === viewer.id);
-
-  if (isOwn) {
-    return { kind: 'own', badgeLabel: '내 기록' };
-  }
-
-  const visibility = note.visibility ?? 'private';
-  if (visibility === 'private') return null;
-
-  const myMembership = resolveUserOrgMembership(viewer);
-  const myIds = viewerMembershipIds(myMembership);
-  const authorMembership = resolveMembershipForAuthor(note);
-
-  // 담당 교역자가 작성한 공개·조직공유 기록
-  const myPastors = getEligiblePastorsForUser(viewer);
-  const authorIsMyPastor = myPastors.some(p => {
-    const clergy = getAllClergy().find(c => c.id === p.id);
-    return clergy && (clergy.name === note.authorName || note.userId === `clergy-${p.id}`);
-  });
-
-  if (visibility === 'public') {
-    if (authorIsMyPastor) {
-      return { kind: 'pastor_author', badgeLabel: '담당 교역자' };
-    }
-    return { kind: 'public', badgeLabel: '전체 공개' };
-  }
-
-  if (visibility === 'group') {
-    const parts = noteSharedGroupParts(note);
-    const authorEligible = authorMembership
-      ? getAllEligibleGroupIds({
-          id: authorMembership.userId,
-          email: '',
-          name: note.authorName ?? '',
-          role: 'member',
-          districtId: authorMembership.districtId,
-          zoneId: authorMembership.zoneId,
-          departmentIds: authorMembership.departmentIds,
-        } as AppUser)
-      : new Set<string>();
-
-    const sharedUpper = note.sharedGroupAll
-      ? [...(authorMembership?.districtId ? [authorMembership.districtId] : [])]
-      : parts.upper.filter(id => authorEligible.size === 0 || authorEligible.has(id));
-    const sharedLower = note.sharedGroupAll
-      ? [...(authorMembership?.zoneId ? [authorMembership.zoneId] : [])]
-      : parts.lower.filter(id => authorEligible.size === 0 || authorEligible.has(id));
-    const sharedDept = note.sharedGroupAll
-      ? [...(authorMembership?.departmentIds ?? [])]
-      : parts.departments.filter(id => authorEligible.size === 0 || authorEligible.has(id));
-
-    const hitDept = sharedDept.find(id => myIds.dept.has(id));
-    if (hitDept) {
-      return {
-        kind: 'group_department',
-        badgeLabel: `${getDepartmentNameById(hitDept)} 공유`,
-      };
-    }
-    const hitLower = sharedLower.find(id => myIds.lower.has(id));
-    if (hitLower) {
-      return {
-        kind: 'group_lower',
-        badgeLabel: `${getZoneNameById(hitLower)} 공유`,
-      };
-    }
-    const hitUpper = sharedUpper.find(id => myIds.upper.has(id));
-    if (hitUpper) {
-      return {
-        kind: 'group_upper',
-        badgeLabel: `${getDistrictNameById(hitUpper)} 공유`,
-      };
-    }
-
-    // 전체 선택으로 작성자 소속 전부 공유
-    if (note.sharedGroupAll && authorMembership) {
-      if (authorMembership.districtId && myIds.upper.has(authorMembership.districtId)) {
-        return {
-          kind: 'group_upper',
-          badgeLabel: `${getDistrictNameById(authorMembership.districtId)} 공유`,
-        };
-      }
-      if (authorMembership.zoneId && myIds.lower.has(authorMembership.zoneId)) {
-        return {
-          kind: 'group_lower',
-          badgeLabel: `${getZoneNameById(authorMembership.zoneId)} 공유`,
-        };
-      }
-      const deptHit = authorMembership.departmentIds.find(id => myIds.dept.has(id));
-      if (deptHit) {
-        return {
-          kind: 'group_department',
-          badgeLabel: `${getDepartmentNameById(deptHit)} 공유`,
-        };
-      }
-    }
-    return null;
-  }
-
-  // 다른 성도의 교역자 공유는 성도 모아보기에서 비공개
-  if (visibility === 'pastor') {
-    if (authorIsMyPastor) {
-      return { kind: 'pastor_author', badgeLabel: '담당 교역자' };
-    }
-    return null;
-  }
-
-  return null;
-}
-
-export function getVisibleGraceNotesForMember<T extends {
+export type GraceNoteVisibilityInput = {
+  id?: string;
   visibility?: string;
   userId?: string;
   authorName?: string;
   authorDistrictId?: string;
   authorZoneId?: string;
   authorDepartmentIds?: string[];
+  sharedPastorAll?: boolean;
+  sharedPastorIds?: string[];
   sharedGroupAll?: boolean;
   sharedGroupIds?: string[];
   sharedUpperOrganizationIds?: string[];
   sharedLowerOrganizationIds?: string[];
   sharedDepartmentIds?: string[];
-  createdAt: string;
-}>(notes: T[], viewer: AppUser | null): T[] {
-  return notes.filter(n => canMemberViewGraceNote(n, viewer));
+  createdAt?: string;
+  isFavorite?: boolean;
+};
+
+function getViewerClergyId(viewer: AppUser): string | null {
+  return viewer.email ? (getClergyByEmail(viewer.email)?.id ?? null) : null;
+}
+
+/** 작성자가 교역자(clergy)인 경우 clergy id */
+function resolveAuthorClergyId(note: GraceNoteVisibilityInput): string | null {
+  if (!note.userId && !note.authorName) return null;
+  const clergy = getAllClergy();
+  if (note.userId?.startsWith('demo-')) {
+    const local = note.userId.slice('demo-'.length);
+    const byEmail = clergy.find(c =>
+      (c.email ?? '').toLowerCase().startsWith(`${local.toLowerCase()}@`),
+    );
+    if (byEmail) return byEmail.id;
+  }
+  if (note.userId) {
+    const byId = clergy.find(c => c.id === note.userId);
+    if (byId) return byId.id;
+  }
+  if (note.authorName) {
+    const byName = clergy.find(c => c.name === note.authorName && c.status === 'active');
+    if (byName) return byName.id;
+  }
+  return null;
+}
+
+/** 성도 — 내 담당 교역자가 작성한 기록인지 */
+function isAuthoredByMyShepherdPastor(
+  note: GraceNoteVisibilityInput,
+  viewer: AppUser,
+): boolean {
+  const membership = resolveUserOrgMembership(viewer);
+  if (!membership) return false;
+  const authorClergyId = resolveAuthorClergyId(note);
+  if (!authorClergyId) return false;
+  return pastorShepherdsMembership(authorClergyId, membership);
+}
+
+/** 소속 + (교역자/관리자) 담당 조직 범위 */
+export function getViewerOrganizationScope(viewer: AppUser): {
+  upper: Set<string>;
+  lower: Set<string>;
+  dept: Set<string>;
+} {
+  const membership = resolveUserOrgMembership(viewer);
+  const upper = new Set<string>();
+  const lower = new Set<string>();
+  const dept = new Set<string>();
+
+  if (membership?.districtId) upper.add(membership.districtId);
+  if (membership?.zoneId) lower.add(membership.zoneId);
+  for (const id of membership?.departmentIds ?? []) dept.add(id);
+
+  for (const id of viewer.assignedDistrictIds ?? []) upper.add(id);
+  for (const id of viewer.assignedZoneIds ?? []) lower.add(id);
+  for (const id of viewer.assignedDepartmentIds ?? []) dept.add(id);
+
+  if (viewer.role === 'pastor' || viewer.role === 'super_admin') {
+    const clergyId = getViewerClergyId(viewer);
+    if (clergyId) {
+      for (const a of getAllActiveAssignments()) {
+        if (a.pastorId !== clergyId || !a.isActive) continue;
+        if (a.districtId) upper.add(a.districtId);
+        if (a.zoneId) lower.add(a.zoneId);
+        if (a.departmentId) dept.add(a.departmentId);
+      }
+    }
+  }
+
+  return { upper, lower, dept };
+}
+
+function noteSharedGroupParts(note: GraceNoteVisibilityInput): {
+  upper: string[];
+  lower: string[];
+  departments: string[];
+} {
+  const authorMembership = resolveMembershipForAuthor(note);
+  if (note.sharedGroupAll && authorMembership) {
+    return {
+      upper: authorMembership.districtId ? [authorMembership.districtId] : [],
+      lower: authorMembership.zoneId ? [authorMembership.zoneId] : [],
+      departments: [...authorMembership.departmentIds],
+    };
+  }
+  return splitOrganizationShareIds(note);
+}
+
+function isOwnNote(note: GraceNoteVisibilityInput, viewer: AppUser): boolean {
+  return Boolean(viewer.id && note.userId && note.userId === viewer.id);
+}
+
+function matchesPastorShareToViewer(
+  note: GraceNoteVisibilityInput,
+  viewer: AppUser,
+): boolean {
+  const clergyId = getViewerClergyId(viewer);
+  if (!clergyId) return false;
+
+  if (note.sharedPastorIds?.includes(clergyId)) return true;
+
+  if (note.sharedPastorAll) {
+    const authorMembership = resolveMembershipForAuthor(note);
+    if (!authorMembership) return false;
+    if (pastorShepherdsMembership(clergyId, authorMembership)) return true;
+    const authorAsUser: AppUser = {
+      id: authorMembership.userId,
+      email: '',
+      name: note.authorName ?? '',
+      role: 'member',
+      districtId: authorMembership.districtId,
+      zoneId: authorMembership.zoneId,
+      departmentIds: authorMembership.departmentIds,
+    };
+    return getEligiblePastorsForUser(authorAsUser).some(p => p.id === clergyId);
+  }
+  return false;
+}
+
+function matchGroupShare(
+  note: GraceNoteVisibilityInput,
+  scope: { upper: Set<string>; lower: Set<string>; dept: Set<string> },
+): { kind: GraceNoteViewKind; badgeLabel: string; bucket: GraceNoteFilterBucket } | null {
+  const parts = noteSharedGroupParts(note);
+
+  const hitLower = parts.lower.find(id => scope.lower.has(id));
+  if (hitLower) {
+    const zone = getAllZones().find(z => z.id === hitLower);
+    const upperName = zone ? getDistrictNameById(zone.district_id) : '';
+    const lowerName = getZoneNameById(hitLower);
+    const label =
+      upperName && upperName !== '-'
+        ? `${upperName} > ${lowerName} 공유`
+        : `${lowerName} 공유`;
+    return { kind: 'group_lower', badgeLabel: label, bucket: 'group_org' };
+  }
+
+  const hitUpper = parts.upper.find(id => scope.upper.has(id));
+  if (hitUpper) {
+    return {
+      kind: 'group_upper',
+      badgeLabel: `${getDistrictNameById(hitUpper)} 공유`,
+      bucket: 'group_org',
+    };
+  }
+
+  const hitDept = parts.departments.find(id => scope.dept.has(id));
+  if (hitDept) {
+    return {
+      kind: 'group_department',
+      badgeLabel: `${getDepartmentNameById(hitDept)} 공유`,
+      bucket: 'group_dept',
+    };
+  }
+
+  return null;
+}
+
+/**
+ * 모아보기 — 현재 사용자가 이 기록을 볼 수 있는지 + 배지/필터 근거
+ * (성도·교역자·최고관리자 공통. 남의 나만 보기는 절대 불가)
+ */
+export function getGraceNoteViewInfo(
+  note: GraceNoteVisibilityInput,
+  viewer: AppUser | null,
+): GraceNoteViewInfo | null {
+  if (!viewer) return null;
+
+  const visibility = (note.visibility ?? 'private') as GraceNoteVisibility;
+  const own = isOwnNote(note, viewer);
+
+  if (own) {
+    const badges = ['내 기록'];
+    const buckets: GraceNoteFilterBucket[] = ['own'];
+    if (visibility === 'pastor') {
+      buckets.push('pastor_share');
+      badges.push('담당 교역자 공유');
+    }
+    if (visibility === 'group') {
+      const scope = getViewerOrganizationScope(viewer);
+      const g = matchGroupShare(note, scope);
+      if (g?.bucket === 'group_dept') {
+        buckets.push('group_dept');
+        badges.push(g.badgeLabel);
+      } else if (g) {
+        buckets.push('group_org');
+        badges.push(g.badgeLabel);
+      } else {
+        buckets.push('group_org');
+      }
+    }
+    if (visibility === 'public') {
+      buckets.push('public');
+      badges.push('전체 공개');
+    }
+    return { kind: 'own', badgeLabel: '내 기록', badges, buckets };
+  }
+
+  // 다른 사람 나만 보기 — 역할과 무관하게 불가 (최고관리자 포함)
+  if (visibility === 'private') return null;
+
+  const scope = getViewerOrganizationScope(viewer);
+
+  if (visibility === 'public') {
+    return {
+      kind: 'public',
+      badgeLabel: '전체 공개',
+      badges: ['전체 공개'],
+      buckets: ['public'],
+    };
+  }
+
+  if (visibility === 'pastor') {
+    if (matchesPastorShareToViewer(note, viewer)) {
+      return {
+        kind: 'pastor_share',
+        badgeLabel: '담당 교역자 공유',
+        badges: ['담당 교역자 공유'],
+        buckets: ['pastor_share'],
+      };
+    }
+    // 성도: 담당 교역자가 작성해 공유한 기록 (§1 ②)
+    if (viewer.role === 'member' && isAuthoredByMyShepherdPastor(note, viewer)) {
+      return {
+        kind: 'pastor_share',
+        badgeLabel: '담당 교역자 공유',
+        badges: ['담당 교역자 공유'],
+        buckets: ['pastor_share'],
+      };
+    }
+    return null;
+  }
+
+  if (visibility === 'group') {
+    const g = matchGroupShare(note, scope);
+    if (!g) return null;
+    return {
+      kind: g.kind,
+      badgeLabel: g.badgeLabel,
+      badges: [g.badgeLabel],
+      buckets: [g.bucket],
+    };
+  }
+
+  return null;
+}
+
+/** @deprecated use getGraceNoteViewInfo / getVisibleGraceNotesForUser */
+export function canMemberViewGraceNote(
+  note: GraceNoteVisibilityInput,
+  viewer: AppUser | null,
+): boolean {
+  return getGraceNoteViewInfo(note, viewer) !== null;
+}
+
+/** 데이터 계층 — 현재 사용자가 볼 수 있는 은혜기록만 반환 (중복 없음) */
+export function getVisibleGraceNotesForUser<T extends GraceNoteVisibilityInput & { id?: string }>(
+  notes: T[],
+  viewer: AppUser | null,
+): T[] {
+  const seen = new Set<string>();
+  const result: T[] = [];
+  for (const n of notes) {
+    if (!getGraceNoteViewInfo(n, viewer)) continue;
+    const key = n.id ?? `${n.userId}-${n.createdAt}-${n.authorName}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(n);
+  }
+  return result;
+}
+
+/** 모아보기 3탭: 내 기록 | 공유받은 기록 | 전체 공개 */
+export type GraceCollectTab = 'mine' | 'shared' | 'public';
+
+/** 공유받은 기록 상세 구분 */
+export type GraceSharedShareKind = 'pastor' | 'upper' | 'lower' | 'department';
+
+export function getGraceCollectTab(
+  note: GraceNoteVisibilityInput,
+  viewer: AppUser | null,
+): GraceCollectTab | null {
+  const info = getGraceNoteViewInfo(note, viewer);
+  if (!info || !viewer) return null;
+  if (isOwnNote(note, viewer)) return 'mine';
+  if (note.visibility === 'public') return 'public';
+  if (info.kind === 'pastor_share' || info.kind.startsWith('group_')) return 'shared';
+  return null;
+}
+
+/** 공유받은 기록의 공유 구분 (필터용) */
+export function getGraceSharedShareKind(
+  note: GraceNoteVisibilityInput,
+  viewer: AppUser | null,
+): GraceSharedShareKind | null {
+  if (!viewer || isOwnNote(note, viewer)) return null;
+  if (note.visibility === 'public' || note.visibility === 'private') return null;
+
+  if (note.visibility === 'pastor') {
+    if (matchesPastorShareToViewer(note, viewer)) return 'pastor';
+    if (viewer.role === 'member' && isAuthoredByMyShepherdPastor(note, viewer)) return 'pastor';
+    return null;
+  }
+
+  if (note.visibility === 'group') {
+    const scope = getViewerOrganizationScope(viewer);
+    const parts = noteSharedGroupParts(note);
+    if (parts.lower.some(id => scope.lower.has(id))) return 'lower';
+    if (parts.upper.some(id => scope.upper.has(id))) return 'upper';
+    if (parts.departments.some(id => scope.dept.has(id))) return 'department';
+  }
+  return null;
+}
+
+/**
+ * 목록 카드용 대표 배지 하나
+ * - 내 기록: 내가 설정한 공개범위
+ * - 공유받은 기록: 공유 근거 (우선순위: 교역자 > 하위 > 상위 > 부서)
+ * - 전체 공개: 전체 공개
+ */
+export function getGraceListBadge(
+  note: GraceNoteVisibilityInput,
+  viewer: AppUser | null,
+  tab: GraceCollectTab,
+): string {
+  if (!viewer) return '';
+
+  if (tab === 'mine' || (tab !== 'public' && isOwnNote(note, viewer))) {
+    const visibility = (note.visibility ?? 'private') as GraceNoteVisibility;
+    if (visibility === 'private') return '나만 보기';
+    if (visibility === 'pastor') return '담당 교역자와 공유';
+    if (visibility === 'public') return '전체 공개';
+    if (visibility === 'group') {
+      const labels = formatOrganizationShareDisplayLabels({
+        sharedGroupIds: note.sharedGroupIds,
+        sharedUpperOrganizationIds: note.sharedUpperOrganizationIds,
+        sharedLowerOrganizationIds: note.sharedLowerOrganizationIds,
+        sharedDepartmentIds: note.sharedDepartmentIds,
+      });
+      if (labels.length === 0) {
+        const org = getOrganizationLabels();
+        return `${org.upper}/${org.department} 공유`;
+      }
+      const lowerLike = labels.find(l => l.includes(' > '));
+      const base = lowerLike ?? labels[0];
+      return base.endsWith('공유') ? base : `${base} 공유`;
+    }
+    return '내 기록';
+  }
+
+  if (tab === 'public' || note.visibility === 'public') {
+    return '전체 공개';
+  }
+
+  const info = getGraceNoteViewInfo(note, viewer);
+  if (!info) return '공유받음';
+  if (info.kind === 'pastor_share') return '담당 교역자 공유';
+  return info.badgeLabel || '공유받음';
+}
+
+export function getGraceNotesForCollectTab<T extends GraceNoteVisibilityInput & { id?: string; createdAt: string }>(
+  notes: T[],
+  viewer: AppUser | null,
+  tab: GraceCollectTab,
+): T[] {
+  const visible = getVisibleGraceNotesForUser(notes, viewer);
+  if (!viewer) return [];
+
+  if (tab === 'mine') {
+    return visible.filter(n => isOwnNote(n, viewer));
+  }
+  if (tab === 'public') {
+    return visible.filter(n => n.visibility === 'public');
+  }
+  // 공유받은 기록 — 내 작성·전체 공개 제외
+  return visible.filter(n => {
+    if (isOwnNote(n, viewer)) return false;
+    if (n.visibility === 'public' || n.visibility === 'private') return false;
+    return getGraceNoteViewInfo(n, viewer) !== null;
+  });
+}
+
+/** @deprecated alias */
+export function getVisibleGraceNotesForMember<T extends GraceNoteVisibilityInput & { id?: string; createdAt: string }>(
+  notes: T[],
+  viewer: AppUser | null,
+): T[] {
+  return getVisibleGraceNotesForUser(notes, viewer);
 }
 
 const VIEW_KIND_PRIORITY: Record<GraceNoteViewKind, number> = {
   own: 0,
-  pastor_author: 1,
+  pastor_share: 1,
   group_upper: 2,
   group_lower: 2,
   group_department: 2,
   public: 3,
 };
 
-export function sortGraceNotesForMemberView<T extends {
-  visibility?: string;
-  userId?: string;
-  authorName?: string;
-  authorDistrictId?: string;
-  authorZoneId?: string;
-  authorDepartmentIds?: string[];
-  sharedGroupAll?: boolean;
-  sharedGroupIds?: string[];
-  sharedUpperOrganizationIds?: string[];
-  sharedLowerOrganizationIds?: string[];
-  sharedDepartmentIds?: string[];
-  createdAt: string;
-}>(notes: T[], viewer: AppUser | null, sortOrder: 'newest' | 'oldest' = 'newest'): T[] {
+export type GraceNoteListSort =
+  | 'newest'
+  | 'oldest'
+  | 'favorites'
+  | 'own_first'
+  | 'received_first';
+
+export function sortGraceNotesForMemberView<T extends GraceNoteVisibilityInput & { createdAt: string }>(
+  notes: T[],
+  viewer: AppUser | null,
+  sortOrder: GraceNoteListSort = 'newest',
+): T[] {
   return [...notes].sort((a, b) => {
-    const ia = getGraceNoteViewInfo(a, viewer);
-    const ib = getGraceNoteViewInfo(b, viewer);
-    const pa = ia ? VIEW_KIND_PRIORITY[ia.kind] : 99;
-    const pb = ib ? VIEW_KIND_PRIORITY[ib.kind] : 99;
-    if (pa !== pb) return pa - pb;
-    return sortOrder === 'newest'
-      ? b.createdAt.localeCompare(a.createdAt)
-      : a.createdAt.localeCompare(b.createdAt);
+    if (sortOrder === 'favorites') {
+      const fa = a.isFavorite ? 0 : 1;
+      const fb = b.isFavorite ? 0 : 1;
+      if (fa !== fb) return fa - fb;
+    }
+    if (sortOrder === 'own_first' || sortOrder === 'received_first') {
+      const ia = getGraceNoteViewInfo(a, viewer);
+      const ib = getGraceNoteViewInfo(b, viewer);
+      const aOwn = ia?.kind === 'own' ? 0 : 1;
+      const bOwn = ib?.kind === 'own' ? 0 : 1;
+      if (sortOrder === 'own_first' && aOwn !== bOwn) return aOwn - bOwn;
+      if (sortOrder === 'received_first' && aOwn !== bOwn) return bOwn - aOwn;
+      // 보조: 조회 근거 우선순위
+      const pa = ia ? VIEW_KIND_PRIORITY[ia.kind] : 99;
+      const pb = ib ? VIEW_KIND_PRIORITY[ib.kind] : 99;
+      if (pa !== pb) return pa - pb;
+    }
+    const byDate = b.createdAt.localeCompare(a.createdAt);
+    return sortOrder === 'oldest' ? -byDate : byDate;
   });
 }
 
-/** 목회자가 공유받은 은혜기록인지 (나만 보기 제외, 담당 성도만) */
+/** 목회자 「담당 성도 은혜기록」 — 담당 범위 + 공유/공개만 (남의 private 제외) */
 export function canPastorViewSharedGraceNote(
-  note: {
-    visibility?: string;
-    sharedPastorAll?: boolean;
-    sharedPastorIds?: string[];
-    sharedGroupAll?: boolean;
-    sharedGroupIds?: string[];
-    sharedUpperOrganizationIds?: string[];
-    sharedLowerOrganizationIds?: string[];
-    sharedDepartmentIds?: string[];
-    userId?: string;
-    authorName?: string;
-    authorDistrictId?: string;
-    authorZoneId?: string;
-    authorDepartmentIds?: string[];
-  },
+  note: GraceNoteVisibilityInput,
   viewer: AppUser | null,
 ): boolean {
   if (!viewer || viewer.role === 'member') return false;
+  if (isOwnNote(note, viewer)) return false; // 담당 성도 함은 타 성도용
   if (note.visibility === 'private' || !note.visibility) return false;
 
   const authorMembership = resolveMembershipForAuthor(note);
-  const authorAsUser = authorMembership
-    ? ({
-        id: authorMembership.userId,
-        email: '',
-        name: note.authorName ?? '',
-        role: 'member' as const,
-        districtId: authorMembership.districtId,
-        zoneId: authorMembership.zoneId,
-        departmentIds: authorMembership.departmentIds,
-      })
-    : null;
+  const clergyId = getViewerClergyId(viewer);
 
+  // 최고관리자도 담당/소속 범위만 (전체 private 열람 금지)
   if (viewer.role === 'super_admin') {
-    // 최고관리자도 담당 범위 밖 private는 이미 제외. 공개·공유만.
-    return true;
-  }
-
-  const clergy = viewer.email ? getClergyByEmail(viewer.email) : null;
-  const pastorId = clergy?.id;
-  if (!pastorId) return false;
-
-  // 담당 성도 소속이어야 함
-  if (!pastorShepherdsMembership(pastorId, authorMembership)) return false;
-
-  if (note.visibility === 'public') return true;
-
-  if (note.visibility === 'pastor') {
-    if (note.sharedPastorIds?.includes(pastorId)) return true;
-    if (note.sharedPastorAll && authorAsUser) {
-      return getEligiblePastorsForUser(authorAsUser).some(p => p.id === pastorId);
+    const scope = getViewerOrganizationScope(viewer);
+    if (note.visibility === 'public') {
+      // 담당/소속과 연관된 작성자이거나, 전체 공개는 교회 구성원 모두 가능 → 공개는 허용
+      return true;
+    }
+    if (note.visibility === 'pastor') {
+      return matchesPastorShareToViewer(note, viewer);
+    }
+    if (note.visibility === 'group') {
+      return matchGroupShare(note, scope) !== null;
     }
     return false;
   }
 
-  if (note.visibility === 'group' && authorAsUser) {
-    const authorGroupIds = getAllEligibleGroupIds(authorAsUser);
-    const split = splitOrganizationShareIds(note);
-    const listed = composeSharedGroupIds(split.upper, split.lower, split.departments);
-    const sharedIds = note.sharedGroupAll
-      ? [...authorGroupIds]
-      : uniqueIds(listed.length ? listed : note.sharedGroupIds).filter(id => authorGroupIds.has(id));
-    if (sharedIds.length === 0) return false;
+  if (!clergyId) return false;
+  if (!pastorShepherdsMembership(clergyId, authorMembership)) return false;
 
-    const assignments = getAllActiveAssignments().filter(
-      a => a.pastorId === pastorId && a.isActive,
-    );
-    return assignments.some(a =>
-      (a.districtId && sharedIds.includes(a.districtId)) ||
-      (a.zoneId && sharedIds.includes(a.zoneId)) ||
-      (a.departmentId && sharedIds.includes(a.departmentId)),
-    );
+  if (note.visibility === 'public') return true;
+
+  if (note.visibility === 'pastor') {
+    return matchesPastorShareToViewer(note, viewer);
+  }
+
+  if (note.visibility === 'group') {
+    const scope = getViewerOrganizationScope(viewer);
+    return matchGroupShare(note, scope) !== null;
   }
 
   return false;
 }
+

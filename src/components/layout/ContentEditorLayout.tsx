@@ -15,6 +15,8 @@ export type ContentEditorLayoutProps = {
    * - subpage: 메뉴 페이지와 동일 — 뒤로 + 화면 중앙 제목/설명
    */
   mobileHeaderVariant?: 'editor' | 'subpage';
+  /** 하단 고정 액션 바 (공감·기도 등). 모바일 safe-area 반영 */
+  footer?: ReactNode;
 };
 
 const FORM_CARD_CLASS = 'bg-white rounded-[20px] p-5 md:p-6';
@@ -41,6 +43,7 @@ export default function ContentEditorLayout({
   children,
   saveButton,
   mobileHeaderVariant = 'editor',
+  footer,
 }: ContentEditorLayoutProps) {
   const { isPc } = useBreakpoint();
 
@@ -68,17 +71,31 @@ export default function ContentEditorLayout({
       ? <MobileSubPageHeader {...headerProps} />
       : <MobileEditorPageHeader {...headerProps} />;
 
+  const contentPadBottom = footer
+    ? '24px'
+    : 'calc(24px + env(safe-area-inset-bottom, 0px))';
+
   const body = (
     <>
       {header}
       <div className="flex-1 overflow-y-auto overscroll-contain min-h-0">
         <div
           className="w-full max-w-[900px] mx-auto"
-          style={{ padding: '24px 24px calc(24px + env(safe-area-inset-bottom, 0px))' }}
+          style={{ padding: `24px 24px ${contentPadBottom}` }}
         >
           {children}
         </div>
       </div>
+      {footer && (
+        <div
+          className="shrink-0 bg-white border-t border-gray-100"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+        >
+          <div className="w-full max-w-[900px] mx-auto px-4 py-3">
+            {footer}
+          </div>
+        </div>
+      )}
     </>
   );
 
@@ -97,12 +114,12 @@ export default function ContentEditorLayout({
 
   return (
     <div
-      className="fixed inset-0 flex flex-col bg-white"
+      className="fixed inset-0 flex flex-col bg-white overflow-hidden"
       style={{
         zIndex: 300,
         width: '100%',
         height: '100dvh',
-        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        paddingBottom: footer ? undefined : 'env(safe-area-inset-bottom, 0px)',
       }}
     >
       {body}

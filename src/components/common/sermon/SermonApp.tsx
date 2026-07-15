@@ -15,7 +15,7 @@ import {
   SERMON_DRAFT_TAB_ID, canViewSermonDrafts,
 } from '../../../services/sermonHelpers';
 import { useAuth } from '../../../contexts/AuthContext';
-import { PageHeaderBar, MobileFab } from '../ui';
+import { PageHeaderBar, MobileFab, ChurchDropdownMenu } from '../ui';
 import ContentEditorLayout from '../../layout/ContentEditorLayout';
 import SermonDetail from './SermonDetail';
 import SermonForm, { type SermonFormData } from './SermonForm';
@@ -218,10 +218,6 @@ export default function SermonApp({
             <ChevronLeft className="w-6 h-6 text-gray-800" />
           </button>
           <h2 className="text-lg font-extrabold text-gray-900 truncate flex-1">설교 상세</h2>
-          {canManage && (
-            <button type="button" onClick={() => openEdit(selected)}
-              className="px-4 py-2 text-sm font-bold text-primary-600 bg-primary-50 rounded-[14px]">수정</button>
-          )}
         </div>
         <div className="max-w-[900px] mx-auto">
           <SermonDetail sermon={selected} user={user} canManage={canManage}
@@ -243,8 +239,8 @@ export default function SermonApp({
         action={registerBtn}
       />
 
-      {/* 상단 고정: 예배 폴더 탭 + 플레이어 */}
-      <div className="sticky top-14 md:top-0 z-30 -mx-6 bg-[#F8FAFC]">
+      {/* 상단 고정: 예배 폴더 탭 + 플레이어 (목록 메뉴 z-20 위 stacking) */}
+      <div className="sticky top-14 md:top-0 z-[50] -mx-6 bg-[#F8FAFC] relative isolate">
         <div className="px-6 pt-1">
           <div className="max-w-[900px] mx-auto">
             <SermonFolderTabs
@@ -273,8 +269,8 @@ export default function SermonApp({
       {/* 모바일 전용: 플로팅 설교 등록 버튼 */}
       {canManage && <MobileFab label="설교 등록" onClick={openCreate} />}
 
-      {/* 검색 · 카드 목록 · 페이지네이션 */}
-      <div className="max-w-[900px] mx-auto pt-4 space-y-3">
+      {/* 검색 · 카드 목록 · 페이지네이션 (플레이어보다 낮은 stacking) */}
+      <div className="relative z-[10] max-w-[900px] mx-auto pt-4 space-y-3 overflow-visible">
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
           <input value={search} onChange={e => setSearch(e.target.value)}
@@ -290,7 +286,7 @@ export default function SermonApp({
 
         {filtered.length > 0 ? (
           <>
-            <div className="space-y-3">
+            <div className="relative z-[1] space-y-3 overflow-visible">
               {pageItems.map(s => (
                 <SermonCardRow
                   key={s.id}
@@ -328,34 +324,35 @@ export default function SermonApp({
   );
 }
 
-/* ── 설교 수정/삭제 공통 버튼 (플레이어·목록 카드 공용) ── */
+/* ── 설교 수정/삭제 (공지사항과 동일한 ⋮ 메뉴) ── */
 function SermonManageActions({
-  onEdit, onDelete, className = '',
+  onEdit, onDelete, className = '', layer = 'top',
 }: {
   onEdit: () => void;
   onDelete: () => void;
   className?: string;
+  /** player → top, list → belowPlayer */
+  layer?: 'top' | 'belowPlayer';
 }) {
   return (
-    <div className={`flex items-center gap-1.5 ${className}`}>
-      <button
-        type="button"
-        aria-label="설교 수정"
-        onClick={e => { e.stopPropagation(); onEdit(); }}
-        className="flex items-center justify-center gap-1 h-9 min-w-[36px] px-2 md:px-3 rounded-[12px] bg-primary-50 text-primary-600 hover:bg-primary-100 text-[13px] font-bold transition-colors"
-      >
-        <Pencil className="w-4 h-4" />
-        <span className="hidden md:inline">수정</span>
-      </button>
-      <button
-        type="button"
-        aria-label="설교 삭제"
-        onClick={e => { e.stopPropagation(); onDelete(); }}
-        className="flex items-center justify-center gap-1 h-9 min-w-[36px] px-2 md:px-3 rounded-[12px] bg-red-50 text-red-600 hover:bg-red-100 text-[13px] font-bold transition-colors"
-      >
-        <Trash2 className="w-4 h-4" />
-        <span className="hidden md:inline">삭제</span>
-      </button>
+    <div className={`shrink-0 ${className}`}>
+      <ChurchDropdownMenu
+        layer={layer}
+        ariaLabel="설교 관리 메뉴"
+        items={[
+          {
+            label: '수정하기',
+            icon: <Pencil style={{ width: '15px', height: '15px' }} />,
+            onClick: onEdit,
+          },
+          {
+            label: '삭제하기',
+            icon: <Trash2 style={{ width: '15px', height: '15px' }} />,
+            danger: true,
+            onClick: onDelete,
+          },
+        ]}
+      />
     </div>
   );
 }
@@ -423,7 +420,7 @@ function StickyPlayer({
             {sermon.title}
           </h3>
           {canManage && (
-            <SermonManageActions className="shrink-0" onEdit={onEdit} onDelete={onDelete} />
+            <SermonManageActions layer="top" className="shrink-0" onEdit={onEdit} onDelete={onDelete} />
           )}
         </div>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 mt-1">
@@ -518,7 +515,7 @@ function SermonCardRow({
       </div>
 
       {canManage ? (
-        <SermonManageActions className="shrink-0" onEdit={onEdit} onDelete={onDelete} />
+        <SermonManageActions layer="belowPlayer" className="shrink-0" onEdit={onEdit} onDelete={onDelete} />
       ) : active ? (
         <Play className="w-5 h-5 shrink-0 text-primary-600 fill-primary-600" />
       ) : (

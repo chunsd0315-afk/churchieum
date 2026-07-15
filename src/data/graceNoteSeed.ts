@@ -192,6 +192,26 @@ function buildAuthors(): SeedAuthor[] {
     departmentIds: ['dep3', 'dep5'],
   });
 
+  // 데모 교역자·최고관리자 (Auth 계정 ID와 동일)
+  authors.push({
+    id: 'demo-pastor01',
+    name: '김영수',
+    role: '담임목사',
+    gender: '남',
+    districtId: 'd1',
+    zoneId: 'z1',
+    departmentIds: ['dep1'],
+  });
+  authors.push({
+    id: 'demo-pastor02',
+    name: '이성호',
+    role: '목사',
+    gender: '남',
+    districtId: 'd2',
+    zoneId: 'z3',
+    departmentIds: ['dep1'],
+  });
+
   return authors;
 }
 
@@ -207,7 +227,13 @@ function syncAuthorsToDemoStore(authors: SeedAuthor[]): void {
       const row = {
         id: a.id,
         name: a.name,
-        email: a.id === 'demo-member60' ? 'member60@demo.com' : `${a.id}@demo.churchieum.com`,
+        email: a.id === 'demo-member60'
+          ? 'member60@demo.com'
+          : a.id === 'demo-pastor01'
+            ? 'pastor01@churchieum.com'
+            : a.id === 'demo-pastor02'
+              ? 'pastor02@churchieum.com'
+              : `${a.id}@demo.churchieum.com`,
         position: a.role,
         districtId: a.districtId,
         districtName: dist?.name ?? '',
@@ -225,18 +251,26 @@ function syncAuthorsToDemoStore(authors: SeedAuthor[]): void {
 }
 
 function authorAsUser(a: SeedAuthor): AppUser {
+  const isPastor01 = a.id === 'demo-pastor01';
+  const isPastor02 = a.id === 'demo-pastor02';
   return {
     id: a.id,
-    email: a.id === 'demo-member60' ? 'member60@demo.com' : `${a.id}@demo.churchieum.com`,
+    email: a.id === 'demo-member60'
+      ? 'member60@demo.com'
+      : isPastor01
+        ? 'pastor01@churchieum.com'
+        : isPastor02
+          ? 'pastor02@churchieum.com'
+          : `${a.id}@demo.churchieum.com`,
     name: a.name,
-    role: 'member',
+    role: isPastor01 ? 'super_admin' : isPastor02 ? 'pastor' : 'member',
     districtId: a.districtId,
     zoneId: a.zoneId,
     departmentIds: a.departmentIds,
   };
 }
 
-function pickVisibilityForAuthor(author: SeedAuthor): {
+function pickVisibilityForAuthor(author: SeedAuthor, index: number): {
   visibility: GraceNoteVisibility;
   sharedPastorAll: boolean;
   sharedPastorIds: string[];
@@ -246,7 +280,6 @@ function pickVisibilityForAuthor(author: SeedAuthor): {
   sharedLowerOrganizationIds: string[];
   sharedDepartmentIds: string[];
 } {
-  const roll = Math.random();
   const eligiblePastors = getEligiblePastorsForUser(authorAsUser(author));
   const empty = {
     sharedPastorAll: false,
@@ -258,54 +291,72 @@ function pickVisibilityForAuthor(author: SeedAuthor): {
     sharedDepartmentIds: [] as string[],
   };
 
-  // 20% private
-  if (roll < 0.2) {
+  // 6가지 공개범위를 고르게 배분
+  const mode = index % 6;
+
+  if (mode === 0) {
     return { visibility: 'private', ...empty };
   }
-  // 30% pastor
-  if (roll < 0.5) {
-    if (eligiblePastors.length === 0) {
-      return { visibility: 'public', ...empty };
-    }
-    const all = Math.random() < 0.35;
-    const ids = all
-      ? eligiblePastors.map(p => p.id)
-      : eligiblePastors.sort(() => Math.random() - 0.5).slice(0, randInt(1, Math.min(3, eligiblePastors.length))).map(p => p.id);
+
+  if (mode === 1) {
+    if (eligiblePastors.length === 0) return { visibility: 'public', ...empty };
+    const preferCl1 = eligiblePastors.find(p => p.id === 'cl1');
+    const preferCl2 = eligiblePastors.find(p => p.id === 'cl2');
+    const preferred = (index % 2 === 0 ? preferCl1 : preferCl2) ?? eligiblePastors[0];
+    const ids = uniqueIds([
+      preferred.id,
+      ...(Math.random() < 0.35
+        ? eligiblePastors.slice(0, 2).map(p => p.id)
+        : []),
+    ]);
     return {
       visibility: 'pastor',
       ...empty,
-      sharedPastorAll: all,
-      sharedPastorIds: all ? [] : uniqueIds(ids),
+      sharedPastorAll: false,
+      sharedPastorIds: ids,
     };
   }
-  // 35% group
-  if (roll < 0.85) {
-    const upper: string[] = [];
-    const lower: string[] = [];
-    const departments: string[] = [];
-    if (author.districtId && Math.random() < 0.7) upper.push(author.districtId);
-    if (author.zoneId && Math.random() < 0.75) {
-      lower.push(author.zoneId);
-      if (author.districtId && !upper.includes(author.districtId)) upper.push(author.districtId);
-    }
-    for (const d of author.departmentIds) {
-      if (Math.random() < 0.7) departments.push(d);
-    }
-    if (upper.length + lower.length + departments.length === 0) {
-      if (author.districtId) upper.push(author.districtId);
-      else if (author.departmentIds[0]) departments.push(author.departmentIds[0]);
-    }
-    const sharedGroupIds = composeSharedGroupIds(upper, lower, departments);
+
+  if (mode === 2) {
+    // 상위조직 공유
+    const upper = author.districtId ? [author.districtId] : [];
+    if (upper.length === 0) return { visibility: 'public', ...empty };
     return {
       visibility: 'group',
       ...empty,
-      sharedUpperOrganizationIds: uniqueIds(upper),
-      sharedLowerOrganizationIds: uniqueIds(lower),
-      sharedDepartmentIds: uniqueIds(departments),
-      sharedGroupIds,
+      sharedUpperOrganizationIds: upper,
+      sharedGroupIds: composeSharedGroupIds(upper, [], []),
     };
   }
-  // 15% public
+
+  if (mode === 3) {
+    // 하위조직 공유 (+ 상위 자동 포함)
+    const lower = author.zoneId ? [author.zoneId] : [];
+    const upper = author.districtId ? [author.districtId] : [];
+    if (lower.length === 0 && upper.length === 0) return { visibility: 'public', ...empty };
+    return {
+      visibility: 'group',
+      ...empty,
+      sharedUpperOrganizationIds: upper,
+      sharedLowerOrganizationIds: lower,
+      sharedGroupIds: composeSharedGroupIds(upper, lower, []),
+    };
+  }
+
+  if (mode === 4) {
+    // 부서 공유
+    const departments = author.departmentIds.length
+      ? [author.departmentIds[index % author.departmentIds.length]]
+      : [];
+    if (departments.length === 0) return { visibility: 'public', ...empty };
+    return {
+      visibility: 'group',
+      ...empty,
+      sharedDepartmentIds: departments,
+      sharedGroupIds: composeSharedGroupIds([], [], departments),
+    };
+  }
+
   return { visibility: 'public', ...empty };
 }
 
@@ -327,7 +378,7 @@ function generateSermonNotes(count: number, authors: SeedAuthor[], names: string
   for (let i = 0; i < count; i++) {
     const author = pick(authors);
     const createdAt = randomPastDate();
-    const share = pickVisibilityForAuthor(author);
+    const share = pickVisibilityForAuthor(author, i);
     const eng = baseEngagement(share.visibility, createdAt, names);
     const preacher = pick(getAllClergy().filter(c => c.status === 'active').slice(0, 8));
     notes.push({
@@ -362,7 +413,7 @@ function generateReadingNotes(count: number, authors: SeedAuthor[], names: strin
   for (let i = 0; i < count; i++) {
     const author = pick(authors);
     const createdAt = randomPastDate();
-    const share = pickVisibilityForAuthor(author);
+    const share = pickVisibilityForAuthor(author, i + 100);
     const eng = baseEngagement(share.visibility, createdAt, names);
     const plan = pick(plans.length ? plans : READING_PLANS);
     const passage = pick(READING_PASSAGES);
@@ -401,7 +452,7 @@ function generatePersonalNotes(count: number, authors: SeedAuthor[], names: stri
   for (let i = 0; i < count; i++) {
     const author = pick(authors);
     const createdAt = randomPastDate();
-    const share = pickVisibilityForAuthor(author);
+    const share = pickVisibilityForAuthor(author, i + 220);
     const eng = baseEngagement(share.visibility, createdAt, names);
     const topic = pick(topics);
     notes.push({
@@ -474,12 +525,52 @@ export function generateGraceNoteDemoData(): GraceNote[] {
   const personal = generatePersonalNotes(80, authors, names);
   const all = [...sermon, ...reading, ...personal];
 
-  // 데모 성도(강수아) 본인 기록 확보
+  const emptyShare = {
+    sharedPastorAll: false,
+    sharedPastorIds: [] as string[],
+    sharedGroupAll: false,
+    sharedGroupIds: [] as string[],
+    sharedUpperOrganizationIds: [] as string[],
+    sharedLowerOrganizationIds: [] as string[],
+    sharedDepartmentIds: [] as string[],
+  };
+
+  const pushFixture = (
+    id: string,
+    author: SeedAuthor,
+    visibility: GraceNoteVisibility,
+    graceContent: string,
+    shareExtra: Partial<typeof emptyShare> = {},
+  ) => {
+    const createdAt = randomPastDate();
+    const share = { visibility, ...emptyShare, ...shareExtra };
+    const eng = baseEngagement(visibility, createdAt, names);
+    all.push({
+      id,
+      userId: author.id,
+      authorName: author.name,
+      authorRole: author.role,
+      authorDistrictId: author.districtId,
+      authorZoneId: author.zoneId,
+      authorDepartmentIds: author.departmentIds,
+      type: 'personal',
+      ...share,
+      memorableVerse: '',
+      graceContent,
+      application: pick(APPLICATIONS),
+      prayer: pick(PRAYERS),
+      ...eng,
+      createdAt,
+      updatedAt: createdAt,
+    });
+  };
+
+  // 데모 성도(강수아) 본인 기록 — 공개범위 골고루
   const demoAuthor = authors.find(a => a.id === 'demo-member60');
   if (demoAuthor) {
     for (let i = 0; i < 12; i++) {
       const createdAt = randomPastDate();
-      const share = pickVisibilityForAuthor(demoAuthor);
+      const share = pickVisibilityForAuthor(demoAuthor, i);
       const eng = baseEngagement(share.visibility, createdAt, names);
       all.push({
         id: `gn-demo-me-${i}`,
@@ -508,6 +599,36 @@ export function generateGraceNoteDemoData(): GraceNote[] {
     }
   }
 
+  // 역할별 목록이 달라지도록 고정 픽스처
+  const pastor01 = authors.find(a => a.id === 'demo-pastor01');
+  const pastor02 = authors.find(a => a.id === 'demo-pastor02');
+  if (pastor01) {
+    pushFixture('gn-fix-p01-private', pastor01, 'private', '[픽스처] 김영수 나만 보기 — 다른 역할은 조회 불가');
+    pushFixture('gn-fix-p01-pastor-to-cl2', pastor01, 'pastor', '[픽스처] 김영수 → 이성호 교역자 공유', {
+      sharedPastorIds: ['cl2'],
+    });
+    pushFixture('gn-fix-p01-group-d1', pastor01, 'group', '[픽스처] 김영수 1교구 조직 공유 (강수아·김영수 조회)', {
+      sharedUpperOrganizationIds: ['d1'],
+      sharedGroupIds: ['d1'],
+    });
+  }
+  if (pastor02) {
+    pushFixture('gn-fix-p02-private', pastor02, 'private', '[픽스처] 이성호 나만 보기 — 다른 역할은 조회 불가');
+    pushFixture('gn-fix-p02-pastor-to-cl1', pastor02, 'pastor', '[픽스처] 이성호 → 김영수 교역자 공유', {
+      sharedPastorIds: ['cl1'],
+    });
+    pushFixture('gn-fix-p02-group-d2', pastor02, 'group', '[픽스처] 이성호 2교구 조직 공유 (이성호만 소속으로 조회)', {
+      sharedUpperOrganizationIds: ['d2'],
+      sharedGroupIds: ['d2'],
+    });
+  }
+  if (demoAuthor) {
+    pushFixture('gn-fix-m60-private', demoAuthor, 'private', '[픽스처] 강수아 나만 보기 — 본인만 조회');
+    pushFixture('gn-fix-m60-pastor-cl1', demoAuthor, 'pastor', '[픽스처] 강수아 → 김영수 담당 교역자 공유', {
+      sharedPastorIds: ['cl1'],
+    });
+  }
+
   return all.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
@@ -523,6 +644,7 @@ export function ensureGraceNoteDemoData(): void {
 
 export function resetGraceNoteDemoData(): void {
   try {
+    localStorage.removeItem('graceNotesV2_demo_seeded_v4');
     localStorage.removeItem('graceNotesV2_demo_seeded_v3');
     localStorage.removeItem('graceNotesV2_demo_seeded');
     localStorage.removeItem(LS_PROGRESS_SEEDED);

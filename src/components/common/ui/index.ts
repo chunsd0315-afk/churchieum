@@ -175,7 +175,7 @@ export { ChurchEmptyState }    from './ChurchEmptyState';
 export type { ChurchEmptyStateProps } from './ChurchEmptyState';
 
 export { ChurchDropdownMenu }  from './ChurchDropdownMenu';
-export type { ChurchDropdownMenuProps, ChurchDropdownItem } from './ChurchDropdownMenu';
+export type { ChurchDropdownMenuProps, ChurchDropdownItem, ChurchDropdownLayer } from './ChurchDropdownMenu';
 
 export { ChurchConfirmDialog } from './ChurchConfirmDialog';
 export type { ChurchConfirmDialogProps } from './ChurchConfirmDialog';

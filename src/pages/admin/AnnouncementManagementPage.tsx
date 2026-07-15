@@ -1,12 +1,12 @@
-﻿import { useState, useMemo, useRef, useEffect } from 'react';
-import { PageHeaderBar } from '../../components/common/ui';
+﻿import { useState, useMemo, useRef } from 'react';
+import { PageHeaderBar, ChurchDropdownMenu } from '../../components/common/ui';
 import StatusBadge from '../../components/layout/StatusBadge';
 import EmptyState from '../../components/layout/EmptyState';
 import {
   Megaphone, Plus, Edit2, Trash2, X, Pin, Star,
   Calendar, Bell, ImageIcon, Paperclip, Upload,
   AlertTriangle, Download, Save, LayoutGrid, List,
-  SlidersHorizontal, MoreVertical,
+  SlidersHorizontal,
 } from 'lucide-react';
 import {
   getAllAnnouncements, addAnnouncement, updateAnnouncement, deleteAnnouncement,
@@ -743,81 +743,32 @@ function CardMenu({ ann, onEdit, onDelete, onTogglePin, onNotify }: {
   onEdit: () => void; onDelete: () => void;
   onTogglePin: () => void; onNotify: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
-
   return (
-    <div ref={ref} className="relative" onClick={e => e.stopPropagation()}>
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="flex items-center justify-center bg-white border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
-        style={{ width: '36px', height: '36px', borderRadius: '12px' }}
-      >
-        <MoreVertical style={{ width: '16px', height: '16px' }} />
-      </button>
-      {open && (
-        <div
-          className="absolute right-0 z-50 bg-white border border-gray-200"
-          style={{
-            top: '42px',
-            borderRadius: '16px',
-            boxShadow: '0 12px 30px rgba(15,23,42,.12)',
-            padding: '8px',
-            minWidth: '160px',
-          }}
-        >
-          <button
-            onClick={() => { setOpen(false); onEdit(); }}
-            className="w-full flex items-center gap-2.5 px-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
-            style={{ height: '42px', borderRadius: '10px' }}
-          >
-            <Edit2 style={{ width: '15px', height: '15px' }} />
-            수정하기
-          </button>
-          <button
-            onClick={() => { setOpen(false); onTogglePin(); }}
-            className="w-full flex items-center gap-2.5 px-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
-            style={{ height: '42px', borderRadius: '10px' }}
-          >
-            <Pin style={{ width: '15px', height: '15px' }} />
-            {ann.isPinned ? '상위고정 해제' : '상위고정'}
-          </button>
-          <button
-            onClick={() => { setOpen(false); onNotify(); }}
-            className="w-full flex items-center gap-2.5 px-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
-            style={{ height: '42px', borderRadius: '10px' }}
-          >
-            <Bell style={{ width: '15px', height: '15px' }} />
-            알림 보내기
-          </button>
-          <button
-            onClick={() => { setOpen(false); onDelete(); }}
-            className="w-full flex items-center gap-2.5 px-3 text-sm font-semibold text-red-500 hover:bg-gray-50 transition-colors"
-            style={{ height: '42px', borderRadius: '10px' }}
-          >
-            <Trash2 style={{ width: '15px', height: '15px' }} />
-            삭제하기
-          </button>
-          <button
-            onClick={() => setOpen(false)}
-            className="w-full flex items-center gap-2.5 px-3 text-sm font-semibold text-gray-400 hover:bg-gray-50 transition-colors"
-            style={{ height: '42px', borderRadius: '10px' }}
-          >
-            <X style={{ width: '15px', height: '15px' }} />
-            취소
-          </button>
-        </div>
-      )}
-    </div>
+    <ChurchDropdownMenu
+      items={[
+        {
+          label: '수정하기',
+          icon: <Edit2 style={{ width: '15px', height: '15px' }} />,
+          onClick: onEdit,
+        },
+        {
+          label: ann.isPinned ? '상위고정 해제' : '상위고정',
+          icon: <Pin style={{ width: '15px', height: '15px' }} />,
+          onClick: onTogglePin,
+        },
+        {
+          label: '알림 보내기',
+          icon: <Bell style={{ width: '15px', height: '15px' }} />,
+          onClick: onNotify,
+        },
+        {
+          label: '삭제하기',
+          icon: <Trash2 style={{ width: '15px', height: '15px' }} />,
+          danger: true,
+          onClick: onDelete,
+        },
+      ]}
+    />
   );
 }
 

@@ -1,4 +1,4 @@
-﻿import { useState, useCallback } from 'react';
+﻿import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   BookOpen, Target, CheckCircle, Circle, ChevronDown, ChevronRight,
   Flame, BarChart2, Bookmark, Calendar, Award, X, Pause, Play,
@@ -901,6 +901,12 @@ export default function BibleReadingCenterPage({ onNavigate: _onNavigate, onGoTo
   const [graceDetailId, setGraceDetailId] = useState<string | null>(null);
   const [graceListPlanId, setGraceListPlanId] = useState<string | undefined>(undefined);
   const [graceReturn, setGraceReturn] = useState<{ view: View; detailId: string | null }>({ view: 'main', detailId: null });
+  const [graceDetailFromList, setGraceDetailFromList] = useState(false);
+  const [graceFormFromList, setGraceFormFromList] = useState(false);
+  const graceDetailFromListRef = useRef(false);
+  graceDetailFromListRef.current = graceDetailFromList;
+  const graceReturnRef = useRef(graceReturn);
+  graceReturnRef.current = graceReturn;
 
   const refresh = useCallback(() => {
     setProgresses(getAllProgresses());
@@ -908,7 +914,14 @@ export default function BibleReadingCenterPage({ onNavigate: _onNavigate, onGoTo
 
   const navToGraceForm = (ctx: GraceFormCtx, fromView: View, fromDetailId: string | null) => {
     setGraceFormCtx(ctx);
-    setGraceReturn({ view: fromView, detailId: fromDetailId });
+    if (fromView === 'grace-list') {
+      setGraceFormFromList(true);
+    } else {
+      setGraceFormFromList(false);
+      if (fromView !== 'grace-detail') {
+        setGraceReturn({ view: fromView, detailId: fromDetailId });
+      }
+    }
     setView('grace-form');
   };
 
@@ -918,16 +931,69 @@ export default function BibleReadingCenterPage({ onNavigate: _onNavigate, onGoTo
     setView('grace-list');
   };
 
+  const HISTORY_GRACE_DETAIL = 'churchieum-bible-grace-detail';
+
   const navToGraceDetail = (noteId: string, fromView: View, fromDetailId: string | null) => {
     setGraceDetailId(noteId);
-    setGraceReturn({ view: fromView, detailId: fromDetailId });
+    if (fromView === 'grace-list') {
+      setGraceDetailFromList(true);
+    } else {
+      setGraceDetailFromList(false);
+      setGraceReturn({ view: fromView, detailId: fromDetailId });
+    }
     setView('grace-detail');
+    window.history.pushState({ [HISTORY_GRACE_DETAIL]: true }, '');
   };
 
   const backFromGrace = () => {
     setView(graceReturn.view);
     setDetailId(graceReturn.detailId);
   };
+
+  const backFromGraceForm = () => {
+    if (graceFormFromList) {
+      setView('grace-list');
+      return;
+    }
+    if (graceDetailId) {
+      setView('grace-detail');
+      return;
+    }
+    backFromGrace();
+  };
+
+  const closeGraceDetail = useCallback(() => {
+    if (graceDetailFromListRef.current) {
+      setView('grace-list');
+      return;
+    }
+    const ret = graceReturnRef.current;
+    setView(ret.view);
+    setDetailId(ret.detailId);
+  }, []);
+
+  const handleGraceDetailBack = useCallback(() => {
+    const state = window.history.state as Record<string, unknown> | null;
+    if (state?.[HISTORY_GRACE_DETAIL]) {
+      window.history.back();
+      return;
+    }
+    closeGraceDetail();
+  }, [closeGraceDetail]);
+
+  useEffect(() => {
+    const onPopState = () => {
+      setView(prev => {
+        if (prev !== 'grace-detail') return prev;
+        if (graceDetailFromListRef.current) return 'grace-list';
+        const ret = graceReturnRef.current;
+        setDetailId(ret.detailId);
+        return ret.view;
+      });
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
 
   const activeProgresses = progresses.filter(p => p.status === 'active' || p.status === 'paused');
   const activePlanIds = new Set(activeProgresses.map(p => p.planId));
@@ -953,53 +1019,68 @@ export default function BibleReadingCenterPage({ onNavigate: _onNavigate, onGoTo
     return (
       <GraceNoteFormView
         ctx={graceFormCtx}
-        onSave={(id) => { setGraceDetailId(id); setView('grace-detail'); setGraceReturn(graceReturn); }}
-        onBack={backFromGrace}
+        onSave={(id) => {
+          setGraceDetailId(id);
+          setView('grace-detail');
+          window.history.pushState({ [HISTORY_GRACE_DETAIL]: true }, '');
+        }}
+        onBack={backFromGraceForm}
       />
     );
   }
-  if (view === 'grace-list') {
+
+  const showGraceList = view === 'grace-list' || (view === 'grace-detail' && graceDetailFromList);
+  const showGraceDetail = view === 'grace-detail' && Boolean(graceDetailId);
+
+  if (showGraceList || showGraceDetail) {
     return (
-      <GraceNoteListView
-        onBack={backFromGrace}
-        initialPlanId={graceListPlanId}
-        onDetail={(id) => navToGraceDetail(id, 'grace-list', null)}
-        onEdit={(note) => {
-          const plan = READING_PLANS.find(p => p.id === note.planId);
-          navToGraceForm({
-            progressId: note.sourceId ?? '',
-            planId: note.planId ?? '',
-            planName: note.planName ?? '',
-            planColor: note.planColor || (plan?.color ?? 'from-primary-500 to-primary-700'),
-            day: note.day ?? 1,
-            readingReferences: note.bibleReference ?? '',
-            editId: note.id,
-          }, 'grace-list', null);
-        }}
-      />
-    );
-  }
-  if (view === 'grace-detail' && graceDetailId) {
-    return (
-      <GraceNoteDetailView
-        noteId={graceDetailId}
-        onBack={backFromGrace}
-        onEdit={() => {
-          const note = getAllGraceNotes().find(n => n.id === graceDetailId);
-          if (!note) return;
-          const plan = READING_PLANS.find(p => p.id === note.planId);
-          navToGraceForm({
-            progressId: note.sourceId ?? '',
-            planId: note.planId ?? '',
-            planName: note.planName ?? '',
-            planColor: note.planColor || (plan?.color ?? 'from-primary-500 to-primary-700'),
-            day: note.day ?? 1,
-            readingReferences: note.bibleReference ?? '',
-            editId: note.id,
-          }, 'grace-detail', null);
-        }}
-        onDelete={backFromGrace}
-      />
+      <>
+        {showGraceList && (
+          <div
+            style={{ display: view === 'grace-detail' ? 'none' : undefined }}
+            aria-hidden={view === 'grace-detail'}
+          >
+            <GraceNoteListView
+              onBack={backFromGrace}
+              initialPlanId={graceListPlanId}
+              onDetail={(id) => navToGraceDetail(id, 'grace-list', null)}
+              onEdit={(note) => {
+                const plan = READING_PLANS.find(p => p.id === note.planId);
+                navToGraceForm({
+                  progressId: note.sourceId ?? '',
+                  planId: note.planId ?? '',
+                  planName: note.planName ?? '',
+                  planColor: note.planColor || (plan?.color ?? 'from-primary-500 to-primary-700'),
+                  day: note.day ?? 1,
+                  readingReferences: note.bibleReference ?? '',
+                  editId: note.id,
+                }, 'grace-list', null);
+              }}
+            />
+          </div>
+        )}
+        {showGraceDetail && graceDetailId && (
+          <GraceNoteDetailView
+            noteId={graceDetailId}
+            onBack={handleGraceDetailBack}
+            onEdit={() => {
+              const note = getAllGraceNotes().find(n => n.id === graceDetailId);
+              if (!note) return;
+              const plan = READING_PLANS.find(p => p.id === note.planId);
+              navToGraceForm({
+                progressId: note.sourceId ?? '',
+                planId: note.planId ?? '',
+                planName: note.planName ?? '',
+                planColor: note.planColor || (plan?.color ?? 'from-primary-500 to-primary-700'),
+                day: note.day ?? 1,
+                readingReferences: note.bibleReference ?? '',
+                editId: note.id,
+              }, graceDetailFromList ? 'grace-list' : 'grace-detail', null);
+            }}
+            onDelete={handleGraceDetailBack}
+          />
+        )}
+      </>
     );
   }
 

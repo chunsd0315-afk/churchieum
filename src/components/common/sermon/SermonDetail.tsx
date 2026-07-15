@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect } from 'react';
 import {
   BookOpen, Calendar, Play, Youtube, Heart, Share2, Bookmark,
-  MessageCircle, Send, Edit3, Trash2, Eye,
+  MessageCircle, Send, Pencil, Trash2, Eye,
 } from 'lucide-react';
 import type { Sermon } from '../../../types/sermon';
 import { WORSHIP_TYPE_LABELS } from '../../../types/sermon';
@@ -10,6 +10,7 @@ import { incrementSermonView } from '../../../services/sermonStorage';
 import { getCommentsForSermon, addSermonComment } from '../../../services/sermonCommentStorage';
 import { isSermonLiked, toggleSermonLike, getLikeCountForSermon } from '../../../services/sermonEngagementStorage';
 import { saveScriptureFromSermon } from '../../../services/sermonHelpers';
+import { ChurchDropdownMenu } from '../ui';
 import { SermonYoutubeThumb, formatSermonDate } from './sermonUiUtils';
 import { SermonCard, SermonSectionCard, sermonInputClass, sermonPrimaryBtnClass } from './sermonDesign';
 
@@ -129,17 +130,23 @@ export default function SermonDetail({
                 </span>
               </div>
             </div>
-            {canManage && (
-              <div className="flex gap-1 shrink-0">
-                <button type="button" onClick={onEdit}
-                  className="p-3 hover:bg-primary-50 text-primary-600 rounded-[14px] border border-transparent hover:border-primary-100">
-                  <Edit3 className="w-5 h-5" />
-                </button>
-                <button type="button" onClick={onDelete}
-                  className="p-3 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-[14px]">
-                  <Trash2 className="w-5 h-5" />
-                </button>
-              </div>
+            {canManage && onEdit && onDelete && (
+              <ChurchDropdownMenu
+                ariaLabel="설교 관리 메뉴"
+                items={[
+                  {
+                    label: '수정하기',
+                    icon: <Pencil style={{ width: '15px', height: '15px' }} />,
+                    onClick: onEdit,
+                  },
+                  {
+                    label: '삭제하기',
+                    icon: <Trash2 style={{ width: '15px', height: '15px' }} />,
+                    danger: true,
+                    onClick: onDelete,
+                  },
+                ]}
+              />
             )}
           </div>
 
