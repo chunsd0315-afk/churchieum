@@ -501,12 +501,12 @@ export default function ChurchFinderPage() {
           <MapView churches={filtered} onSelect={setSelectedChurch} />
           {/* Below map: compact list */}
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">목록</p>
-          <div className="space-y-2">
+          <div className="church-list">
             {filtered.map(church => (
               <button
                 key={church.id}
                 onClick={() => setSelectedChurch(church)}
-                className="w-full text-left bg-white rounded-xl p-3 border border-gray-100 hover:shadow-md transition-all flex items-center gap-3"
+                className="church-list-row flex items-center gap-3"
               >
                 <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${church.verified ? 'bg-primary-50' : 'bg-gray-50'}`}>
                   <MapPin className={`w-4 h-4 ${church.verified ? 'text-primary-500' : 'text-gray-400'}`} />
@@ -527,12 +527,12 @@ export default function ChurchFinderPage() {
 
       {/* List View */}
       {viewMode === 'list' && (
-        <div className="space-y-3">
+        <div className="church-list">
           {filtered.length > 0 ? filtered.map(church => (
             <button
               key={church.id}
               onClick={() => setSelectedChurch(church)}
-              className="w-full text-left bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:shadow-md active:scale-[0.99] transition-all"
+              className="church-list-row text-left"
             >
               <div className="flex items-start gap-3">
                 <div className={`w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 ${

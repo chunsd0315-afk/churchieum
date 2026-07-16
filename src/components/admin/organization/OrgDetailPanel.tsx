@@ -28,6 +28,7 @@ import {
 import { countAssigneePermissions } from '../../../services/orgPermissionHelpers';
 import { ChurchButton } from '../../common/ui/ChurchButton';
 import { TabBar } from '../../common/ui/TabBar';
+import { CHURCH_LIST_CLASS, CHURCH_LIST_ROW_CLASS } from '../../common/ui/ChurchList';
 import { useToast } from '../../common/ui';
 import { OrgAssigneePicker } from './OrgAssigneePicker';
 import { OrgAssigneeEditor } from './OrgAssigneeEditor';
@@ -358,13 +359,13 @@ export function OrgDetailPanel({
               variant="segment"
             />
 
-            <ul className="space-y-2">
+            <ul className={CHURCH_LIST_CLASS}>
               {filteredAssignees.map(a => {
                 const isPastor = a.assigneeType === 'pastor';
                 return (
                   <li
                     key={a.id}
-                    className="flex items-start justify-between gap-2 p-3 rounded-xl bg-gray-50 border border-gray-100"
+                    className={`${CHURCH_LIST_ROW_CLASS} flex items-start justify-between gap-2`}
                   >
                     <button
                       type="button"
@@ -442,9 +443,9 @@ export function OrgDetailPanel({
               </select>
               <ChurchButton icon={<Users size={18} />} size="sm" onClick={addMemberRow}>소속 추가</ChurchButton>
             </div>
-            <ul className="space-y-2">
+            <ul className={CHURCH_LIST_CLASS}>
               {members.map(m => (
-                <li key={m.id} className="flex items-center justify-between gap-2 p-3 rounded-xl bg-gray-50 border border-gray-100">
+                <li key={m.id} className={`${CHURCH_LIST_ROW_CLASS} flex items-center justify-between gap-2`}>
                   <div>
                     <p className="text-sm font-bold text-gray-900">{m.memberName}</p>
                     <p className="text-xs text-gray-500">{m.roleLabel}</p>
@@ -465,9 +466,9 @@ export function OrgDetailPanel({
             <p className="text-[13px] text-gray-500">
               교회 직분은 소속 인원 지정 시 사용합니다. 조직 내 역할(담당자용)은 「담당자」 탭에서 설정합니다.
             </p>
-            <ul className="space-y-2">
+            <ul className={CHURCH_LIST_CLASS}>
               {roles.map(r => (
-                <li key={r.id} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 border border-gray-100">
+                <li key={r.id} className={`${CHURCH_LIST_ROW_CLASS} flex items-center justify-between`}>
                   <span className="text-sm font-semibold text-gray-900">{r.name}</span>
                   <span className="text-xs text-gray-500">
                     이 조직 {membersByRole.get(r.name) ?? 0}명

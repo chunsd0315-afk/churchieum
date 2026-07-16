@@ -102,7 +102,7 @@ export interface PageLayoutProps {
 /* ── Content grid/list wrappers ──────────────────────────────────── */
 
 const contentWrappers: Record<ViewMode, string> = {
-  list:  'flex flex-col gap-3',
+  list:  'bg-white border border-gray-200 overflow-hidden rounded-card divide-y divide-gray-100',
   grid:  'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4',
   table: '',  // Table component handles its own container
 };
@@ -585,14 +585,15 @@ export function ContentGrid({ columns = 3, gap = 'md', className = '', children 
 }
 
 export interface ContentListProps {
+  /** @deprecated Continuous lists no longer use vertical gaps; prop kept for API compatibility */
   gap?: 'sm' | 'md' | 'lg';
   className?: string;
   children: React.ReactNode;
 }
 
-export function ContentList({ gap = 'md', className = '', children }: ContentListProps) {
+export function ContentList({ className = '', children }: ContentListProps) {
   return (
-    <div className={`flex flex-col ${gapClasses[gap]} ${className}`}>
+    <div className={`bg-white border border-gray-200 overflow-hidden rounded-card divide-y divide-gray-100 ${className}`}>
       {children}
     </div>
   );

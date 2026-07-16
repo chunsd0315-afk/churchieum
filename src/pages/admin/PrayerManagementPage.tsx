@@ -10,7 +10,7 @@ import { formatOrganizationScopeLines } from '../../services/prayerHelpers';
 import { formatAttachmentSize } from '../../services/prayerAttachmentHelpers';
 import { getCommentCount } from '../../services/prayerCommentStorage';
 import { Heart, Lock, Check, Eye, Users, Star, MessageCircle } from 'lucide-react';
-import { PageLayout, Badge } from '../../components/common/ui';
+import { PageLayout, Badge, ChurchList, CHURCH_LIST_ROW_CLASS } from '../../components/common/ui';
 
 const VISIBILITY_ICON = {
   private: Lock,
@@ -47,6 +47,7 @@ export default function PrayerManagementPage() {
       loading={loading}
       skeletonCount={4}
       empty={{ icon: <Heart size={28} />, title: '기도제목이 없습니다' }}
+      rawContent
     >
       {!loading && (
         <>
@@ -56,14 +57,14 @@ export default function PrayerManagementPage() {
             <Badge variant="green">{STATUS_LABELS.answered} {answered.length}</Badge>
           </div>
 
-          <div className="flex flex-col gap-3">
+          <ChurchList>
             {prayers.map(prayer => {
               const VisIcon = VISIBILITY_ICON[prayer.visibility];
               const orgLines = formatOrganizationScopeLines(prayer.organizationScope);
               return (
                 <div
                   key={prayer.id}
-                  className={`bg-white border border-gray-200 rounded-card p-4 shadow-card-md ${
+                  className={`${CHURCH_LIST_ROW_CLASS} ${
                     prayer.status === 'answered' ? 'opacity-60' : ''
                   }`}
                 >
@@ -131,7 +132,7 @@ export default function PrayerManagementPage() {
                 </div>
               );
             })}
-          </div>
+          </ChurchList>
         </>
       )}
     </PageLayout>

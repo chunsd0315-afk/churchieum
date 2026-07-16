@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import ContentEditorLayout from '../../components/layout/ContentEditorLayout';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
-import { PageLayout, TabBar, Badge, ConfirmDialog } from '../../components/common/ui';
+import { PageLayout, TabBar, Badge, ConfirmDialog, ChurchList } from '../../components/common/ui';
 
 type Bulletin = {
   id: string;
@@ -307,6 +307,7 @@ export default function BulletinManagementPage() {
         loading={loading}
         skeletonCount={4}
         empty={{ icon: <FileText size={28} />, title: tab === 'archived' ? '보관된 주보가 없습니다' : '등록된 주보가 없습니다' }}
+        rawContent
       >
         {!loading && (
           <>
@@ -337,8 +338,9 @@ export default function BulletinManagementPage() {
             />
 
             {/* List */}
+            <ChurchList>
             {displayed.map(b => (
-              <div key={b.id} className="bg-white rounded-card border border-gray-200 shadow-card-md overflow-hidden hover:shadow-card-hover transition-shadow mb-3">
+              <div key={b.id} className="bg-white overflow-hidden hover:bg-gray-50/80 transition-colors">
                 <div className="flex items-stretch">
                   <div className={`w-1.5 shrink-0 ${b.is_archived ? 'bg-gray-200' : 'bg-primary-400'}`} />
                   <div className="w-20 h-20 bg-primary-50 flex items-center justify-center shrink-0 self-center mx-3">
@@ -371,6 +373,7 @@ export default function BulletinManagementPage() {
                 </div>
               </div>
             ))}
+            </ChurchList>
           </>
         )}
       </PageLayout>

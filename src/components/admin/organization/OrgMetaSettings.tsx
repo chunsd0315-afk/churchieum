@@ -12,6 +12,7 @@ import {
 import { ChurchButton } from '../../common/ui/ChurchButton';
 import { TabBar } from '../../common/ui/TabBar';
 import { useToast } from '../../common/ui';
+import { CHURCH_LIST_CLASS, CHURCH_LIST_ROW_CLASS } from '../../common/ui/ChurchList';
 
 type MetaTab = 'types' | 'roles';
 
@@ -80,9 +81,9 @@ export function OrgMetaSettings() {
             <input className={inputClass} value={typeName} onChange={e => setTypeName(e.target.value)} placeholder="새 종류 이름" />
             <ChurchButton icon={<Plus size={18} />} size="sm" onClick={addType}>추가</ChurchButton>
           </div>
-          <ul className="space-y-2">
+          <ul className={CHURCH_LIST_CLASS}>
             {types.map(t => (
-              <li key={t.id} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 border border-gray-100">
+              <li key={t.id} className={`${CHURCH_LIST_ROW_CLASS} flex items-center justify-between`}>
                 <span className="text-sm font-semibold text-gray-900">
                   {t.name}
                   {t.isSystem && <span className="ml-2 text-[11px] text-gray-400">기본</span>}
@@ -113,9 +114,9 @@ export function OrgMetaSettings() {
             <input className={inputClass} value={roleName} onChange={e => setRoleName(e.target.value)} placeholder="새 직분 이름" />
             <ChurchButton icon={<Save size={18} />} size="sm" onClick={addRole}>추가</ChurchButton>
           </div>
-          <ul className="space-y-2">
+          <ul className={CHURCH_LIST_CLASS}>
             {roles.map(r => (
-              <li key={r.id} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 border border-gray-100">
+              <li key={r.id} className={`${CHURCH_LIST_ROW_CLASS} flex items-center justify-between`}>
                 <span className="text-sm font-semibold text-gray-900">
                   {r.name}
                   {r.isSystem && <span className="ml-2 text-[11px] text-gray-400">기본</span>}

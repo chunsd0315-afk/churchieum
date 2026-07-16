@@ -135,10 +135,10 @@ function PostCard({ post, requestCount, messageCount, onClick }: {
   onClick: () => void;
 }) {
   return (
-    <div onClick={onClick} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden cursor-pointer hover:shadow-md transition-shadow">
+    <div onClick={onClick} className="church-list-row overflow-hidden cursor-pointer !p-0">
       <div className="flex">
         {/* Thumbnail */}
-        <div className={`w-24 shrink-0 bg-gradient-to-br ${TYPE_GRADIENT[post.type]} flex items-center justify-center relative`}>
+        <div className={`w-24 shrink-0 self-stretch min-h-[96px] bg-gradient-to-br ${TYPE_GRADIENT[post.type]} flex items-center justify-center relative`}>
           {post.images[0] ? (
             <img src={post.images[0]} alt={post.title} className="w-full h-full object-cover absolute inset-0" />
           ) : (
@@ -995,17 +995,19 @@ export default function ChurchSharingPage() {
       </div>
 
       {/* Post list */}
-      <div className="px-4 pb-10 space-y-2.5">
+      <div className="px-4 pb-10">
         {filtered.length > 0 ? (
-          filtered.map(p => (
-            <PostCard
-              key={p.id}
-              post={p}
-              requestCount={requestCounts[p.id] ?? 0}
-              messageCount={messageCounts[p.id] ?? 0}
-              onClick={() => handleOpen(p)}
-            />
-          ))
+          <div className="church-list">
+            {filtered.map(p => (
+              <PostCard
+                key={p.id}
+                post={p}
+                requestCount={requestCounts[p.id] ?? 0}
+                messageCount={messageCounts[p.id] ?? 0}
+                onClick={() => handleOpen(p)}
+              />
+            ))}
+          </div>
         ) : (
           <div className="py-16 text-center">
             <HeartHandshake className="w-14 h-14 text-gray-200 mx-auto mb-3" />

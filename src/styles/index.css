@@ -425,6 +425,27 @@
     color: var(--color-text-secondary);
   }
 
+  /* Continuous feed list — items flush; border-b / divide only */
+  .church-list {
+    @apply bg-white border border-gray-200 overflow-hidden rounded-card divide-y divide-gray-100;
+  }
+
+  .church-list-row {
+    @apply w-full bg-white px-4 py-3.5 text-left transition-colors touch-target;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  @media (hover: hover) {
+    .church-list-row:hover {
+      @apply bg-gray-50/80;
+    }
+  }
+
+  .church-list-row:active {
+    @apply bg-gray-50;
+  }
+
   /* ── Cards ───────────────────────────────────────── */
 
   .card {

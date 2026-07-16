@@ -9,7 +9,7 @@ import {
   getAllDistricts, getAllZones, getAllDepartments,
   getDistrictNameById, getZoneNameById, getDepartmentNamesByIds,
 } from '../../services/orgData';
-import { PageHeaderBar } from '../../components/common/ui';
+import { PageHeaderBar, ChurchList } from '../../components/common/ui';
 
 // ─── Progress-based demo data (one entry per person×plan) ────────────────────
 
@@ -297,11 +297,11 @@ function ProgressListView({ planId, planName, color, onBack }: {
       </div>
 
       {/* Mobile cards */}
-      <div className="sm:hidden space-y-2">
+      <ChurchList className="sm:hidden">
         {filtered.length === 0 ? (
-          <div className="text-center py-10 text-gray-400 text-sm bg-white rounded-2xl">검색 결과가 없습니다.</div>
+          <div className="text-center py-10 text-gray-400 text-sm">검색 결과가 없습니다.</div>
         ) : filtered.map(p => (
-          <div key={p.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <div key={p.id} className="px-4 py-3.5 bg-white">
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center text-sm font-bold text-primary-700 shrink-0">{p.memberName[0]}</div>
@@ -337,7 +337,7 @@ function ProgressListView({ planId, planName, color, onBack }: {
             </div>
           </div>
         ))}
-      </div>
+      </ChurchList>
     </div>
   );
 }

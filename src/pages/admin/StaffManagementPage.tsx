@@ -4,6 +4,7 @@ import {
   Briefcase, Search, Edit, Trash2, X, Phone, Mail,
   Check, Building, UserPlus,
 } from 'lucide-react';
+import { ChurchList, CHURCH_LIST_ROW_CLASS } from '../../components/common/ui';
 
 type StaffRole = '담임목사' | '부목사' | '전도사' | '사무장' | '간사' | '직원';
 
@@ -193,9 +194,9 @@ export default function StaffManagementPage() {
           </button>
         </div>
       ) : (
-        <div className="space-y-2.5">
+        <ChurchList>
           {filtered.map(s => (
-            <div key={s.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-4 flex items-center gap-3 group hover:shadow-md transition-shadow">
+            <div key={s.id} className={`${CHURCH_LIST_ROW_CLASS} flex items-center gap-3 group`}>
               <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-primary-100 to-secondary-100 flex items-center justify-center flex-shrink-0 text-lg font-bold text-primary-700">
                 {s.name.charAt(0)}
               </div>
@@ -228,7 +229,7 @@ export default function StaffManagementPage() {
               </div>
             </div>
           ))}
-        </div>
+        </ChurchList>
       )}
 
       {/* Form modal */}

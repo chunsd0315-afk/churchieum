@@ -36,6 +36,9 @@ export type { StatusBadgeProps, StatusVariant } from './StatusBadge';
 export { ListCard }            from './ListCard';
 export type { ListCardProps } from './ListCard';
 
+export { ChurchList, CHURCH_LIST_CLASS, CHURCH_LIST_ROW_CLASS } from './ChurchList';
+export type { ChurchListProps } from './ChurchList';
+
 export { GridCard }            from './GridCard';
 export type { GridCardProps } from './GridCard';
 

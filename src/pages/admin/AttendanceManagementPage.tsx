@@ -110,13 +110,13 @@ export default function AttendanceManagementPage() {
       </div>
 
       {/* Member List */}
-      <div className="space-y-2">
+      <div className="church-list">
         {filteredMembers.map(member => (
           <button
             key={member.id}
             onClick={() => handleAttendance(member.id, !isPresent(member.id))}
-            className={`card w-full flex items-center justify-between ${
-              isPresent(member.id) ? 'bg-success-50 border-success-200' : ''
+            className={`church-list-row flex items-center justify-between ${
+              isPresent(member.id) ? 'bg-success-50' : ''
             }`}
           >
             <div className="flex items-center gap-3">

@@ -5,6 +5,7 @@ import {
   ChevronDown, ChevronUp, AlertCircle, CheckCircle,
   Smartphone, Globe,
 } from 'lucide-react';
+import { ChurchList } from '../common/ui';
 
 type Role = '담임목사' | '교역자' | '장로' | '부서장' | '교사' | '성도';
 type InviteStatus = '대기중' | '발송완료' | '가입완료' | '만료';
@@ -444,11 +445,11 @@ function InviteRow({
   const StatusIcon = STATUS_ICONS[invite.status];
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div className="bg-white overflow-hidden">
       {/* Main row */}
       <button
         onClick={() => setExpanded(e => !e)}
-        className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-gray-50 transition-colors"
+        className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-gray-50/80 transition-colors touch-target"
       >
         {/* Avatar */}
         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-100 to-secondary-100 flex items-center justify-center flex-shrink-0 text-sm font-bold text-primary-700">
@@ -601,7 +602,7 @@ export default function MemberInviteTab({ targetType = 'member' }: { targetType?
 
       {/* List */}
       {filtered.length > 0 ? (
-        <div className="space-y-2">
+        <ChurchList>
           {filtered.map(invite => (
             <InviteRow
               key={invite.id}
@@ -611,7 +612,7 @@ export default function MemberInviteTab({ targetType = 'member' }: { targetType?
               onDelete={() => handleDelete(invite.id)}
             />
           ))}
-        </div>
+        </ChurchList>
       ) : (
         <div className="text-center py-12 bg-white rounded-2xl border border-gray-100">
           <UserPlus className="w-12 h-12 text-gray-200 mx-auto mb-3" />

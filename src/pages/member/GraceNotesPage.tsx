@@ -319,25 +319,29 @@ export default function GraceNotesPage() {
             <p className="text-xs text-gray-400">{formatDate(todayStr)}</p>
           </div>
         </div>
-        <div className="flex-1 bg-white p-4 md:p-6 space-y-3">
+        <div className="flex-1 bg-white p-4 md:p-6">
           {todayNotes.length === 0 ? (
             <div className="bg-gray-50 rounded-2xl p-10 text-center border border-gray-100">
               <Heart className="w-12 h-12 text-rose-200 mx-auto mb-3" />
               <p className="font-semibold text-gray-600 text-sm">오늘 기록된 은혜가 없습니다</p>
               <p className="text-xs text-gray-400 mt-1 mb-5">오늘 받은 은혜를 기록해보세요.</p>
             </div>
-          ) : todayNotes.map(note => (
-            <button
-              key={note.id}
-              type="button"
-              onClick={() => navToDetail(note.id, 'today')}
-              className="w-full text-left bg-gray-50 rounded-2xl border border-gray-100 p-5 hover:bg-gray-100/80 transition-colors touch-target">
-              <p className="text-base text-gray-800 leading-relaxed line-clamp-4">
-                &ldquo;{excerpt(note.graceContent, 120)}&rdquo;
-              </p>
-              <p className="text-xs text-gray-400 mt-3">{formatDate(note.createdAt)}</p>
-            </button>
-          ))}
+          ) : (
+            <div className="church-list">
+              {todayNotes.map(note => (
+                <button
+                  key={note.id}
+                  type="button"
+                  onClick={() => navToDetail(note.id, 'today')}
+                  className="church-list-row">
+                  <p className="text-base text-gray-800 leading-relaxed line-clamp-4">
+                    &ldquo;{excerpt(note.graceContent, 120)}&rdquo;
+                  </p>
+                  <p className="text-xs text-gray-400 mt-3">{formatDate(note.createdAt)}</p>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -422,7 +426,7 @@ export default function GraceNotesPage() {
             </button>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="church-list">
             {recentNotes.map(note => (
               <RecentNoteRow
                 key={note.id}
@@ -454,7 +458,7 @@ function PastorNotesList({
     );
   }
   return (
-    <div className="space-y-3">
+    <div className="church-list">
       {sharedNotes.map(note => {
         const vm = visibilityMeta(note.visibility ?? 'private');
         const shareDetail =
@@ -468,7 +472,7 @@ function PastorNotesList({
             key={note.id}
             type="button"
             onClick={() => onDetail(note.id)}
-            className="w-full text-left bg-gray-50 rounded-2xl border border-gray-100 p-4 hover:bg-gray-100/80 transition-colors touch-target"
+            className="church-list-row"
           >
             <div className="flex items-start justify-between gap-2 mb-2">
               <div className="flex items-center gap-2 flex-wrap">
@@ -511,7 +515,7 @@ function RecentNoteRow({ note, onClick }: { note: GraceNote; onClick: () => void
     <button
       type="button"
       onClick={onClick}
-      className="w-full text-left bg-white rounded-2xl border border-gray-100 px-4 py-3.5 hover:bg-gray-50/80 transition-colors touch-target"
+      className="church-list-row"
     >
       <div className="flex items-center gap-2 mb-1.5 flex-wrap">
         <span className="text-[11px] font-semibold text-primary-600 bg-primary-50 px-2 py-0.5 rounded-full">

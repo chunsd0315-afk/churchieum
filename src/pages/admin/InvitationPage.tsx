@@ -17,7 +17,7 @@ import {
   getDistricts, getZones, getDepartments, hasAnyOrg,
   type OrgDistrict, type OrgZone, type OrgDepartment,
 } from '../../services/orgData';
-import { PageHeaderBar } from '../../components/common/ui';
+import { PageHeaderBar, ChurchList } from '../../components/common/ui';
 import TabSection from '../../components/layout/TabSection';
 import { useOrgSettings } from '../../contexts/OrgSettingsContext';
 
@@ -771,11 +771,11 @@ function PendingInviteList({ invites, onShare, onResend, onDelete }: {
           </table>
         </div>
       ) : (
-        <div className="space-y-2.5">
+        <ChurchList>
           {pending.map(inv => {
             const orgLabel = getOrgLabel(inv);
             return (
-              <div key={inv.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+              <div key={inv.id} className="px-4 py-3.5 bg-white">
                 <div className="flex items-start gap-3 mb-3">
                   <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center text-sm font-bold text-primary-700 flex-shrink-0">{inv.name[0]}</div>
                   <div className="flex-1 min-w-0">
@@ -808,7 +808,7 @@ function PendingInviteList({ invites, onShare, onResend, onDelete }: {
               </div>
             );
           })}
-        </div>
+        </ChurchList>
       )}
     </div>
   );

@@ -175,9 +175,9 @@ export default function NewFamilyManagementPage() {
         </div>
       )}
 
-      <div className="space-y-2">
+      <div className="church-list">
         {newFamilies.map(nf => (
-          <div key={nf.id} className="card">
+          <div key={nf.id} className="church-list-row">
             <div className="flex items-start justify-between">
               <div>
                 <div className="flex items-center gap-2 mb-1">

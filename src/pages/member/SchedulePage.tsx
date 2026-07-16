@@ -220,36 +220,37 @@ export default function SchedulePage() {
       )}
 
       {/* Event List */}
-      <div className="space-y-2.5">
-        {(viewMode === 'list' ? monthEvents : monthEvents.slice(0, 5)).map(e => (
-          <button key={e.id} onClick={() => setSelected(e)}
-            className="w-full text-left bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-start gap-3.5 hover:shadow-md active:scale-[0.99] transition-all">
-            <div className={`w-11 h-11 rounded-xl flex flex-col items-center justify-center flex-shrink-0 ${EVENT_BG[e.event_type] || 'bg-gray-50 text-gray-500'}`}>
-              <span className="text-sm font-bold">{new Date(e.event_date).getDate()}</span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 mb-0.5">
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${EVENT_BG[e.event_type] || 'bg-gray-50 text-gray-500'}`}>
-                  {EVENT_LABELS[e.event_type] || e.event_type}
-                </span>
+      {monthEvents.length === 0 ? (
+        <div className="text-center py-12 bg-white rounded-2xl">
+          <Calendar className="w-14 h-14 text-gray-200 mx-auto mb-3" />
+          <p className="text-gray-400">이번 달 일정이 없습니다</p>
+        </div>
+      ) : (
+        <div className="church-list">
+          {(viewMode === 'list' ? monthEvents : monthEvents.slice(0, 5)).map(e => (
+            <button key={e.id} onClick={() => setSelected(e)}
+              className="church-list-row flex items-start gap-3.5">
+              <div className={`w-11 h-11 rounded-xl flex flex-col items-center justify-center flex-shrink-0 ${EVENT_BG[e.event_type] || 'bg-gray-50 text-gray-500'}`}>
+                <span className="text-sm font-bold">{new Date(e.event_date).getDate()}</span>
               </div>
-              <h4 className="font-semibold text-gray-900 text-sm">{e.title}</h4>
-              {e.description && <p className="text-xs text-gray-500 mt-0.5 truncate">{e.description}</p>}
-              <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
-                {e.event_time && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{e.event_time}</span>}
-                {e.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{e.location}</span>}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${EVENT_BG[e.event_type] || 'bg-gray-50 text-gray-500'}`}>
+                    {EVENT_LABELS[e.event_type] || e.event_type}
+                  </span>
+                </div>
+                <h4 className="font-semibold text-gray-900 text-sm">{e.title}</h4>
+                {e.description && <p className="text-xs text-gray-500 mt-0.5 truncate">{e.description}</p>}
+                <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
+                  {e.event_time && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{e.event_time}</span>}
+                  {e.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{e.location}</span>}
+                </div>
               </div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0 mt-1" />
-          </button>
-        ))}
-        {monthEvents.length === 0 && (
-          <div className="text-center py-12 bg-white rounded-2xl">
-            <Calendar className="w-14 h-14 text-gray-200 mx-auto mb-3" />
-            <p className="text-gray-400">이번 달 일정이 없습니다</p>
-          </div>
-        )}
-      </div>
+              <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0 mt-1" />
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Event Detail Sheet */}
       {selected && (

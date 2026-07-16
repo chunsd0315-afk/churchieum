@@ -82,12 +82,12 @@ export default function ChurchVerificationPage() {
       </div>
 
       {/* Church List */}
-      <div className="space-y-3">
+      <div className="church-list">
         {churches.map(church => (
           <button
             key={church.id}
             onClick={() => setSelectedChurch(church)}
-            className="w-full text-left bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-all"
+            className="church-list-row text-left"
           >
             <div className="flex items-start justify-between">
               <div>

@@ -7,6 +7,7 @@ import InvitationPage from './InvitationPage';
 import ChurchManagementPage from './ChurchManagementPage';
 import StaffManagementPage from './StaffManagementPage';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
+import { ChurchList, CHURCH_LIST_ROW_CLASS } from '../../components/common/ui';
 import type { NavIcon } from '../../types/icons';
 
 type SubPage = 'staff' | 'org' | 'clergy' | 'members' | 'invitations' | 'church';
@@ -131,23 +132,25 @@ function MobileChurchSettings({ onClose }: Props) {
         <div className="w-9" />
       </header>
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-2xl mx-auto px-4 py-4 space-y-3 pb-8">
-          {SETTINGS_ITEMS.map(item => (
-            <button
-              key={item.id}
-              onClick={() => setSubPage(item.id)}
-              className="w-full flex items-center gap-4 px-4 py-4 bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md active:scale-[0.97] transition-all text-left"
-            >
-              <div className={`w-11 h-11 rounded-2xl ${item.iconBg} flex items-center justify-center shrink-0`}>
-                <item.icon className={`w-5 h-5 ${item.iconColor}`} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm text-gray-900">{item.title}</p>
-                <p className="text-xs text-gray-400 mt-0.5 leading-snug">{item.description}</p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-gray-300 shrink-0" />
-            </button>
-          ))}
+        <div className="max-w-2xl mx-auto px-4 py-4 pb-8">
+          <ChurchList>
+            {SETTINGS_ITEMS.map(item => (
+              <button
+                key={item.id}
+                onClick={() => setSubPage(item.id)}
+                className={`${CHURCH_LIST_ROW_CLASS} flex items-center gap-4`}
+              >
+                <div className={`w-11 h-11 rounded-2xl ${item.iconBg} flex items-center justify-center shrink-0`}>
+                  <item.icon className={`w-5 h-5 ${item.iconColor}`} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm text-gray-900">{item.title}</p>
+                  <p className="text-xs text-gray-400 mt-0.5 leading-snug">{item.description}</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-gray-300 shrink-0" />
+              </button>
+            ))}
+          </ChurchList>
         </div>
       </div>
     </div>

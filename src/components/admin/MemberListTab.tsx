@@ -14,6 +14,7 @@ import {
   getDistrictNameById, getZoneNameById, getDepartmentNamesByIds,
 } from '../../services/orgData';
 import { useOrgSettings } from '../../contexts/OrgSettingsContext';
+import { ChurchList, CHURCH_LIST_ROW_CLASS } from '../common/ui';
 
 /* ── Enriched member type ── */
 export type RichMember = Member & {
@@ -209,7 +210,7 @@ function MemberCard({ member, onSelect, l1, l2, deptLabel }: {
 }) {
   return (
     <button onClick={onSelect}
-      className="w-full text-left bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-4 hover:shadow-md active:scale-[0.99] transition-all">
+      className={`${CHURCH_LIST_ROW_CLASS}`}>
       <div className="flex items-start gap-3">
         <Avatar name={member.name} size="md" />
         <div className="flex-1 min-w-0">
@@ -603,7 +604,7 @@ export default function MemberListTab({ onOpenForm, initialFilter }: Props) {
 
       {/* Mobile: Cards */}
       {!isDesktop && (
-        <div className="space-y-2.5">
+        <ChurchList>
           {sorted.map(m => (
             <MemberCard
               key={m.id} member={m} onSelect={() => setSelectedMember(m)}
@@ -611,7 +612,7 @@ export default function MemberListTab({ onOpenForm, initialFilter }: Props) {
             />
           ))}
           {sorted.length === 0 && (
-            <div className="text-center py-14 bg-white rounded-2xl border border-gray-100">
+            <div className="text-center py-14">
               <Users className="w-12 h-12 text-gray-200 mx-auto mb-3" />
               <p className="text-gray-400 font-medium">검색 결과가 없습니다</p>
               <button onClick={() => { setSearch(''); resetFilters(); }}
@@ -620,7 +621,7 @@ export default function MemberListTab({ onOpenForm, initialFilter }: Props) {
               </button>
             </div>
           )}
-        </div>
+        </ChurchList>
       )}
 
       {/* Detail sheet */}

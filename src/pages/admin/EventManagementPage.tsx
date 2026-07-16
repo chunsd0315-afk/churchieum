@@ -122,7 +122,7 @@ export default function EventManagementPage() {
           const tc = eventTypeColors[event.event_type] ?? { bg: 'bg-gray-100', text: 'text-gray-700' };
           const typeLabel = eventTypes.find(t => t.value === event.event_type)?.label ?? '일정';
           return (
-            <div key={event.id} className="bg-white rounded-card border border-gray-200 shadow-card-md p-5">
+            <div key={event.id} className="px-4 py-3.5 bg-white">
               <div className="flex items-start justify-between">
                 <div className="flex items-start gap-4">
                   <div className={`w-14 h-14 rounded-xl flex flex-col items-center justify-center shrink-0 ${tc.bg}`}>

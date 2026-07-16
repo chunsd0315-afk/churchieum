@@ -2,6 +2,7 @@
 import { supabase } from '../../services/supabase';
 import { Building, Plus, Edit3, Trash2, X, CheckCircle, XCircle, ChevronRight, Users, Search } from 'lucide-react';
 import { useOrgSettings } from '../../contexts/OrgSettingsContext';
+import { ChurchList, CHURCH_LIST_ROW_CLASS } from '../../components/common/ui';
 
 type Dept = {
   id: string;
@@ -148,9 +149,9 @@ export default function DepartmentManagementPage() {
       </div>
 
       {/* List */}
-      <div className="space-y-2">
+      <ChurchList>
         {filtered.map(d => (
-          <div key={d.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
+          <div key={d.id} className={`${CHURCH_LIST_ROW_CLASS} flex items-center gap-3`}>
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${d.is_active ? 'bg-primary-100' : 'bg-gray-100'}`}>
               <Building className={`w-5 h-5 ${d.is_active ? 'text-primary-600' : 'text-gray-400'}`} />
             </div>
@@ -176,12 +177,12 @@ export default function DepartmentManagementPage() {
           </div>
         ))}
         {filtered.length === 0 && (
-          <div className="text-center py-12 bg-white rounded-2xl border border-gray-100">
+          <div className="text-center py-12">
             <Building className="w-12 h-12 text-gray-200 mx-auto mb-3" />
             <p className="text-gray-400">검색 결과가 없습니다</p>
           </div>
         )}
-      </div>
+      </ChurchList>
 
       <button onClick={() => openForm()}
         className="w-full flex items-center justify-center gap-2 py-4 border-2 border-dashed border-primary-200 text-primary-600 font-semibold rounded-2xl hover:bg-primary-50 transition-colors text-sm">

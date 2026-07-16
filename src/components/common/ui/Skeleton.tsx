@@ -59,7 +59,7 @@ export function Skeleton({ variant = 'rectangle', width, height, lines = 3, clas
 
 export function SkeletonListCard({ className = '' }: { className?: string }) {
   return (
-    <div className={`bg-white border border-gray-200 rounded-card p-4 flex items-start gap-3 ${className}`}>
+    <div className={`bg-white px-4 py-3.5 flex items-start gap-3 border-0 rounded-none shadow-none ${className}`}>
       <SkeletonBase style={{ width: 96, height: 64, borderRadius: 12, flexShrink: 0 }} />
       <div className="flex-1 flex flex-col gap-2">
         <SkeletonBase style={{ height: 13, width: '50%' }} />
@@ -98,7 +98,7 @@ export function PageSkeleton({ count = 5 }: { count?: number }) {
       {/* Divider */}
       <div className="h-px bg-gray-100 mb-4" />
       {/* List items */}
-      <div className="flex flex-col gap-3">
+      <div className="bg-white border border-gray-200 overflow-hidden rounded-card divide-y divide-gray-100">
         {Array.from({ length: count }).map((_, i) => (
           <SkeletonListCard key={i} />
         ))}

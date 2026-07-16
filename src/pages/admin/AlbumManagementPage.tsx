@@ -7,7 +7,7 @@ import {
   Star, Download, Edit3, Users, BookOpen, Save,
 } from 'lucide-react';
 import ContentEditorLayout from '../../components/layout/ContentEditorLayout';
-import { PageHeaderBar } from '../../components/common/ui';
+import { PageHeaderBar, ChurchList, CHURCH_LIST_ROW_CLASS } from '../../components/common/ui';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
 
 /* ─── Types ─────────────────────────────────────────── */
@@ -845,54 +845,54 @@ export default function AlbumManagementPage() {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+        <ChurchList>
           {filtered.map(album => {
             const visInfo = VISIBILITIES.find(v => v.key === album.visibility);
             return (
-              <div key={album.id} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 group hover:shadow-md transition-all">
-                <div className="relative h-36 overflow-hidden cursor-pointer" onClick={() => openAlbum(album)}>
+              <div key={album.id} className={`${CHURCH_LIST_ROW_CLASS} flex items-center gap-3 group`}>
+                <button
+                  type="button"
+                  className="relative w-20 h-16 shrink-0 rounded-xl overflow-hidden bg-gray-100"
+                  onClick={() => openAlbum(album)}
+                >
                   {album.cover_image ? (
-                    <img src={album.cover_image} alt={album.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    <img src={album.cover_image} alt={album.title} className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-primary-50 to-primary-100 flex flex-col items-center justify-center gap-2">
-                      <Image className="w-10 h-10 text-primary-200" />
-                      <p className="text-xs text-primary-300 font-medium">사진 없음</p>
+                    <div className="w-full h-full bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center">
+                      <Image className="w-6 h-6 text-primary-200" />
                     </div>
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                  {visInfo && (
-                    <div className="absolute top-2 left-2">
+                </button>
+                <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openAlbum(album)}>
+                  <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                    {visInfo && (
                       <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${visInfo.color}`}>{visInfo.label}</span>
-                    </div>
+                    )}
+                    {album.category && (
+                      <span className="text-[10px] text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">{album.category}</span>
+                    )}
+                  </div>
+                  <p className="font-bold text-gray-900 text-sm truncate">{album.title}</p>
+                  {album.event_date && (
+                    <p className="text-[11px] text-gray-400 mt-0.5 flex items-center gap-1">
+                      <Calendar className="w-3 h-3" /> {album.event_date}
+                    </p>
                   )}
-                  <div className="absolute bottom-2 left-3 text-white text-xs font-medium opacity-90">
-                    {album.category && <span className="bg-black/30 px-2 py-0.5 rounded-full">{album.category}</span>}
-                  </div>
+                  {album.description && <p className="text-[11px] text-gray-400 truncate mt-0.5">{album.description}</p>}
                 </div>
-                <div className="p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openAlbum(album)}>
-                      <p className="font-bold text-gray-900 text-sm truncate">{album.title}</p>
-                      {album.event_date && (
-                        <p className="text-[11px] text-gray-400 mt-0.5 flex items-center gap-1">
-                          <Calendar className="w-3 h-3" /> {album.event_date}
-                        </p>
-                      )}
-                      {album.description && <p className="text-[11px] text-gray-400 truncate mt-0.5">{album.description}</p>}
-                    </div>
-                    <button onClick={() => setDeleteAlbumId(album.id)} className="p-1.5 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0">
-                      <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                    </button>
-                  </div>
+                <div className="flex items-center gap-1 shrink-0">
                   <button onClick={() => openAlbum(album)}
-                    className="w-full mt-2.5 py-2 bg-gray-50 hover:bg-primary-50 hover:text-primary-600 text-gray-600 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5">
-                    <Upload className="w-3 h-3" /> 사진 업로드
+                    className="px-3 py-2 bg-gray-50 hover:bg-primary-50 hover:text-primary-600 text-gray-600 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5">
+                    <Upload className="w-3 h-3" /> 업로드
+                  </button>
+                  <button onClick={() => setDeleteAlbumId(album.id)} className="p-2 hover:bg-red-50 rounded-lg transition-colors">
+                    <Trash2 className="w-3.5 h-3.5 text-red-400" />
                   </button>
                 </div>
               </div>
             );
           })}
-        </div>
+        </ChurchList>
       )}
 
       {/* Delete album confirm */}

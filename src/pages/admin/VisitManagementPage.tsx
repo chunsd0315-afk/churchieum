@@ -147,9 +147,9 @@ export default function VisitManagementPage() {
         </div>
       )}
 
-      <div className="space-y-2">
+      <div className="church-list">
         {visits.map(visit => (
-          <div key={visit.id} className="card">
+          <div key={visit.id} className="church-list-row">
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-sm text-gray-500 flex items-center gap-1">

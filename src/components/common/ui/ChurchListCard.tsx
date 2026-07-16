@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { CHURCH_LIST_ROW_CLASS } from './ChurchList';
 
 export type ChurchListCardProps = {
   thumbnail?: string;
@@ -8,6 +9,7 @@ export type ChurchListCardProps = {
   meta?: ReactNode;
   actions?: ReactNode;
   onClick?: () => void;
+  className?: string;
 };
 
 export function ChurchListCard({
@@ -18,6 +20,7 @@ export function ChurchListCard({
   meta,
   actions,
   onClick,
+  className = '',
 }: ChurchListCardProps) {
   const Wrapper = onClick ? 'button' : 'div';
 
@@ -25,11 +28,12 @@ export function ChurchListCard({
     <Wrapper
       onClick={onClick}
       className={[
-        'w-full flex items-start gap-4 p-5 church-card',
-        onClick ? 'church-card-interactive text-left' : '',
-      ].join(' ')}
+        CHURCH_LIST_ROW_CLASS,
+        'flex items-start gap-4 rounded-none shadow-none border-0',
+        onClick ? 'cursor-pointer text-left' : '',
+        className,
+      ].filter(Boolean).join(' ')}
     >
-      {/* Thumbnail */}
       {thumbnail && (
         <img
           src={thumbnail}
@@ -38,7 +42,6 @@ export function ChurchListCard({
         />
       )}
 
-      {/* Content */}
       <div className="flex-1 min-w-0 flex flex-col gap-1">
         {badges && <div className="flex items-center gap-1.5 flex-wrap">{badges}</div>}
         <p className="font-bold text-gray-900 text-base leading-snug truncate">{title}</p>
@@ -48,7 +51,6 @@ export function ChurchListCard({
         {meta && <div className="flex items-center gap-3 text-sm text-gray-400 mt-1">{meta}</div>}
       </div>
 
-      {/* Actions */}
       {actions && (
         <div className="shrink-0 flex items-center gap-1" onClick={e => e.stopPropagation()}>
           {actions}

@@ -135,15 +135,15 @@ export default function ZoneManagementPage() {
       )}
 
       {/* District tree */}
-      <div className="space-y-3">
+      <div className="church-list">
         {districts.map(dist => {
           const distZones = zones.filter(z => z.district_id === dist.id);
           const expanded = expandedDistricts.has(dist.id);
           return (
-            <div key={dist.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div key={dist.id} className="bg-white">
               <button
                 onClick={() => toggleDistrict(dist.id)}
-                className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50 transition-colors text-left">
+                className="church-list-row flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-primary-100 flex items-center justify-center flex-shrink-0">
                   <Network className="w-4.5 h-4.5 text-primary-600" />
                 </div>

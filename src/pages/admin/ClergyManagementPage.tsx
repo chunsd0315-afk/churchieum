@@ -15,7 +15,7 @@ import {
 } from '../../services/clergyData';
 import { getDistricts, getDepartments } from '../../services/orgData';
 import { useOrgSettings } from '../../contexts/OrgSettingsContext';
-import { PageHeaderBar } from '../../components/common/ui';
+import { PageHeaderBar, ChurchList, CHURCH_LIST_ROW_CLASS } from '../../components/common/ui';
 
 const INPUT = 'w-full px-3.5 py-3 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:border-primary-400 focus:ring-0 focus:outline-none';
 
@@ -513,8 +513,8 @@ function ClergyCard({ clergy, assignments, onClick }: {
 
   return (
     <button onClick={onClick}
-      className="w-full text-left bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-3.5 hover:shadow-md hover:border-primary-100 active:scale-[0.99] transition-all">
-      <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-100 to-secondary-100 flex items-center justify-center flex-shrink-0 font-bold text-xl text-primary-700 shadow-sm">
+      className={`${CHURCH_LIST_ROW_CLASS} flex items-center gap-3.5`}>
+      <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-100 to-secondary-100 flex items-center justify-center flex-shrink-0 font-bold text-xl text-primary-700">
         {clergy.name.charAt(0)}
       </div>
       <div className="flex-1 min-w-0">
@@ -641,9 +641,9 @@ export default function ClergyManagementPage({ onNavigate: _onNavigate, initialF
       </div>
 
       {/* List */}
-      <div className="space-y-2">
+      <ChurchList>
         {filtered.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-gray-100 text-center py-14">
+          <div className="text-center py-14">
             <Users className="w-12 h-12 text-gray-200 mx-auto mb-3" />
             <p className="text-gray-400 font-medium text-sm">교역자가 없습니다</p>
             {search && <p className="text-xs text-gray-300 mt-1">검색어를 바꿔보세요.</p>}
@@ -651,7 +651,7 @@ export default function ClergyManagementPage({ onNavigate: _onNavigate, initialF
         ) : filtered.map(c => (
           <ClergyCard key={c.id} clergy={c} assignments={assignmentMap[c.id] ?? []} onClick={() => setDetailId(c.id)} />
         ))}
-      </div>
+      </ChurchList>
     </div>
   );
 }

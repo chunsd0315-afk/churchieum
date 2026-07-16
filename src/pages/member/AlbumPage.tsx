@@ -354,10 +354,10 @@ export default function AlbumPage() {
               ))}
             </div>
           ) : (
-            <div className="space-y-2.5">
+            <div className="church-list">
               {filteredAlbums.map(album => (
                 <button key={album.id} onClick={() => openAlbum(album)}
-                  className="w-full text-left bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 flex items-stretch hover:shadow-md active:scale-[0.99] transition-all">
+                  className="church-list-row !p-0 flex items-stretch overflow-hidden">
                   <div className="w-24 h-24 flex-shrink-0 bg-gray-100 overflow-hidden">
                     {album.cover_image ? (
                       <img src={album.cover_image} alt={album.title} className="w-full h-full object-cover" />

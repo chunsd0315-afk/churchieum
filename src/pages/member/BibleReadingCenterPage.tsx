@@ -277,11 +277,11 @@ function ActivePlanCard({ progress, plan, onDetail, onComplete, onRefresh, onGoT
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div className="church-list-row !px-0 !py-0 overflow-hidden">
       {/* Header bar */}
       <div className={`h-1.5 bg-gradient-to-r ${plan.color}`} style={{ width: `${pct}%` }} />
 
-      <div className="p-4">
+      <div className="px-4 py-3.5">
         <div className="flex items-start gap-3">
           <div className={`w-10 h-10 rounded-2xl bg-gradient-to-br ${plan.color} flex items-center justify-center shrink-0`}>
             <BookOpen className="w-5 h-5 text-white" />
@@ -382,8 +382,8 @@ function AvailablePlanCard({ plan, onStart }: { plan: ReadingPlan; onStart: () =
   const [expanded, setExpanded] = useState(false);
   const meta = PLAN_META[plan.id];
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-      <div className="p-4">
+    <div className="church-list-row !px-0 !py-0 overflow-hidden">
+      <div className="px-4 py-3.5">
         <div className="flex items-start gap-3">
           <div className={`w-10 h-10 rounded-2xl bg-gradient-to-br ${plan.color} flex items-center justify-center shrink-0`}>
             <BookOpen className="w-5 h-5 text-white" />
@@ -673,23 +673,27 @@ function SavedView({ onBack, onNavigate }: { onBack: () => void; onNavigate?: (p
         <h2 className="font-bold text-gray-900">저장한 말씀</h2>
         <span className="ml-auto text-xs text-gray-400">{saved.length}개</span>
       </div>
-      <div className="flex-1 bg-gray-50 p-4 space-y-3">
+      <div className="flex-1 bg-gray-50 p-4">
         {saved.length === 0 ? (
           <div className="bg-white rounded-2xl p-10 text-center text-gray-400 mt-4">
             <Bookmark className="w-12 h-12 mx-auto mb-3 opacity-20" />
             <p className="font-medium text-gray-500">저장한 말씀이 없습니다</p>
             {onNavigate && <button onClick={() => onNavigate('bible')} className="mt-3 px-4 py-2 bg-primary-500 text-white rounded-xl text-sm font-semibold">성경 읽기로 이동</button>}
           </div>
-        ) : saved.map(v => (
-          <div key={v.id} className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-primary-600 bg-primary-50 px-2 py-0.5 rounded-full">{v.book} {v.chapter}:{v.verse}</span>
-              <span className="text-[10px] text-gray-400">{new Date(v.savedAt).toLocaleDateString('ko-KR')}</span>
-            </div>
-            <p className="text-sm text-gray-700 leading-relaxed">{v.text}</p>
-            {v.memo && <p className="mt-2 text-xs text-gray-500 bg-amber-50 rounded-lg px-3 py-1.5 border-l-2 border-amber-300">{v.memo}</p>}
+        ) : (
+          <div className="church-list">
+            {saved.map(v => (
+              <div key={v.id} className="church-list-row">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-primary-600 bg-primary-50 px-2 py-0.5 rounded-full">{v.book} {v.chapter}:{v.verse}</span>
+                  <span className="text-[10px] text-gray-400">{new Date(v.savedAt).toLocaleDateString('ko-KR')}</span>
+                </div>
+                <p className="text-sm text-gray-700 leading-relaxed">{v.text}</p>
+                {v.memo && <p className="mt-2 text-xs text-gray-500 bg-amber-50 rounded-lg px-3 py-1.5 border-l-2 border-amber-300">{v.memo}</p>}
+              </div>
+            ))}
           </div>
-        ))}
+        )}
       </div>
     </div>
   );
@@ -783,22 +787,24 @@ function StatsView({ onBack, progresses }: { onBack: () => void; progresses: Rea
           )}
         </div>
 
-        {progresses.map(p => {
-          const pl = READING_PLANS.find(r => r.id === p.planId)!;
-          const pct = getProgressPercent(p);
-          return (
-            <div key={p.id} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
-              <div className="flex items-center justify-between mb-2">
-                <p className="font-semibold text-sm text-gray-800">{pl.name}</p>
-                <span className="text-xs font-bold text-primary-600">{pct}%</span>
+        <div className="church-list">
+          {progresses.map(p => {
+            const pl = READING_PLANS.find(r => r.id === p.planId)!;
+            const pct = getProgressPercent(p);
+            return (
+              <div key={p.id} className="church-list-row">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="font-semibold text-sm text-gray-800">{pl.name}</p>
+                  <span className="text-xs font-bold text-primary-600">{pct}%</span>
+                </div>
+                <div className="bg-gray-100 rounded-full h-2 overflow-hidden">
+                  <div className={`bg-gradient-to-r ${pl.color} h-full rounded-full`} style={{ width: `${pct}%` }} />
+                </div>
+                <p className="text-xs text-gray-400 mt-1">{p.completedDays.length}일 완료 · {pl.durationDays}일 목표</p>
               </div>
-              <div className="bg-gray-100 rounded-full h-2 overflow-hidden">
-                <div className={`bg-gradient-to-r ${pl.color} h-full rounded-full`} style={{ width: `${pct}%` }} />
-              </div>
-              <p className="text-xs text-gray-400 mt-1">{p.completedDays.length}일 완료 · {pl.durationDays}일 목표</p>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -1138,25 +1144,27 @@ export default function BibleReadingCenterPage({ onNavigate: _onNavigate, onGoTo
         <div className="flex-1 bg-gray-50">
           {/* Section A: Active progresses */}
           {activeProgresses.length > 0 && (
-            <div className="px-4 pt-4 space-y-3">
-              <div className="flex items-center justify-between">
+            <div className="px-4 pt-4">
+              <div className="flex items-center justify-between mb-2">
                 <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">나의 참여 중인 통독 플랜</p>
                 <span className="text-xs text-gray-400">{activeProgresses.length}개</span>
               </div>
-              {activeProgresses.map(prog => {
-                const plan = READING_PLANS.find(p => p.id === prog.planId)!;
-                return (
-                  <ActivePlanCard
-                    key={prog.id}
-                    progress={prog}
-                    plan={plan}
-                    onDetail={() => { setDetailId(prog.id); setView('detail'); }}
-                    onComplete={() => setMethodFor(prog.id)}
-                    onRefresh={refresh}
-                    onGoToBible={onGoToBible}
-                  />
-                );
-              })}
+              <div className="church-list">
+                {activeProgresses.map(prog => {
+                  const plan = READING_PLANS.find(p => p.id === prog.planId)!;
+                  return (
+                    <ActivePlanCard
+                      key={prog.id}
+                      progress={prog}
+                      plan={plan}
+                      onDetail={() => { setDetailId(prog.id); setView('detail'); }}
+                      onComplete={() => setMethodFor(prog.id)}
+                      onRefresh={refresh}
+                      onGoToBible={onGoToBible}
+                    />
+                  );
+                })}
+              </div>
             </div>
           )}
 
@@ -1177,9 +1185,11 @@ export default function BibleReadingCenterPage({ onNavigate: _onNavigate, onGoTo
                 <p className="text-xs text-gray-400 mt-1">진행 중인 플랜에 집중해보세요.</p>
               </div>
             ) : (
-              availablePlans.map(plan => (
-                <AvailablePlanCard key={plan.id} plan={plan} onStart={() => setModalPlan(plan)} />
-              ))
+              <div className="church-list">
+                {availablePlans.map(plan => (
+                  <AvailablePlanCard key={plan.id} plan={plan} onStart={() => setModalPlan(plan)} />
+                ))}
+              </div>
             )}
 
             {/* Custom plan placeholder */}

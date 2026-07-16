@@ -326,7 +326,7 @@ export default function AnnouncementPage() {
                 <Pin className="w-3.5 h-3.5 text-amber-500" /> 중요 공지
               </h3>
               {effectiveViewMode === 'list' ? (
-                <div className="flex flex-col gap-3">
+                <div className="church-list">
                   {pinned.map(a => <AnnListCard key={a.id} item={a} onClick={() => setSelected(a)} />)}
                 </div>
               ) : (
@@ -345,7 +345,7 @@ export default function AnnouncementPage() {
                 </h3>
               )}
               {effectiveViewMode === 'list' ? (
-                <div className="flex flex-col gap-3">
+                <div className="church-list">
                   {regular.map(a => <AnnListCard key={a.id} item={a} onClick={() => setSelected(a)} />)}
                 </div>
               ) : (
@@ -466,15 +466,8 @@ function AnnListCard({ item, onClick }: { item: Announcement; onClick: () => voi
     <button
       type="button"
       onClick={onClick}
-      className={`w-full text-left border transition-all
-        hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(15,23,42,.08)]
-        active:scale-[0.99] rounded-[18px] md:rounded-[20px] p-4 md:p-5
-        min-h-[88px] md:min-h-[110px]
-        ${important
-          ? 'bg-amber-50/70 border-amber-200 border-l-[3px] border-l-amber-500'
-          : 'bg-white border-gray-200'
-        }`}
-      style={{ boxShadow: '0 8px 24px rgba(15,23,42,.04)' }}
+      className={`church-list-row min-h-[88px] md:min-h-[110px] md:py-5
+        ${important ? 'bg-amber-50/70 border-l-[3px] border-l-amber-500' : ''}`}
     >
       <div className="flex items-start gap-3 md:gap-4">
         {hasThumb && (

@@ -254,7 +254,7 @@ export default function PrayerPage() {
           <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
             <Eye className="w-3.5 h-3.5" /> 함께 나눈 기도 ({pastorInbox.length})
           </p>
-          <div className="space-y-2">
+          <div className="church-list">
             {pastorInbox.map(p => (
               <PrayerCard
                 key={`inbox-${p.id}-${commentTick}`}
@@ -268,40 +268,46 @@ export default function PrayerPage() {
         </div>
       )}
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         {activeTab === 'my' && (
           <>
-            {myPrayers.map(p => (
-              <PrayerCard
-                key={`${p.id}-${commentTick}`}
-                prayer={p}
-                commentCount={getCommentCount(p.id)}
-                onAnswer={() => handleAnswer(p.id)}
-                onOpen={() => setSelectedPrayer(p)}
-                showAnswerBtn
-              />
-            ))}
+            {myPrayers.length > 0 && (
+              <div className="church-list">
+                {myPrayers.map(p => (
+                  <PrayerCard
+                    key={`${p.id}-${commentTick}`}
+                    prayer={p}
+                    commentCount={getCommentCount(p.id)}
+                    onAnswer={() => handleAnswer(p.id)}
+                    onOpen={() => setSelectedPrayer(p)}
+                    showAnswerBtn
+                  />
+                ))}
+              </div>
+            )}
 
             {answeredPrayers.length > 0 && (
-              <div className="pt-1">
+              <div>
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
                   <Check className="w-3.5 h-3.5 text-success-500" />
                   {STATUS_LABELS.answered} ({answeredPrayers.length})
                 </p>
-                {answeredPrayers.map(p => (
-                  <div key={p.id} className="bg-success-50 rounded-2xl p-4 border border-success-100 mb-2 opacity-75">
-                    <div className="flex items-center justify-between mb-1">
-                      <h3 className="font-semibold text-success-800 text-sm">{p.title}</h3>
-                      <span className="text-xs bg-success-100 text-success-600 px-2 py-0.5 rounded-full flex items-center gap-1">
-                        <Check className="w-3 h-3" /> 응답
-                      </span>
+                <div className="church-list">
+                  {answeredPrayers.map(p => (
+                    <div key={p.id} className="church-list-row bg-success-50 opacity-75">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-semibold text-success-800 text-sm">{p.title}</h3>
+                        <span className="text-xs bg-success-100 text-success-600 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <Check className="w-3 h-3" /> 응답
+                        </span>
+                      </div>
+                      <p className="text-xs text-success-600 line-clamp-2">{p.content}</p>
+                      {p.answerContent && (
+                        <p className="text-xs text-success-500 mt-1.5 italic">{p.answerContent}</p>
+                      )}
                     </div>
-                    <p className="text-xs text-success-600 line-clamp-2">{p.content}</p>
-                    {p.answerContent && (
-                      <p className="text-xs text-success-500 mt-1.5 italic">{p.answerContent}</p>
-                    )}
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
 
@@ -325,16 +331,19 @@ export default function PrayerPage() {
 
         {activeTab === 'church' && (
           <>
-            {churchPrayers.map(p => (
-              <div key={p.id} className="bg-gradient-to-br from-rose-50 to-rose-100 rounded-2xl p-4 border border-rose-200">
-                <h3 className="font-semibold text-rose-900 mb-1.5 text-sm">{p.title}</h3>
-                <p className="text-sm text-rose-700 leading-relaxed">{p.content}</p>
-                <p className="text-[10px] text-rose-400 mt-2">
-                  {new Date(p.prayer_date).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}
-                </p>
+            {churchPrayers.length > 0 ? (
+              <div className="church-list">
+                {churchPrayers.map(p => (
+                  <div key={p.id} className="church-list-row bg-rose-50 border-l-[3px] border-l-rose-400">
+                    <h3 className="font-semibold text-rose-900 mb-1.5 text-sm">{p.title}</h3>
+                    <p className="text-sm text-rose-700 leading-relaxed">{p.content}</p>
+                    <p className="text-[10px] text-rose-400 mt-2">
+                      {new Date(p.prayer_date).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}
+                    </p>
+                  </div>
+                ))}
               </div>
-            ))}
-            {churchPrayers.length === 0 && (
+            ) : (
               <EmptyState icon={Globe} title="교회 기도제목이 없습니다" description="교회 기도제목이 등록되면 여기에 표시됩니다." />
             )}
           </>
@@ -342,16 +351,19 @@ export default function PrayerPage() {
 
         {activeTab === 'intercession' && (
           <>
-            {intercessionPrayers.map(p => (
-              <PrayerCard
-                key={`${p.id}-${commentTick}`}
-                prayer={p}
-                commentCount={getCommentCount(p.id)}
-                showAuthor
-                onOpen={() => setSelectedPrayer(p)}
-              />
-            ))}
-            {intercessionPrayers.length === 0 && (
+            {intercessionPrayers.length > 0 ? (
+              <div className="church-list">
+                {intercessionPrayers.map(p => (
+                  <PrayerCard
+                    key={`${p.id}-${commentTick}`}
+                    prayer={p}
+                    commentCount={getCommentCount(p.id)}
+                    showAuthor
+                    onOpen={() => setSelectedPrayer(p)}
+                  />
+                ))}
+              </div>
+            ) : (
               <EmptyState
                 icon={Users}
                 title="중보기도 요청이 없습니다"
@@ -466,7 +478,7 @@ function PrayerCard({
 }) {
   return (
     <div
-      className={`bg-white rounded-2xl p-4 shadow-sm border border-gray-100 ${onOpen ? 'cursor-pointer active:bg-gray-50' : ''}`}
+      className={`church-list-row ${onOpen ? 'cursor-pointer' : ''}`}
       onClick={onOpen}
       onKeyDown={onOpen ? e => { if (e.key === 'Enter') onOpen(); } : undefined}
       role={onOpen ? 'button' : undefined}

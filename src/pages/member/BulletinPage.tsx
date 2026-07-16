@@ -166,7 +166,7 @@ export default function BulletinPage() {
           {current.length > 1 && (
             <div>
               <h3 className="text-sm font-bold text-gray-500 mb-3">이번 달 주보</h3>
-              <div className="space-y-2.5">
+              <div className="church-list">
                 {current.slice(1).map(b => (
                   <BulletinCard key={b.id} bulletin={b} onView={() => handleView(b)} />
                 ))}
@@ -198,7 +198,7 @@ export default function BulletinPage() {
                 return (
                   <div key={month}>
                     <h3 className="text-sm font-bold text-gray-500 mb-2.5">{yr}년 {parseInt(mo)}월</h3>
-                    <div className="space-y-2.5">
+                    <div className="church-list">
                       {items.map(b => (
                         <BulletinCard key={b.id} bulletin={b} onView={() => handleView(b)} />
                       ))}
@@ -294,7 +294,7 @@ function BulletinCard({ bulletin, onView }: { bulletin: Bulletin; onView: () => 
   return (
     <button
       onClick={onView}
-      className="w-full text-left bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:shadow-md active:scale-[0.98] transition-all flex items-center gap-4"
+      className="church-list-row flex items-center gap-4"
     >
       <div className="w-14 h-16 bg-primary-50 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
         {bulletin.image_url ? (

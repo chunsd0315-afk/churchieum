@@ -1,5 +1,5 @@
 ﻿import { useState, useMemo, useRef } from 'react';
-import { PageHeaderBar, ChurchDropdownMenu } from '../../components/common/ui';
+import { PageHeaderBar, ChurchDropdownMenu, ChurchList, CHURCH_LIST_ROW_CLASS } from '../../components/common/ui';
 import StatusBadge from '../../components/layout/StatusBadge';
 import EmptyState from '../../components/layout/EmptyState';
 import {
@@ -546,7 +546,7 @@ export default function AnnouncementManagementPage() {
                 <Pin className="w-3.5 h-3.5 text-red-400" /> 상단 고정 공지
               </p>
               {effectiveViewMode === 'list' ? (
-                <div className="flex flex-col gap-3">
+                <ChurchList>
                   {pinned.map(ann => (
                     <AnnListCard key={ann.id} ann={ann} badges={buildNoticeScopeBadges(ann)}
                       onView={() => setShowDetail(ann)} onEdit={() => openEdit(ann)}
@@ -554,7 +554,7 @@ export default function AnnouncementManagementPage() {
                       onTogglePin={() => togglePin(ann.id)} onToggleImportant={() => toggleImportant(ann.id)}
                       onNotify={() => showToast('알림이 발송되었습니다.')} />
                   ))}
-                </div>
+                </ChurchList>
               ) : (
                 <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {pinned.map(ann => (
@@ -577,7 +577,7 @@ export default function AnnouncementManagementPage() {
                 </p>
               )}
               {effectiveViewMode === 'list' ? (
-                <div className="flex flex-col gap-3">
+                <ChurchList>
                   {regular.map(ann => (
                     <AnnListCard key={ann.id} ann={ann} badges={buildNoticeScopeBadges(ann)}
                       onView={() => setShowDetail(ann)} onEdit={() => openEdit(ann)}
@@ -585,7 +585,7 @@ export default function AnnouncementManagementPage() {
                       onTogglePin={() => togglePin(ann.id)} onToggleImportant={() => toggleImportant(ann.id)}
                       onNotify={() => showToast('알림이 발송되었습니다.')} />
                   ))}
-                </div>
+                </ChurchList>
               ) : (
                 <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {regular.map(ann => (
@@ -801,12 +801,11 @@ function AnnListCard({ ann, badges, onView, onEdit, onDelete, onTogglePin, onTog
   const hasThumb = ann.images.length > 0;
   return (
     <div
-      className={`bg-white border rounded-[18px] md:rounded-[20px] transition-all hover:shadow-md cursor-pointer ${
-        ann.isPinned ? 'border-l-4 border-l-red-400 border-t-gray-200 border-r-gray-200 border-b-gray-200' : 'border-gray-200'
+      className={`${CHURCH_LIST_ROW_CLASS} cursor-pointer ${
+        ann.isPinned ? 'border-l-4 border-l-red-400' : ''
       }`}
-      style={{ boxShadow: '0 8px 24px rgba(15,23,42,.04)' }}
     >
-      <div className="flex items-start gap-3 md:gap-4 p-4 md:p-5 min-h-[88px] md:min-h-[110px]">
+      <div className="flex items-start gap-3 md:gap-4 min-h-[88px] md:min-h-[110px]">
         {/* Mobile thumbnail: 96×72 side */}
         {hasThumb && (
           <div

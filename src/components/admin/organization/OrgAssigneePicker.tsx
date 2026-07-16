@@ -4,6 +4,7 @@ import type { OrganizationAssigneeType, OrgPersonCandidate } from '../../../type
 import { searchPersonCandidates } from '../../../services/orgPeopleCatalog';
 import { isAlreadyAssignee } from '../../../services/orgAssigneeStorage';
 import { TabBar } from '../../common/ui/TabBar';
+import { CHURCH_LIST_CLASS, CHURCH_LIST_ROW_CLASS } from '../../common/ui/ChurchList';
 import { MobileFullScreenPage } from '../../layout/ContentEditorLayout';
 import { useBreakpoint } from '../../../hooks/useBreakpoint';
 
@@ -32,10 +33,11 @@ function PersonRow({
       disabled={registered}
       onClick={onSelect}
       className={[
-        'w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-colors',
+        CHURCH_LIST_ROW_CLASS,
+        'flex items-center gap-3',
         registered
-          ? 'bg-gray-50 border-gray-100 opacity-60 cursor-not-allowed'
-          : 'bg-white border-gray-200 hover:bg-primary-50 hover:border-primary-200',
+          ? 'opacity-60 cursor-not-allowed'
+          : '',
       ].join(' ')}
     >
       <div className="w-11 h-11 rounded-full bg-gradient-to-br from-primary-500 to-indigo-500 flex items-center justify-center shrink-0 overflow-hidden">
@@ -107,7 +109,7 @@ function PickerBody({
           variant="segment"
         />
       </div>
-      <div className="p-4 space-y-2">
+      <div className={CHURCH_LIST_CLASS}>
         {list.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-10">검색 결과가 없습니다.</p>
         ) : (

@@ -457,7 +457,9 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
               <p className="font-semibold text-gray-600 text-sm">{emptyCopy[tab].title}</p>
               <p className="text-xs text-gray-400 mt-1 leading-relaxed">{emptyCopy[tab].desc}</p>
             </div>
-          ) : filtered.map(note => {
+          ) : (
+            <div className="church-list">
+              {filtered.map(note => {
             const badge = getGraceListBadge(note, user, tab);
             const title =
               note.graceTitle
@@ -489,7 +491,7 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
                     onDetail(note.id);
                   }
                 }}
-                className="w-full text-left bg-white rounded-2xl border border-gray-100 shadow-sm p-4 hover:bg-gray-50/60 transition-colors touch-target cursor-pointer"
+                className="church-list-row cursor-pointer"
               >
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="flex items-center gap-2 flex-wrap min-w-0">
@@ -529,6 +531,8 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
               </div>
             );
           })}
+            </div>
+          )}
         </div>
       </MobileFullScreenPage>
     </>

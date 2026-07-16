@@ -144,12 +144,12 @@ export default function QtPage() {
 
       {/* Archive View */}
       {showArchive ? (
-        <div className="space-y-3">
+        <div className="church-list">
           {qtList.map(qt => (
             <button
               key={qt.id}
               onClick={() => { setSelectedQt(qt); setShowArchive(false); }}
-              className={`w-full text-left bg-white rounded-2xl p-4 border transition-all ${selectedQt?.id === qt.id ? 'border-primary-300 bg-primary-50' : 'border-gray-100'}`}
+              className={`church-list-row ${selectedQt?.id === qt.id ? 'bg-primary-50' : ''}`}
             >
               <div className="flex justify-between items-start">
                 <div>

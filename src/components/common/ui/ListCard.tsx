@@ -1,5 +1,6 @@
 import React from 'react';
 import { Pin } from 'lucide-react';
+import { CHURCH_LIST_ROW_CLASS } from './ChurchList';
 
 export interface ListCardProps {
   thumbnail?: string | null;
@@ -35,11 +36,9 @@ export function ListCard({
     <Wrapper
       {...wrapperProps}
       className={[
-        'w-full flex items-start gap-3 bg-white border border-gray-200 rounded-card p-4',
-        'shadow-card-md text-left',
-        onClick
-          ? 'cursor-pointer transition-[transform,box-shadow] duration-[var(--duration-base)] ease-[var(--ease-out)] hover:-translate-y-px hover:shadow-card-hover active:scale-[0.99]'
-          : '',
+        CHURCH_LIST_ROW_CLASS,
+        'flex items-start gap-3 rounded-none shadow-none border-0',
+        onClick ? 'cursor-pointer' : '',
         className,
       ].filter(Boolean).join(' ')}
     >

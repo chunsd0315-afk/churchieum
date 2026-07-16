@@ -82,9 +82,9 @@ export default function DepartmentsPage() {
 
       {/* Department List */}
       {activeTab === 'department' && (
-        <div className="space-y-3">
+        <div className="church-list">
           {departments.map(dept => (
-            <div key={dept.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+            <div key={dept.id} className="church-list-row">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-xl bg-[#2B73FF]/10 flex items-center justify-center">
@@ -111,9 +111,9 @@ export default function DepartmentsPage() {
 
       {/* District List */}
       {activeTab === 'district' && (
-        <div className="space-y-3">
+        <div className="church-list">
           {districts.map(dist => (
-            <div key={dist.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+            <div key={dist.id} className="church-list-row">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-xl bg-[#00C6A7]/10 flex items-center justify-center">
