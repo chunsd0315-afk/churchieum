@@ -1,5 +1,5 @@
 import {
-  BookOpen, Mic, PenLine, Library, HeartHandshake,
+  BookOpen, PenLine, Library, HeartHandshake,
   Plus, Settings,
   FileText, Archive, Calendar, CalendarDays, CalendarPlus,
   Heart, Users, CheckCircle, Image, FolderOpen,

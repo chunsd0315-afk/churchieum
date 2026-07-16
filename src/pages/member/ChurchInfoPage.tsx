@@ -3,7 +3,6 @@
   ChevronRight, ExternalLink, Copy, Check,
 } from 'lucide-react';
 import { useState } from 'react';
-import { PageHeaderBar } from '../../components/common/ui';
 import { FeatureHubPage, HubBackBar } from '../../components/common/feature-hub';
 import { CHURCH_INFO_HUB } from '../../config/featureHub/memberHubs';
 import { useAuth } from '../../contexts/AuthContext';

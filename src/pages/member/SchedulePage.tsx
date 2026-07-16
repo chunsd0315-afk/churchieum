@@ -4,7 +4,7 @@ import { Calendar, Clock, MapPin, ChevronLeft, ChevronRight, Grid, List, Loader,
 import { useAuth } from '../../contexts/AuthContext';
 import { canWriteContent, getAvailableScopes, type ContentScope } from '../../services/permissions';
 import { getDistricts, getZones, getDepartments } from '../../services/orgData';
-import { PageHeaderBar, MobileEditorModal } from '../../components/common/ui';
+import { MobileEditorModal } from '../../components/common/ui';
 import { FeatureHubPage, HubBackBar } from '../../components/common/feature-hub';
 import { SCHEDULE_HUB } from '../../config/featureHub/memberHubs';
 import { useToast } from '../../components/common/ui';

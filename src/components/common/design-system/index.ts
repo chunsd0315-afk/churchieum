@@ -1,6 +1,6 @@
 export { DS, iconSpec } from './tokens';
 export type { IconSizeVariant } from './tokens';
-export type { MenuIconKey } from '../../config/menuIconMap';
+export type { MenuIconKey } from '../../../config/menuIconMap';
 export { MenuIcon } from '../MenuIcon';
 export type { MenuIconProps } from '../MenuIcon';
 export { HomeMenuCard } from './HomeMenuCard';

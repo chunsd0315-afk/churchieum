@@ -129,7 +129,6 @@ export function getFaithReportByMonth(year: number) {
 
 export function getFaithReportSummary(year: number) {
   const notes = getAllGraceNotes().filter(n => n.createdAt.startsWith(String(year)));
-  const analytics = { topBooks: [] as string[], topKeywords: [] as string[], streak: 0 };
 
   const bookCount: Record<string, number> = {};
   const kwCount: Record<string, number> = {};

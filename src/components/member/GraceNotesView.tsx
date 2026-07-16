@@ -21,7 +21,6 @@ import {
   type GraceNote, type GraceNoteType, type GraceNoteVisibility,
 } from '../../data/graceNotes';
 import { formatSharedPastorLabel, formatSharedGroupLabel } from '../../data/graceNoteSeed';
-import { READING_PLANS } from '../../data/readingPlans';
 import { useAuth } from '../../contexts/AuthContext';
 import { readOrgSettings } from '../../contexts/OrgSettingsContext';
 import { useBreakpoint } from '../../hooks/useBreakpoint';

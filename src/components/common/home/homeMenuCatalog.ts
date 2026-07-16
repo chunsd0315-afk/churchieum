@@ -1,4 +1,4 @@
-import type { MenuIconKey } from '../../config/menuIconMap';
+import type { MenuIconKey } from '../../../config/menuIconMap';
 
 export type HomeMenuCatalogItem = {
   label: string;

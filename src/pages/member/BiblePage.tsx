@@ -24,7 +24,6 @@ import {
   searchBibleTranslation, getEnglishBookName,
 } from '../../services/bibleTranslation';
 import TranslationSelector from '../../components/member/TranslationSelector';
-import { PageHeaderBar } from '../../components/common/ui';
 import { FeatureHubPage, HubBackBar } from '../../components/common/feature-hub';
 import { BIBLE_HUB } from '../../config/featureHub/memberHubs';
 import { useAuth } from '../../contexts/AuthContext';

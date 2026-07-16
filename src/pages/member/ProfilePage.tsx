@@ -4,7 +4,6 @@ import {
   User, LogOut, BookHeart, Shield, ChevronRight, Sparkles,
   Bell, Lock, Moon, Globe, HelpCircle, Info, Settings, Award,
 } from 'lucide-react';
-import { PageHeaderBar } from '../../components/common/ui';
 import { FeatureHubPage, HubBackBar } from '../../components/common/feature-hub';
 import { PROFILE_HUB } from '../../config/featureHub/memberHubs';
 import { getFaithReportSummary } from '../../data/faithTimeline';

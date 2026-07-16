@@ -1,4 +1,4 @@
-import type { MenuIconKey } from '../../config/menuIconMap';
+import type { MenuIconKey } from '../../../config/menuIconMap';
 import { HOME_MENU_CATALOG } from './homeMenuCatalog';
 import type { HomeMenuItem } from './HomeDashboard';
 

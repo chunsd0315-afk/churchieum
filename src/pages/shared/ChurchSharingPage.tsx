@@ -14,7 +14,6 @@ import {
   type SharingPost, type SharingRequest,
 } from '../../services/sharingStorage';
 import ContentEditorLayout from '../../components/layout/ContentEditorLayout';
-import { PageHeaderBar } from '../../components/common/ui';
 import { FeatureHubPage, HubBackBar } from '../../components/common/feature-hub';
 import { SHARING_HUB } from '../../config/featureHub/memberHubs';
 
