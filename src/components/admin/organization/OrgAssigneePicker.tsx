@@ -85,8 +85,8 @@ function PickerBody({
   );
 
   return (
-    <div className="flex flex-col h-full min-h-0">
-      <div className="px-4 pt-3 space-y-3 shrink-0">
+    <div>
+      <div className="px-4 pt-3 space-y-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
@@ -107,7 +107,7 @@ function PickerBody({
           variant="segment"
         />
       </div>
-      <div className="flex-1 overflow-y-auto p-4 space-y-2">
+      <div className="p-4 space-y-2">
         {list.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-10">검색 결과가 없습니다.</p>
         ) : (
@@ -141,7 +141,7 @@ export function OrgAssigneePicker({ organizationId, open, onClose, onSelect }: P
         description="교역자 또는 성도를 선택하세요."
         onBack={onClose}
       >
-        <div className="h-[calc(100vh-8rem)] bg-white">
+        <div className="-mx-6 -my-6 bg-white">
           <PickerBody organizationId={organizationId} onSelect={handleSelect} />
         </div>
       </MobileFullScreenPage>
@@ -151,9 +151,9 @@ export function OrgAssigneePicker({ organizationId, open, onClose, onSelect }: P
   return (
     <div className="fixed inset-0 z-popover flex items-center justify-center p-4">
       <button type="button" className="absolute inset-0 bg-black/40" aria-label="닫기" onClick={onClose} />
-      <div className="relative w-full max-w-lg bg-white rounded-[20px] shadow-overlay overflow-hidden flex flex-col"
+      <div className="relative w-full max-w-lg bg-white rounded-[20px] shadow-overlay overflow-hidden flex flex-col min-h-0"
         style={{ maxHeight: '85vh' }}>
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
           <div>
             <h3 className="text-[17px] font-bold text-gray-900">담당자 선택</h3>
             <p className="text-[13px] text-gray-500 mt-0.5">교역자 또는 성도를 선택하세요.</p>
@@ -162,7 +162,7 @@ export function OrgAssigneePicker({ organizationId, open, onClose, onSelect }: P
             닫기
           </button>
         </div>
-        <div className="flex-1 min-h-0" style={{ height: 480 }}>
+        <div className="min-h-0 flex-1 overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
           <PickerBody organizationId={organizationId} onSelect={handleSelect} />
         </div>
       </div>

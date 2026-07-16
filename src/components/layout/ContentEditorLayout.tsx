@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
 import { EditorPageHeader, MobileEditorPageHeader, MobileSubPageHeader } from '../common/ui/PageLayout';
@@ -32,9 +32,9 @@ export function ContentFormCard({ children, className = '' }: { children: ReactN
 }
 
 /**
- * 등록/작성/목록 화면 공통 레이아웃
- * - PC: EditorPageHeader (뒤로 + 제목/설명 Flex) + 900px 폼
- * - 모바일: 고정 상단/하단 네비까지 덮는 Full Screen (z-300)
+ * 등록/작성/상세 서브페이지 공통 레이아웃
+ * - PC: AppLayout main 스크롤 사용 (중첩 overflow / overscroll-contain 없음)
+ * - 모바일: fixed Full Screen + 본문 overflow-y-auto (body 잠금은 마운트 시만)
  */
 export default function ContentEditorLayout({
   title,
@@ -46,6 +46,16 @@ export default function ContentEditorLayout({
   footer,
 }: ContentEditorLayoutProps) {
   const { isPc } = useBreakpoint();
+
+  // 모바일 Full Screen만 body 스크롤 잠금 — 닫힐 때 반드시 복구
+  useEffect(() => {
+    if (isPc) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isPc]);
 
   const backButton = (
     <button
@@ -75,43 +85,43 @@ export default function ContentEditorLayout({
     ? '24px'
     : 'calc(24px + env(safe-area-inset-bottom, 0px))';
 
-  const body = (
-    <>
-      {header}
-      <div className="flex-1 overflow-y-auto overscroll-contain min-h-0">
-        <div
-          className="w-full max-w-[900px] mx-auto"
-          style={{ padding: `24px 24px ${contentPadBottom}` }}
-        >
-          {children}
-        </div>
-      </div>
-      {footer && (
-        <div
-          className="shrink-0 bg-white border-t border-gray-100"
-          style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
-        >
-          <div className="w-full max-w-[900px] mx-auto px-4 py-3">
-            {footer}
-          </div>
-        </div>
-      )}
-    </>
+  const content = (
+    <div
+      className="w-full max-w-[900px] mx-auto"
+      style={{ padding: `24px 24px ${contentPadBottom}` }}
+    >
+      {children}
+    </div>
   );
 
+  const footerBar = footer ? (
+    <div
+      className="shrink-0 bg-white border-t border-gray-100"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+    >
+      <div className="w-full max-w-[900px] mx-auto px-4 py-3">
+        {footer}
+      </div>
+    </div>
+  ) : null;
+
+  /* PC: 페이지 본문(AppLayout main) 단일 스크롤 — 내부 overflow 금지 */
   if (isPc) {
     return (
       <div
-        className="flex flex-col h-full min-h-0"
+        className="min-h-full"
         style={{ background: '#F8FAFC', margin: '-24px -24px -40px' }}
       >
-        <div className="w-full max-w-[900px] mx-auto flex-1 flex flex-col min-h-0">
-          {body}
+        <div className="w-full max-w-[900px] mx-auto">
+          {header}
+          {content}
+          {footerBar}
         </div>
       </div>
     );
   }
 
+  /* 모바일: Full Screen — 헤더 고정, 본문만 세로 스크롤 */
   return (
     <div
       className="fixed inset-0 flex flex-col bg-white overflow-hidden"
@@ -122,7 +132,14 @@ export default function ContentEditorLayout({
         paddingBottom: footer ? undefined : 'env(safe-area-inset-bottom, 0px)',
       }}
     >
-      {body}
+      <div className="shrink-0">{header}</div>
+      <div
+        className="min-h-0 flex-1 overflow-y-auto"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
+        {content}
+      </div>
+      {footerBar}
     </div>
   );
 }

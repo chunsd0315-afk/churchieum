@@ -58,14 +58,14 @@ export function AppShell({
         />
 
         {/* Sidebar + content */}
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 overflow-hidden min-h-0">
           <DesktopSidebar
             user={currentUser}
             menuItems={menuItems}
             activeMenu={activeMenu}
             onMenuClick={onMenuClick}
           />
-          <main className="flex-1 overflow-y-auto">
+          <main className="flex-1 overflow-y-auto min-h-0">
             {children}
           </main>
         </div>

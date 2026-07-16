@@ -110,8 +110,8 @@ function EditorForm({
   const inputClass = 'w-full px-3.5 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:border-primary-400 focus:outline-none';
 
   return (
-    <div className="flex flex-col h-full min-h-0">
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+    <div className="flex flex-col">
+      <div className="p-4 space-y-4">
         <div className="p-3 rounded-xl bg-gray-50 border border-gray-100">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[16px] font-bold text-gray-900">{displayName}</span>
@@ -202,7 +202,7 @@ function EditorForm({
         </div>
       </div>
 
-      <div className="p-4 border-t border-gray-100 shrink-0 flex gap-2">
+      <div className="p-4 border-t border-gray-100 flex gap-2 bg-white">
         <ChurchButton variant="outline" icon={<X size={18} />} onClick={onClose} className="flex-1">
           취소
         </ChurchButton>
@@ -228,7 +228,7 @@ export function OrgAssigneeEditor({
   if (isMobile) {
     return (
       <MobileFullScreenPage title={title} description={description} onBack={onClose}>
-        <div className="h-[calc(100vh-8rem)] bg-white">
+        <div className="-mx-6 -my-6 bg-white">
           <EditorForm
             key={existing?.id ?? person?.userId ?? 'new'}
             organizationId={organizationId}
@@ -246,14 +246,14 @@ export function OrgAssigneeEditor({
     <div className="fixed inset-0 z-popover flex items-center justify-center p-4">
       <button type="button" className="absolute inset-0 bg-black/40" aria-label="닫기" onClick={onClose} />
       <div
-        className="relative w-full max-w-lg bg-white rounded-[20px] shadow-overlay overflow-hidden flex flex-col"
+        className="relative w-full max-w-lg bg-white rounded-[20px] shadow-overlay overflow-hidden flex flex-col min-h-0"
         style={{ maxHeight: '90vh' }}
       >
-        <div className="px-5 py-4 border-b border-gray-100">
+        <div className="px-5 py-4 border-b border-gray-100 shrink-0">
           <h3 className="text-[17px] font-bold text-gray-900">{title}</h3>
           <p className="text-[13px] text-gray-500 mt-0.5">{description}</p>
         </div>
-        <div className="flex-1 min-h-0" style={{ height: 560 }}>
+        <div className="min-h-0 flex-1 overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
           <EditorForm
             key={existing?.id ?? person?.userId ?? 'new'}
             organizationId={organizationId}

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { ChevronLeft, X } from 'lucide-react';
 import { useBreakpoint } from '../../../hooks/useBreakpoint';
 import { EditorPageHeader, MobileEditorPageHeader } from './PageLayout';
@@ -19,6 +19,14 @@ export interface MobileEditorModalProps {
  */
 export function MobileEditorModal({ title, description, onClose, children, trailing }: MobileEditorModalProps) {
   const { isPc } = useBreakpoint();
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
 
   const backButton = (
     <button
@@ -62,11 +70,14 @@ export function MobileEditorModal({ title, description, onClose, children, trail
       className="fixed inset-0 flex md:items-center md:justify-center md:p-4 md:bg-black/50 md:backdrop-blur-sm"
       style={{ zIndex: 300 }}
     >
-      <div className="bg-[#F8FAFC] flex flex-col w-full h-full md:h-auto md:max-h-[90vh] md:w-full md:max-w-[900px] md:rounded-3xl md:shadow-2xl overflow-hidden">
-        {header}
+      <div className="bg-[#F8FAFC] flex flex-col w-full h-full md:h-auto md:max-h-[90vh] md:w-full md:max-w-[900px] md:rounded-3xl md:shadow-2xl overflow-hidden min-h-0">
+        <div className="shrink-0">{header}</div>
         <div
-          className="flex-1 overflow-y-auto overscroll-contain"
-          style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+          className="min-h-0 flex-1 overflow-y-auto"
+          style={{
+            paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+            WebkitOverflowScrolling: 'touch',
+          }}
         >
           <div className="w-full max-w-[900px] mx-auto" style={{ padding: '24px 24px 40px' }}>
             {children}

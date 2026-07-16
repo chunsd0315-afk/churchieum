@@ -195,9 +195,7 @@ export default function OrganizationManagementPage() {
                   setCreating(false);
                 }}
               >
-                <div className="h-[calc(100vh-8rem)]">
-                  {detail}
-                </div>
+                {detail}
               </MobileFullScreenPage>
             )}
           </div>
