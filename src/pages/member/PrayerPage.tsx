@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback } from 'react';
+﻿import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../../services/supabase';
 import {
   getAllPrayers,
@@ -8,62 +8,43 @@ import {
   toAuthorRole,
   defaultOrganizationScope,
 } from '../../services/prayerStorage';
-import type {
-  Prayer,
-  PrayerOrganizationScope,
-  PrayerVisibility,
-  PrayerAttachment,
-} from '../../types/prayer';
+import type { Prayer, PrayerAttachment } from '../../types/prayer';
+import { CHURCH_WIDE_SCOPE, ATTACHMENT_TYPE_LABELS } from '../../types/prayer';
+import type { VisibilityType } from '../../types/sharedContent';
+import { migrateVisibility } from '../../types/sharedContent';
 import {
-  CHURCH_WIDE_SCOPE,
-  VISIBILITY_LABELS,
-  VISIBILITY_DESCRIPTIONS,
-  STATUS_LABELS,
-  ATTACHMENT_TYPE_LABELS,
-} from '../../types/prayer';
+  filterSharedContentByTab,
+  getShareablePastorsForWriter,
+  getShareableOrganizationsForWriter,
+  matchesSharedContentSearch,
+  PRAYER_LIST_TAB_LABELS,
+  type SharedListTab,
+} from '../../services/sharedContentAccess';
 import {
-  getMyActivePrayers,
-  getMyAnsweredPrayers,
-  getIntercessionPrayers,
-  getPastorSharedInbox,
-} from '../../services/prayerHelpers';
+  VisibilitySelector,
+  PastorShareSelector,
+  OrganizationShareSelector,
+  VisibilityBadge,
+  SharedTargetSummary,
+  PrayerStatusBadge,
+  SharedContentSearchFilter,
+  type SharedContentFilterState,
+} from '../../components/common/shared-content';
 import { useAuth } from '../../contexts/AuthContext';
-import PrayerOrganizationScopePicker from '../../components/layout/PrayerOrganizationScopePicker';
 import PrayerAttachmentPicker from '../../components/layout/PrayerAttachmentPicker';
 import PrayerDetailSheet from '../../components/layout/PrayerDetailSheet';
 import { getCommentCount } from '../../services/prayerCommentStorage';
 import {
-  Heart, Plus, Check, Lock, Users, Send, Loader,
-  Globe, Eye, Star, Paperclip, MessageCircle,
+  Heart, Plus, Check, Star, Paperclip, MessageCircle, Loader,
 } from 'lucide-react';
-import { TabBar, MobileEditorModal, MobileFab } from '../../components/common/ui';
+import { TabBar, MobileEditorModal, MobileFab, useToast } from '../../components/common/ui';
 import EmptyState from '../../components/layout/EmptyState';
 import { FeatureHubPage, HubBackBar } from '../../components/common/feature-hub';
 import { PRAYER_HUB } from '../../config/featureHub/memberHubs';
-import { useToast } from '../../components/common/ui';
 
-type ChurchPrayer = {
-  id: string;
-  title: string;
-  content: string;
-  prayer_date: string;
-  is_active: boolean;
-};
-
-const DEMO_CHURCH: ChurchPrayer[] = [
-  { id: '1', title: '교회 부흥과 성장', content: '주님의 은혜로 교회가 날마다 부흥하게 하소서. 잃어버린 영혼들이 돌아오게 하시고, 성도들이 믿음 안에서 성장하게 하소서.', prayer_date: '2026-06-23', is_active: true },
-  { id: '2', title: '다음 세대 양육', content: '청년부와 주일학교 학생들이 말씀과 기도로 성장하게 하소서. 다음 세대가 하나님의 나라를 이어가게 하소서.', prayer_date: '2026-06-23', is_active: true },
-  { id: '3', title: '파송 선교사 재정 지원', content: '몽골에서 수고하는 이민준 선교사님 가정의 재정이 풍족하게 채워지게 하소서. 건강과 안전을 지켜주소서.', prayer_date: '2026-06-22', is_active: true },
-  { id: '4', title: '동남아시아 단기선교', content: '7월에 파송하는 단기선교팀이 주님의 보호하심 가운데 복음을 전하고 돌아오게 하소서.', prayer_date: '2026-06-21', is_active: true },
-];
-
-type PrayerTab = 'my' | 'church' | 'intercession';
-
-const VISIBILITY_OPTIONS: { value: PrayerVisibility; icon: typeof Lock }[] = [
-  { value: 'private', icon: Lock },
-  { value: 'pastor_shared', icon: Eye },
-  { value: 'intercession', icon: Users },
-];
+const MEMBER_TABS: SharedListTab[] = ['mine', 'shared'];
+const PASTOR_TABS: SharedListTab[] = ['mine', 'pastor_members', 'organization'];
+const ADMIN_TABS: SharedListTab[] = ['mine', 'admin_shared', 'admin_audit'];
 
 function formatDate(iso: string) {
   const d = new Date(iso);
@@ -75,21 +56,43 @@ export default function PrayerPage() {
   const toast = useToast();
   const [hubView, setHubView] = useState(true);
   const [prayers, setPrayers] = useState<Prayer[]>([]);
-  const [churchPrayers, setChurchPrayers] = useState<ChurchPrayer[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<PrayerTab>('my');
+
+  const tabs = isAdmin ? ADMIN_TABS : isPastor ? PASTOR_TABS : MEMBER_TABS;
+  const [activeTab, setActiveTab] = useState<SharedListTab>('mine');
+
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [visibility, setVisibility] = useState<PrayerVisibility>('private');
-  const [orgScope, setOrgScope] = useState<PrayerOrganizationScope>(CHURCH_WIDE_SCOPE);
+  const [visibility, setVisibility] = useState<VisibilityType>('private');
+  const [sharedPastorIds, setSharedPastorIds] = useState<string[]>([]);
+  const [sharedOrganizationIds, setSharedOrganizationIds] = useState<string[]>([]);
   const [attachments, setAttachments] = useState<PrayerAttachment[]>([]);
   const [selectedPrayer, setSelectedPrayer] = useState<Prayer | null>(null);
   const [commentTick, setCommentTick] = useState(0);
   const [saving, setSaving] = useState(false);
 
+  const [search, setSearch] = useState('');
+  const [filterState, setFilterState] = useState<SharedContentFilterState>({
+    visibility: 'all',
+    prayerStatus: 'all',
+    authorRole: 'all',
+  });
+
+  const filterMode = isAdmin ? 'admin' : isPastor ? 'pastor' : 'member';
+  const selectorVariant = isAdmin || isPastor ? 'pastor' : 'member';
+
+  const shareablePastors = useMemo(() => getShareablePastorsForWriter(user), [user]);
+  const shareableOrganizations = useMemo(() => getShareableOrganizationsForWriter(user), [user]);
+  const orgOptions = useMemo(
+    () => shareableOrganizations.all.map(o => ({ id: o.id, name: o.name })),
+    [shareableOrganizations],
+  );
+
   const openForm = () => {
-    setOrgScope(user ? defaultOrganizationScope(user) : CHURCH_WIDE_SCOPE);
+    setVisibility('private');
+    setSharedPastorIds([]);
+    setSharedOrganizationIds([]);
     setAttachments([]);
     setShowForm(true);
   };
@@ -104,7 +107,8 @@ export default function PrayerPage() {
     setTitle('');
     setContent('');
     setVisibility('private');
-    setOrgScope(CHURCH_WIDE_SCOPE);
+    setSharedPastorIds([]);
+    setSharedOrganizationIds([]);
     setAttachments([]);
   };
 
@@ -113,27 +117,19 @@ export default function PrayerPage() {
   }, []);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const churchRes = await supabase
-          .from('church_prayers')
-          .select('*')
-          .eq('is_active', true)
-          .order('prayer_date', { ascending: false });
-        setChurchPrayers(
-          churchRes.data && churchRes.data.length > 0 ? churchRes.data : DEMO_CHURCH,
-        );
-      } catch {
-        setChurchPrayers(DEMO_CHURCH);
-      }
-      refreshPrayers();
-      setLoading(false);
-    })();
+    refreshPrayers();
+    setLoading(false);
   }, [refreshPrayers]);
+
+  const canSubmit =
+    title.trim().length > 0 &&
+    content.trim().length > 0 &&
+    (visibility !== 'pastor_share' || sharedPastorIds.length > 0) &&
+    (visibility !== 'organization_share' || sharedOrganizationIds.length > 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user || !canSubmit) return;
     setSaving(true);
 
     const payload = {
@@ -145,7 +141,9 @@ export default function PrayerPage() {
       content,
       visibility,
       status: 'praying' as const,
-      organizationScope: visibility === 'private' ? CHURCH_WIDE_SCOPE : orgScope,
+      organizationScope: visibility === 'private' ? CHURCH_WIDE_SCOPE : defaultOrganizationScope(user),
+      sharedPastorIds: visibility === 'pastor_share' ? sharedPastorIds : [],
+      sharedOrganizationIds: visibility === 'organization_share' ? sharedOrganizationIds : [],
       attachments,
     };
 
@@ -155,7 +153,7 @@ export default function PrayerPage() {
         content,
         is_private: visibility === 'private',
         is_answered: false,
-        category: visibility === 'intercession' ? 'intercession' : 'personal',
+        category: visibility === 'organization_share' ? 'intercession' : 'personal',
       });
     } catch { /* demo fallback */ }
 
@@ -176,10 +174,35 @@ export default function PrayerPage() {
     refreshPrayers();
   };
 
-  const myPrayers = getMyActivePrayers(prayers, user);
-  const answeredPrayers = getMyAnsweredPrayers(prayers, user);
-  const intercessionPrayers = getIntercessionPrayers(prayers, user);
-  const pastorInbox = getPastorSharedInbox(prayers, user);
+  const tabPrayers = useMemo(() => {
+    const bucket = filterSharedContentByTab(prayers, user, activeTab, {
+      canAuditPrivate: isAdmin,
+    });
+    return bucket
+      .filter(p => {
+        if (filterState.visibility && filterState.visibility !== 'all') {
+          if (migrateVisibility(p.visibility) !== filterState.visibility) return false;
+        }
+        if (filterState.prayerStatus && filterState.prayerStatus !== 'all') {
+          if (p.status !== filterState.prayerStatus) return false;
+        }
+        if (filterState.authorRole && filterState.authorRole !== 'all') {
+          const wanted = filterState.authorRole === 'super_admin' ? 'admin' : filterState.authorRole;
+          if (p.authorRole !== wanted) return false;
+        }
+        if (filterState.authorQuery) {
+          if (!p.authorName.toLowerCase().includes(filterState.authorQuery.toLowerCase())) return false;
+        }
+        if (filterState.orgId) {
+          if (!(p.sharedOrganizationIds ?? []).includes(filterState.orgId)) return false;
+        }
+        if (filterState.dateFrom && p.createdAt.slice(0, 10) < filterState.dateFrom) return false;
+        if (filterState.dateTo && p.createdAt.slice(0, 10) > filterState.dateTo) return false;
+        if (search.trim() && !matchesSharedContentSearch(p, search)) return false;
+        return true;
+      })
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }, [prayers, user, activeTab, filterState, search, isAdmin]);
 
   if (loading) {
     return (
@@ -203,18 +226,24 @@ export default function PrayerPage() {
             return;
           }
           if (id === 'answered') {
-            setActiveTab('my');
+            setActiveTab('mine');
+            setFilterState(f => ({ ...f, prayerStatus: 'answered' }));
             setHubView(false);
             toast.info('나의 기도에서 응답된 기도를 확인할 수 있습니다.');
             return;
           }
           if (id === 'pastor-inbox') {
-            setActiveTab('my');
+            setActiveTab(isAdmin ? 'admin_shared' : 'pastor_members');
             setHubView(false);
             return;
           }
-          if (id === 'my' || id === 'church' || id === 'intercession') {
-            setActiveTab(id);
+          if (id === 'church') {
+            setActiveTab(tabs[1] ?? 'mine');
+            setHubView(false);
+            return;
+          }
+          if (id === 'my') {
+            setActiveTab('mine');
           }
           setHubView(false);
         }}
@@ -239,208 +268,132 @@ export default function PrayerPage() {
       </div>
 
       <TabBar
-        tabs={[
-          { id: 'my', label: '내 기도', icon: Heart, count: myPrayers.length || undefined },
-          { id: 'church', label: '교회 기도', icon: Globe, count: churchPrayers.length || undefined },
-          { id: 'intercession', label: '중보기도', icon: Users, count: intercessionPrayers.length || undefined },
-        ]}
+        tabs={tabs.map(t => ({
+          id: t,
+          label: PRAYER_LIST_TAB_LABELS[t],
+        }))}
         activeTab={activeTab}
-        onChange={id => setActiveTab(id as PrayerTab)}
+        onChange={id => setActiveTab(id as SharedListTab)}
+        variant="segment"
+        className="mb-3"
       />
+
+      <SharedContentSearchFilter
+        value={filterState}
+        onChange={setFilterState}
+        search={search}
+        onSearchChange={setSearch}
+        mode={filterMode}
+        showPrayerStatus
+        orgOptions={filterMode === 'member' ? [] : orgOptions}
+        className="mb-4"
+      />
+
       <MobileFab label="기도 작성" onClick={openForm} />
 
-      {isPastor && pastorInbox.length > 0 && (
-        <div className="mb-4">
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-            <Eye className="w-3.5 h-3.5" /> 함께 나눈 기도 ({pastorInbox.length})
-          </p>
-          <div className="church-list">
-            {pastorInbox.map(p => (
-              <PrayerCard
-                key={`inbox-${p.id}-${commentTick}`}
-                prayer={p}
-                commentCount={getCommentCount(p.id)}
-                showAuthor
-                onOpen={() => setSelectedPrayer(p)}
-              />
-            ))}
-          </div>
+      {tabPrayers.length > 0 ? (
+        <div className="church-list">
+          {tabPrayers.map(p => (
+            <PrayerCard
+              key={`${p.id}-${commentTick}`}
+              prayer={p}
+              isOwn={p.authorId === user?.id}
+              commentCount={getCommentCount(p.id)}
+              onAnswer={
+                activeTab === 'mine' && p.authorId === user?.id && p.status === 'praying'
+                  ? () => handleAnswer(p.id)
+                  : undefined
+              }
+              onOpen={() => setSelectedPrayer(p)}
+            />
+          ))}
         </div>
+      ) : (
+        <EmptyState
+          icon={Heart}
+          title={activeTab === 'mine' ? '기도제목을 등록해보세요' : '표시할 기도제목이 없습니다'}
+          description={
+            activeTab === 'mine'
+              ? '나의 기도제목을 기록하고 응답을 기다려요.'
+              : '조건에 맞는 기도제목이 아직 없습니다.'
+          }
+          action={
+            activeTab === 'mine' ? (
+              <button
+                onClick={openForm}
+                className="px-5 py-2 bg-primary-500 text-white rounded-full text-sm font-semibold hover:bg-primary-600 transition-colors"
+              >
+                기도제목 추가하기
+              </button>
+            ) : undefined
+          }
+        />
       )}
-
-      <div className="space-y-4">
-        {activeTab === 'my' && (
-          <>
-            {myPrayers.length > 0 && (
-              <div className="church-list">
-                {myPrayers.map(p => (
-                  <PrayerCard
-                    key={`${p.id}-${commentTick}`}
-                    prayer={p}
-                    commentCount={getCommentCount(p.id)}
-                    onAnswer={() => handleAnswer(p.id)}
-                    onOpen={() => setSelectedPrayer(p)}
-                    showAnswerBtn
-                  />
-                ))}
-              </div>
-            )}
-
-            {answeredPrayers.length > 0 && (
-              <div>
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
-                  <Check className="w-3.5 h-3.5 text-success-500" />
-                  {STATUS_LABELS.answered} ({answeredPrayers.length})
-                </p>
-                <div className="church-list">
-                  {answeredPrayers.map(p => (
-                    <div key={p.id} className="church-list-row bg-success-50 opacity-75">
-                      <div className="flex items-center justify-between mb-1">
-                        <h3 className="font-semibold text-success-800 text-sm">{p.title}</h3>
-                        <span className="text-xs bg-success-100 text-success-600 px-2 py-0.5 rounded-full flex items-center gap-1">
-                          <Check className="w-3 h-3" /> 응답
-                        </span>
-                      </div>
-                      <p className="text-xs text-success-600 line-clamp-2">{p.content}</p>
-                      {p.answerContent && (
-                        <p className="text-xs text-success-500 mt-1.5 italic">{p.answerContent}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {myPrayers.length === 0 && answeredPrayers.length === 0 && (
-              <EmptyState
-                icon={Heart}
-                title="기도제목을 등록해보세요"
-                description="나의 기도제목을 기록하고 응답을 기다려요."
-                action={
-                  <button
-                    onClick={openForm}
-                    className="px-5 py-2 bg-primary-500 text-white rounded-full text-sm font-semibold hover:bg-primary-600 transition-colors"
-                  >
-                    기도제목 추가하기
-                  </button>
-                }
-              />
-            )}
-          </>
-        )}
-
-        {activeTab === 'church' && (
-          <>
-            {churchPrayers.length > 0 ? (
-              <div className="church-list">
-                {churchPrayers.map(p => (
-                  <div key={p.id} className="church-list-row bg-rose-50 border-l-[3px] border-l-rose-400">
-                    <h3 className="font-semibold text-rose-900 mb-1.5 text-sm">{p.title}</h3>
-                    <p className="text-sm text-rose-700 leading-relaxed">{p.content}</p>
-                    <p className="text-[10px] text-rose-400 mt-2">
-                      {new Date(p.prayer_date).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <EmptyState icon={Globe} title="교회 기도제목이 없습니다" description="교회 기도제목이 등록되면 여기에 표시됩니다." />
-            )}
-          </>
-        )}
-
-        {activeTab === 'intercession' && (
-          <>
-            {intercessionPrayers.length > 0 ? (
-              <div className="church-list">
-                {intercessionPrayers.map(p => (
-                  <PrayerCard
-                    key={`${p.id}-${commentTick}`}
-                    prayer={p}
-                    commentCount={getCommentCount(p.id)}
-                    showAuthor
-                    onOpen={() => setSelectedPrayer(p)}
-                  />
-                ))}
-              </div>
-            ) : (
-              <EmptyState
-                icon={Users}
-                title="중보기도 요청이 없습니다"
-                description="기도제목 등록 시 중보기도 요청을 선택하세요."
-              />
-            )}
-          </>
-        )}
-      </div>
 
       {showForm && (
         <MobileEditorModal title="기도 작성" onClose={closeForm}>
-            <form onSubmit={handleSubmit} className="p-4 md:p-5 space-y-4">
-              <input
-                type="text"
-                value={title}
-                onChange={e => setTitle(e.target.value)}
-                placeholder="기도 제목"
-                required
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-primary-500 focus:ring-0 text-sm"
-              />
-              <textarea
-                value={content}
-                onChange={e => setContent(e.target.value)}
-                placeholder="기도 내용을 입력하세요"
-                required
-                rows={4}
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-primary-500 focus:ring-0 text-sm resize-none"
-              />
-              <div>
-                <p className="text-xs font-semibold text-gray-500 mb-2">공개 범위</p>
-                <div className="flex flex-col gap-2">
-                  {VISIBILITY_OPTIONS.map(opt => {
-                    const Icon = opt.icon;
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => setVisibility(opt.value)}
-                        className={`flex flex-col items-start gap-0.5 px-3.5 py-2.5 rounded-xl text-sm font-medium border-2 transition-all text-left w-full ${
-                          visibility === opt.value
-                            ? 'border-primary-500 bg-primary-50 text-primary-700'
-                            : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                        }`}
-                      >
-                        <span className="flex items-center gap-2">
-                          <Icon className="w-4 h-4 shrink-0" />
-                          {VISIBILITY_LABELS[opt.value]}
-                        </span>
-                        <span className={`text-xs font-normal pl-6 ${
-                          visibility === opt.value ? 'text-primary-600' : 'text-gray-400'
-                        }`}>
-                          {VISIBILITY_DESCRIPTIONS[opt.value]}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              {visibility !== 'private' && (
-                <PrayerOrganizationScopePicker
-                  value={orgScope}
-                  onChange={setOrgScope}
+          <form onSubmit={handleSubmit} className="p-4 md:p-5 space-y-4">
+            <input
+              type="text"
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder="기도 제목"
+              required
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-primary-500 focus:ring-0 text-sm"
+            />
+            <textarea
+              value={content}
+              onChange={e => setContent(e.target.value)}
+              placeholder="기도 내용을 입력하세요"
+              required
+              rows={4}
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-primary-500 focus:ring-0 text-sm resize-none"
+            />
+            <div>
+              <p className="text-xs font-semibold text-gray-500 mb-2">공개 범위</p>
+              <div className="rounded-2xl border border-gray-200 overflow-hidden">
+                <VisibilitySelector
+                  value={visibility}
+                  onChange={v => {
+                    setVisibility(v);
+                    if (v !== 'pastor_share') setSharedPastorIds([]);
+                    if (v !== 'organization_share') setSharedOrganizationIds([]);
+                  }}
+                  variant={selectorVariant}
                 />
-              )}
-              <PrayerAttachmentPicker
-                value={attachments}
-                onChange={setAttachments}
+              </div>
+            </div>
+
+            {visibility === 'pastor_share' && (
+              <PastorShareSelector
+                pastors={shareablePastors}
+                selectedIds={sharedPastorIds}
+                onChange={setSharedPastorIds}
+                searchable={isAdmin}
               />
-              <button
-                type="submit"
-                disabled={saving || !user}
-                className="w-full py-3.5 bg-primary-500 text-white font-semibold rounded-xl hover:bg-primary-600 transition-colors disabled:opacity-50"
-              >
-                {saving ? '저장 중...' : '등록하기'}
-              </button>
-            </form>
+            )}
+
+            {visibility === 'organization_share' && (
+              <OrganizationShareSelector
+                organizations={shareableOrganizations}
+                selectedIds={sharedOrganizationIds}
+                onChange={setSharedOrganizationIds}
+                searchable={isAdmin}
+              />
+            )}
+
+            <PrayerAttachmentPicker
+              value={attachments}
+              onChange={setAttachments}
+            />
+            <button
+              type="submit"
+              disabled={saving || !user || !canSubmit}
+              className="w-full py-3.5 bg-primary-500 text-white font-semibold rounded-xl hover:bg-primary-600 transition-colors disabled:opacity-50"
+            >
+              {saving ? '저장 중...' : '등록하기'}
+            </button>
+          </form>
         </MobileEditorModal>
       )}
 
@@ -448,6 +401,7 @@ export default function PrayerPage() {
         <PrayerDetailSheet
           prayer={selectedPrayer}
           user={user}
+          auditMode={isAdmin && activeTab === 'admin_audit'}
           onClose={() => setSelectedPrayer(null)}
           onCommentAdded={() => setCommentTick(t => t + 1)}
           onPrayerUpdated={() => {
@@ -463,34 +417,32 @@ export default function PrayerPage() {
 
 function PrayerCard({
   prayer,
+  isOwn,
   onAnswer,
   onOpen,
-  showAnswerBtn,
-  showAuthor,
   commentCount = 0,
 }: {
   prayer: Prayer;
+  isOwn?: boolean;
   onAnswer?: () => void;
   onOpen?: () => void;
-  showAnswerBtn?: boolean;
-  showAuthor?: boolean;
   commentCount?: number;
 }) {
+  const answered = prayer.status === 'answered';
   return (
     <div
-      className={`church-list-row ${onOpen ? 'cursor-pointer' : ''}`}
+      className={`church-list-row cursor-pointer ${answered ? 'bg-success-50/60' : ''}`}
       onClick={onOpen}
-      onKeyDown={onOpen ? e => { if (e.key === 'Enter') onOpen(); } : undefined}
-      role={onOpen ? 'button' : undefined}
-      tabIndex={onOpen ? 0 : undefined}
+      onKeyDown={e => { if (e.key === 'Enter') onOpen?.(); }}
+      role="button"
+      tabIndex={0}
     >
-      <div className="flex items-start justify-between mb-1.5">
-        <h3 className="font-semibold text-gray-900 flex items-center gap-1.5 text-sm">
-          {prayer.visibility === 'private' && <Lock className="w-3.5 h-3.5 text-gray-400" />}
-          {prayer.starred && <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />}
-          {prayer.title}
+      <div className="flex items-start justify-between gap-2 mb-1.5">
+        <h3 className="font-semibold text-gray-900 flex items-center gap-1.5 text-sm min-w-0">
+          {prayer.starred && <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />}
+          <span className="truncate">{prayer.title}</span>
         </h3>
-        {showAnswerBtn && onAnswer && (
+        {onAnswer && (
           <button
             type="button"
             onClick={e => { e.stopPropagation(); onAnswer(); }}
@@ -501,33 +453,37 @@ function PrayerCard({
           </button>
         )}
       </div>
+
+      <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
+        <VisibilityBadge visibility={prayer.visibility} />
+        <PrayerStatusBadge status={prayer.status} />
+        {!isOwn && <SharedTargetSummary content={prayer} />}
+      </div>
+
       <p className="text-sm text-gray-600 leading-relaxed line-clamp-3">{prayer.content}</p>
+
+      {answered && prayer.answerContent && (
+        <p className="text-xs text-success-600 mt-1.5 italic">{prayer.answerContent}</p>
+      )}
+
       <div className="flex items-center justify-between mt-2">
         <div className="flex items-center gap-2 text-[10px] text-gray-400">
           <span>{formatDate(prayer.createdAt)}</span>
-          {showAuthor && <span>· {prayer.authorName}</span>}
+          <span>· {prayer.authorName}</span>
           {commentCount > 0 && (
             <span className="flex items-center gap-0.5 text-primary-500">
               <MessageCircle className="w-3 h-3" /> {commentCount}
             </span>
           )}
           {prayer.attachments.length > 0 && (
-            <span className="flex items-center gap-0.5" title={
-              prayer.attachments.map(a => ATTACHMENT_TYPE_LABELS[a.type]).join(', ')
-            }>
+            <span
+              className="flex items-center gap-0.5"
+              title={prayer.attachments.map(a => ATTACHMENT_TYPE_LABELS[a.type]).join(', ')}
+            >
               <Paperclip className="w-3 h-3" /> {prayer.attachments.length}
             </span>
           )}
         </div>
-        {showAuthor && onOpen && (
-          <button
-            type="button"
-            onClick={e => { e.stopPropagation(); onOpen(); }}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-50 text-primary-600 rounded-lg text-xs font-medium hover:bg-primary-100 transition-colors"
-          >
-            <Send className="w-3.5 h-3.5" /> 기도하기
-          </button>
-        )}
       </div>
     </div>
   );

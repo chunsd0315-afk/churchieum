@@ -21,6 +21,7 @@ import {
 } from './clergyData';
 import type { GraceNoteVisibility } from '../data/graceNotes';
 import { readOrgSettings } from '../contexts/OrgSettingsContext';
+import { migrateVisibility, isLegacyPublic } from '../types/sharedContent';
 
 const PASTORAL_POSITIONS = new Set([
   '담임목사', '부목사', '목사', '전도사', '교육전도사', '선교사', '간사',
@@ -402,12 +403,12 @@ export function validateGraceNoteShare(
   }
 
   const labels = getOrganizationLabels();
-  const visibility = state.visibility ?? 'private';
+  const visibility = migrateVisibility(state.visibility);
 
-  if (visibility === 'private' || visibility === 'public') {
+  if (visibility === 'private') {
     return {
       ok: true,
-      sanitized: emptyShareFields(visibility),
+      sanitized: emptyShareFields('private'),
     };
   }
 
@@ -419,7 +420,7 @@ export function validateGraceNoteShare(
   const eligibleDeptIds = new Set(eligible.departments.map(d => d.id));
   const eligibleGroupIds = getAllEligibleGroupIds(user);
 
-  if (visibility === 'pastor') {
+  if (visibility === 'pastor_share') {
     if (eligiblePastors.length === 0) {
       return { ok: false, error: '현재 연결된 담당 교역자가 없습니다.' };
     }
@@ -442,14 +443,14 @@ export function validateGraceNoteShare(
     return {
       ok: true,
       sanitized: {
-        ...emptyShareFields('pastor'),
+        ...emptyShareFields('pastor_share'),
         sharedPastorAll,
         sharedPastorIds,
       },
     };
   }
 
-  if (visibility === 'group') {
+  if (visibility === 'organization_share') {
     if (eligibleGroupIds.size === 0) {
       return {
         ok: false,
@@ -499,7 +500,7 @@ export function validateGraceNoteShare(
     return {
       ok: true,
       sanitized: {
-        ...emptyShareFields('group'),
+        ...emptyShareFields('organization_share'),
         sharedGroupAll: false,
         sharedGroupIds,
         sharedUpperOrganizationIds: uniqueIds(upper),
@@ -547,26 +548,27 @@ export function filterShareStateToMembership(
   const eligibleLowerIds = new Set(eligible.zones.map(z => z.id));
   const eligibleDeptIds = new Set(eligible.departments.map(d => d.id));
   const eligibleGroupIds = getAllEligibleGroupIds(user);
+  const visibility = migrateVisibility(state.visibility);
 
-  if (state.visibility === 'pastor') {
+  if (visibility === 'pastor_share') {
     if (eligiblePastorIds.size === 0) {
       return emptyShareFields('private');
     }
     if (state.sharedPastorAll) {
-      return { ...emptyShareFields('pastor'), sharedPastorAll: true };
+      return { ...emptyShareFields('pastor_share'), sharedPastorAll: true };
     }
     return {
-      ...emptyShareFields('pastor'),
+      ...emptyShareFields('pastor_share'),
       sharedPastorIds: uniqueIds(state.sharedPastorIds).filter(id => eligiblePastorIds.has(id)),
     };
   }
 
-  if (state.visibility === 'group') {
+  if (visibility === 'organization_share') {
     if (eligibleGroupIds.size === 0) {
       return emptyShareFields('private');
     }
-    if (state.sharedGroupAll) {
-      return { ...emptyShareFields('group'), sharedGroupAll: true };
+    if (state.sharedGroupAll || isLegacyPublic(state.visibility)) {
+      return { ...emptyShareFields('organization_share'), sharedGroupAll: true };
     }
     let upper = uniqueIds(state.sharedUpperOrganizationIds).filter(id => eligibleUpperIds.has(id));
     let lower = uniqueIds(state.sharedLowerOrganizationIds).filter(id => eligibleLowerIds.has(id));
@@ -583,7 +585,7 @@ export function filterShareStateToMembership(
     const sharedGroupIds = composeSharedGroupIds(upper, lower, departments);
 
     return {
-      ...emptyShareFields('group'),
+      ...emptyShareFields('organization_share'),
       sharedUpperOrganizationIds: upper,
       sharedLowerOrganizationIds: lower,
       sharedDepartmentIds: departments,
@@ -772,22 +774,6 @@ export function getViewerOrganizationScope(viewer: AppUser): {
   return { upper, lower, dept };
 }
 
-function noteSharedGroupParts(note: GraceNoteVisibilityInput): {
-  upper: string[];
-  lower: string[];
-  departments: string[];
-} {
-  const authorMembership = resolveMembershipForAuthor(note);
-  if (note.sharedGroupAll && authorMembership) {
-    return {
-      upper: authorMembership.districtId ? [authorMembership.districtId] : [],
-      lower: authorMembership.zoneId ? [authorMembership.zoneId] : [],
-      departments: [...authorMembership.departmentIds],
-    };
-  }
-  return splitOrganizationShareIds(note);
-}
-
 function isOwnNote(note: GraceNoteVisibilityInput, viewer: AppUser): boolean {
   return Boolean(viewer.id && note.userId && note.userId === viewer.id);
 }
@@ -823,7 +809,12 @@ function matchGroupShare(
   note: GraceNoteVisibilityInput,
   scope: { upper: Set<string>; lower: Set<string>; dept: Set<string> },
 ): { kind: GraceNoteViewKind; badgeLabel: string; bucket: GraceNoteFilterBucket } | null {
-  const parts = noteSharedGroupParts(note);
+  // 레거시 전체공개 (isLegacyPublic) 또는 전체선택(sharedGroupAll) — 소속과 무관하게 전체 공개로 취급
+  if (note.sharedGroupAll || isLegacyPublic(note.visibility)) {
+    return { kind: 'public', badgeLabel: '전체 공개', bucket: 'public' };
+  }
+
+  const parts = splitOrganizationShareIds(note);
 
   const hitLower = parts.lower.find(id => scope.lower.has(id));
   if (hitLower) {
@@ -868,32 +859,25 @@ export function getGraceNoteViewInfo(
 ): GraceNoteViewInfo | null {
   if (!viewer) return null;
 
-  const visibility = (note.visibility ?? 'private') as GraceNoteVisibility;
+  const visibility = migrateVisibility(note.visibility);
   const own = isOwnNote(note, viewer);
 
   if (own) {
     const badges = ['내 기록'];
     const buckets: GraceNoteFilterBucket[] = ['own'];
-    if (visibility === 'pastor') {
+    if (visibility === 'pastor_share') {
       buckets.push('pastor_share');
       badges.push('담당 교역자 공유');
     }
-    if (visibility === 'group') {
+    if (visibility === 'organization_share') {
       const scope = getViewerOrganizationScope(viewer);
       const g = matchGroupShare(note, scope);
-      if (g?.bucket === 'group_dept') {
-        buckets.push('group_dept');
-        badges.push(g.badgeLabel);
-      } else if (g) {
-        buckets.push('group_org');
+      if (g) {
+        buckets.push(g.bucket);
         badges.push(g.badgeLabel);
       } else {
         buckets.push('group_org');
       }
-    }
-    if (visibility === 'public') {
-      buckets.push('public');
-      badges.push('전체 공개');
     }
     return { kind: 'own', badgeLabel: '내 기록', badges, buckets };
   }
@@ -903,16 +887,7 @@ export function getGraceNoteViewInfo(
 
   const scope = getViewerOrganizationScope(viewer);
 
-  if (visibility === 'public') {
-    return {
-      kind: 'public',
-      badgeLabel: '전체 공개',
-      badges: ['전체 공개'],
-      buckets: ['public'],
-    };
-  }
-
-  if (visibility === 'pastor') {
+  if (visibility === 'pastor_share') {
     if (matchesPastorShareToViewer(note, viewer)) {
       return {
         kind: 'pastor_share',
@@ -933,7 +908,7 @@ export function getGraceNoteViewInfo(
     return null;
   }
 
-  if (visibility === 'group') {
+  if (visibility === 'organization_share') {
     const g = matchGroupShare(note, scope);
     if (!g) return null;
     return {
@@ -972,21 +947,33 @@ export function getVisibleGraceNotesForUser<T extends GraceNoteVisibilityInput &
   return result;
 }
 
-/** 모아보기 3탭: 내 기록 | 공유받은 기록 | 전체 공개 */
-export type GraceCollectTab = 'mine' | 'shared' | 'public';
+/** 모아보기 탭 — 역할별 (성도 mine/shared, 교역자 mine/pastor_members/organization, 관리자 mine/admin_shared/admin_audit) */
+export type GraceCollectTab =
+  | 'mine'
+  | 'shared'
+  | 'pastor_members'
+  | 'organization'
+  | 'admin_shared'
+  | 'admin_audit';
 
 /** 공유받은 기록 상세 구분 */
 export type GraceSharedShareKind = 'pastor' | 'upper' | 'lower' | 'department';
 
+/**
+ * 공유받은 기록(shared) = 타인의 organization_share만 포함.
+ * 타인의 pastor_share는 성도 모아보기에는 노출하지 않는다.
+ */
 export function getGraceCollectTab(
   note: GraceNoteVisibilityInput,
   viewer: AppUser | null,
 ): GraceCollectTab | null {
-  const info = getGraceNoteViewInfo(note, viewer);
-  if (!info || !viewer) return null;
+  if (!viewer) return null;
   if (isOwnNote(note, viewer)) return 'mine';
-  if (note.visibility === 'public') return 'public';
-  if (info.kind === 'pastor_share' || info.kind.startsWith('group_')) return 'shared';
+  const info = getGraceNoteViewInfo(note, viewer);
+  if (!info) return null;
+  const visibility = migrateVisibility(note.visibility);
+  if (visibility === 'pastor_share') return 'pastor_members';
+  if (visibility === 'organization_share') return 'shared';
   return null;
 }
 
@@ -996,17 +983,19 @@ export function getGraceSharedShareKind(
   viewer: AppUser | null,
 ): GraceSharedShareKind | null {
   if (!viewer || isOwnNote(note, viewer)) return null;
-  if (note.visibility === 'public' || note.visibility === 'private') return null;
+  const visibility = migrateVisibility(note.visibility);
+  if (visibility === 'private') return null;
 
-  if (note.visibility === 'pastor') {
+  if (visibility === 'pastor_share') {
     if (matchesPastorShareToViewer(note, viewer)) return 'pastor';
     if (viewer.role === 'member' && isAuthoredByMyShepherdPastor(note, viewer)) return 'pastor';
     return null;
   }
 
-  if (note.visibility === 'group') {
+  if (visibility === 'organization_share') {
+    if (note.sharedGroupAll || isLegacyPublic(note.visibility)) return null;
     const scope = getViewerOrganizationScope(viewer);
-    const parts = noteSharedGroupParts(note);
+    const parts = splitOrganizationShareIds(note);
     if (parts.lower.some(id => scope.lower.has(id))) return 'lower';
     if (parts.upper.some(id => scope.upper.has(id))) return 'upper';
     if (parts.departments.some(id => scope.dept.has(id))) return 'department';
@@ -1027,12 +1016,12 @@ export function getGraceListBadge(
 ): string {
   if (!viewer) return '';
 
-  if (tab === 'mine' || (tab !== 'public' && isOwnNote(note, viewer))) {
-    const visibility = (note.visibility ?? 'private') as GraceNoteVisibility;
+  if (tab === 'mine' || isOwnNote(note, viewer)) {
+    const visibility = migrateVisibility(note.visibility);
     if (visibility === 'private') return '나만 보기';
-    if (visibility === 'pastor') return '담당 교역자와 공유';
-    if (visibility === 'public') return '전체 공개';
-    if (visibility === 'group') {
+    if (visibility === 'pastor_share') return '담당 교역자와 공유';
+    if (visibility === 'organization_share') {
+      if (note.sharedGroupAll || isLegacyPublic(note.visibility)) return '전체 공개';
       const labels = formatOrganizationShareDisplayLabels({
         sharedGroupIds: note.sharedGroupIds,
         sharedUpperOrganizationIds: note.sharedUpperOrganizationIds,
@@ -1050,10 +1039,6 @@ export function getGraceListBadge(
     return '내 기록';
   }
 
-  if (tab === 'public' || note.visibility === 'public') {
-    return '전체 공개';
-  }
-
   const info = getGraceNoteViewInfo(note, viewer);
   if (!info) return '공유받음';
   if (info.kind === 'pastor_share') return '담당 교역자 공유';
@@ -1065,21 +1050,51 @@ export function getGraceNotesForCollectTab<T extends GraceNoteVisibilityInput & 
   viewer: AppUser | null,
   tab: GraceCollectTab,
 ): T[] {
-  const visible = getVisibleGraceNotesForUser(notes, viewer);
   if (!viewer) return [];
 
   if (tab === 'mine') {
-    return visible.filter(n => isOwnNote(n, viewer));
+    return notes.filter(n => isOwnNote(n, viewer));
   }
-  if (tab === 'public') {
-    return visible.filter(n => n.visibility === 'public');
+
+  if (tab === 'shared') {
+    // 성도: 타인의 organization_share만
+    return notes.filter(n => {
+      if (isOwnNote(n, viewer)) return false;
+      if (migrateVisibility(n.visibility) !== 'organization_share') return false;
+      return getGraceNoteViewInfo(n, viewer) !== null;
+    });
   }
-  // 공유받은 기록 — 내 작성·전체 공개 제외
-  return visible.filter(n => {
-    if (isOwnNote(n, viewer)) return false;
-    if (n.visibility === 'public' || n.visibility === 'private') return false;
-    return getGraceNoteViewInfo(n, viewer) !== null;
-  });
+
+  if (tab === 'pastor_members') {
+    return notes.filter(n => {
+      if (isOwnNote(n, viewer)) return false;
+      if (migrateVisibility(n.visibility) !== 'pastor_share') return false;
+      return matchesPastorShareToViewer(n, viewer);
+    });
+  }
+
+  if (tab === 'organization') {
+    return notes.filter(n => {
+      if (isOwnNote(n, viewer)) return false;
+      if (migrateVisibility(n.visibility) !== 'organization_share') return false;
+      return getGraceNoteViewInfo(n, viewer) !== null;
+    });
+  }
+
+  if (tab === 'admin_shared') {
+    return notes.filter(n => {
+      if (isOwnNote(n, viewer)) return false;
+      if (migrateVisibility(n.visibility) === 'private') return false;
+      return getGraceNoteViewInfo(n, viewer) !== null;
+    });
+  }
+
+  if (tab === 'admin_audit') {
+    // 관리 조회: private 제외 기본 (특별 권한 시 확장 가능)
+    return notes.filter(n => migrateVisibility(n.visibility) !== 'private');
+  }
+
+  return [];
 }
 
 /** @deprecated alias */
@@ -1141,7 +1156,8 @@ export function canPastorViewSharedGraceNote(
 ): boolean {
   if (!viewer || viewer.role === 'member') return false;
   if (isOwnNote(note, viewer)) return false; // 담당 성도 함은 타 성도용
-  if (note.visibility === 'private' || !note.visibility) return false;
+  const visibility = migrateVisibility(note.visibility);
+  if (visibility === 'private') return false;
 
   const authorMembership = resolveMembershipForAuthor(note);
   const clergyId = getViewerClergyId(viewer);
@@ -1149,14 +1165,11 @@ export function canPastorViewSharedGraceNote(
   // 최고관리자도 담당/소속 범위만 (전체 private 열람 금지)
   if (viewer.role === 'super_admin') {
     const scope = getViewerOrganizationScope(viewer);
-    if (note.visibility === 'public') {
-      // 담당/소속과 연관된 작성자이거나, 전체 공개는 교회 구성원 모두 가능 → 공개는 허용
-      return true;
-    }
-    if (note.visibility === 'pastor') {
+    if (visibility === 'pastor_share') {
       return matchesPastorShareToViewer(note, viewer);
     }
-    if (note.visibility === 'group') {
+    if (visibility === 'organization_share') {
+      // 전체 공개(sharedGroupAll/레거시 public 포함)는 matchGroupShare 내부에서 허용
       return matchGroupShare(note, scope) !== null;
     }
     return false;
@@ -1165,13 +1178,11 @@ export function canPastorViewSharedGraceNote(
   if (!clergyId) return false;
   if (!pastorShepherdsMembership(clergyId, authorMembership)) return false;
 
-  if (note.visibility === 'public') return true;
-
-  if (note.visibility === 'pastor') {
+  if (visibility === 'pastor_share') {
     return matchesPastorShareToViewer(note, viewer);
   }
 
-  if (note.visibility === 'group') {
+  if (visibility === 'organization_share') {
     const scope = getViewerOrganizationScope(viewer);
     return matchGroupShare(note, scope) !== null;
   }

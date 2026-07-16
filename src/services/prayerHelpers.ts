@@ -1,19 +1,21 @@
 /**
- * Prayer 접근 흐름
+ * Prayer 접근 흐름 — 은혜기록과 동일한 공통 VisibilityType 사용
  *
  *   Prayer
  *     ↓
- *   visibility
- *     · private          → 작성자만 조회
- *     · pastor_shared    → 작성자 + 담당 교역자
- *     · intercession     → 작성자 + 중보기도 대상자
+ *   visibility (src/types/sharedContent.ts)
+ *     · private             → 작성자만 조회
+ *     · pastor_share        → 작성자 + 공유 대상 교역자 (sharedPastorIds)
+ *     · organization_share  → 작성자 + 공유 대상 조직 (sharedOrganizationIds)
  *     ↓
- *   권한 검사 — resolvePrayerAccess()
+ *   권한 검사 — resolvePrayerAccess() (canViewSharedContent 기반 + 레거시 배정 fallback)
  *     ↓
- *   화면 표시 — filterPrayersForScreen()
+ *   화면 표시 — filterPrayersForScreen() / filterSharedContentByTab()
  */
 import type { AppUser } from './permissions';
 import type { Prayer, PrayerOrganizationScope } from '../types/prayer';
+import { migrateVisibility } from '../types/sharedContent';
+import { canViewSharedContent, type SharedContentLike } from './sharedContentAccess';
 import {
   getClergyByEmail,
   getClergyById,
@@ -220,10 +222,33 @@ export type PrayerAccessResult = {
   denyReason?: PrayerAccessDenyReason;
 };
 
+function toSharedContentLike(prayer: Prayer): SharedContentLike {
+  return {
+    authorId: prayer.authorId,
+    visibility: prayer.visibility,
+    sharedPastorIds: prayer.sharedPastorIds,
+    sharedOrganizationIds: prayer.sharedOrganizationIds,
+    organizationScope: prayer.organizationScope,
+  };
+}
+
+export type PrayerAccessOptions = {
+  /** 관리자 「관리 조회」 탭에서 열람 — 공유 대상 매칭과 무관하게 조회만 허용 */
+  auditMode?: boolean;
+  /** 관리 조회 화면에서 private까지 열람 가능한 특별 권한 */
+  canAuditPrivate?: boolean;
+};
+
 /**
  * Prayer + visibility → 권한 검사
+ * canViewSharedContent(은혜기록과 공통) 기반 + 레거시 담당배정 fallback
+ * (sharedPastorIds가 비어있는 구버전 pastor_share 기도 → 조직범위 배정으로 판정)
  */
-export function resolvePrayerAccess(prayer: Prayer, user: AppUser | null): PrayerAccessResult {
+export function resolvePrayerAccess(
+  prayer: Prayer,
+  user: AppUser | null,
+  opts?: PrayerAccessOptions,
+): PrayerAccessResult {
   if (prayer.deleted) {
     return { canView: false, canComment: false, denyReason: 'deleted' };
   }
@@ -235,21 +260,34 @@ export function resolvePrayerAccess(prayer: Prayer, user: AppUser | null): Praye
     return { canView: true, canComment: true };
   }
 
-  if (prayer.visibility === 'private') {
+  const visibility = migrateVisibility(prayer.visibility);
+  const isAuditingAdmin = Boolean(opts?.auditMode) && user.role === 'super_admin';
+
+  if (visibility === 'private') {
+    if (isAuditingAdmin && opts?.canAuditPrivate) {
+      return { canView: true, canComment: false };
+    }
     return { canView: false, canComment: false, denyReason: 'author_only' };
   }
 
-  if (prayer.visibility === 'pastor_shared') {
-    if (isAssignedClergyForPrayer(user, prayer)) {
+  if (isAuditingAdmin) {
+    return { canView: true, canComment: true };
+  }
+
+  if (canViewSharedContent(toSharedContentLike(prayer), { currentUser: user })) {
+    return { canView: true, canComment: true };
+  }
+
+  if (visibility === 'pastor_share') {
+    const legacyFallback =
+      (prayer.sharedPastorIds?.length ?? 0) === 0 && isAssignedClergyForPrayer(user, prayer);
+    if (legacyFallback) {
       return { canView: true, canComment: true };
     }
     return { canView: false, canComment: false, denyReason: 'assigned_clergy_only' };
   }
 
-  if (prayer.visibility === 'intercession') {
-    if (isIntercessionTarget(user, prayer)) {
-      return { canView: true, canComment: true };
-    }
+  if (visibility === 'organization_share') {
     return { canView: false, canComment: false, denyReason: 'intercession_target_only' };
   }
 
@@ -266,7 +304,7 @@ export function canCommentOnPrayer(prayer: Prayer, user: AppUser | null): boolea
 
 // ─── 화면 표시 ───────────────────────────────────────────────────────────────
 
-export type PrayerScreenContext = 'my' | 'intercession' | 'all';
+export type PrayerScreenContext = 'my' | 'organization_share' | 'all';
 
 export function filterPrayersForScreen(
   prayers: Prayer[],
@@ -278,8 +316,10 @@ export function filterPrayersForScreen(
   switch (screen) {
     case 'my':
       return visible.filter(p => p.authorId === user?.id);
-    case 'intercession':
-      return visible.filter(p => p.visibility === 'intercession' && p.status === 'praying');
+    case 'organization_share':
+      return visible.filter(
+        p => migrateVisibility(p.visibility) === 'organization_share' && p.status === 'praying',
+      );
     case 'all':
     default:
       return visible;
@@ -294,16 +334,17 @@ export function getMyAnsweredPrayers(prayers: Prayer[], user: AppUser | null): P
   return filterPrayersForScreen(prayers, user, 'my').filter(p => p.status === 'answered');
 }
 
+/** 함께 기도(organization_share) 목록 — 홈 대시보드 미리보기 등에서 사용 */
 export function getIntercessionPrayers(prayers: Prayer[], user: AppUser | null): Prayer[] {
-  return filterPrayersForScreen(prayers, user, 'intercession');
+  return filterPrayersForScreen(prayers, user, 'organization_share');
 }
 
-/** 담당 교역자가 볼 수 있는 pastor_shared 기도 (타인 작성) */
+/** 담당 교역자가 볼 수 있는 pastor_share 기도 (타인 작성) */
 export function getPastorSharedInbox(prayers: Prayer[], user: AppUser | null): Prayer[] {
   if (!user) return [];
   return prayers.filter(
     p =>
-      p.visibility === 'pastor_shared' &&
+      migrateVisibility(p.visibility) === 'pastor_share' &&
       p.status === 'praying' &&
       p.authorId !== user.id &&
       resolvePrayerAccess(p, user).canView,

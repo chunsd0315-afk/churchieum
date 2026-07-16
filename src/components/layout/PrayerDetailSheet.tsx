@@ -24,6 +24,8 @@ type Props = {
   onClose: () => void;
   onCommentAdded?: () => void;
   onPrayerUpdated?: () => void;
+  /** 관리자 「관리 조회」 탭에서 연 경우 — 공유 대상과 무관하게 조회 허용 */
+  auditMode?: boolean;
 };
 
 export default function PrayerDetailSheet({
@@ -32,6 +34,7 @@ export default function PrayerDetailSheet({
   onClose,
   onCommentAdded,
   onPrayerUpdated,
+  auditMode,
 }: Props) {
   const [comments, setComments] = useState<PrayerComment[]>([]);
   const [history, setHistory] = useState(() => getHistoryForPrayer(prayer.id));
@@ -40,7 +43,7 @@ export default function PrayerDetailSheet({
   const [saving, setSaving] = useState(false);
   const [savingTestimony, setSavingTestimony] = useState(false);
 
-  const access = resolvePrayerAccess(prayer, user);
+  const access = resolvePrayerAccess(prayer, user, { auditMode, canAuditPrivate: auditMode });
   const canView = access.canView;
   const canComment = access.canComment;
   const isAuthor = user?.id === prayer.authorId;

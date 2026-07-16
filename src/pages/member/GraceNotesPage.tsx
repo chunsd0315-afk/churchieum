@@ -460,11 +460,11 @@ function PastorNotesList({
   return (
     <div className="church-list">
       {sharedNotes.map(note => {
-        const vm = visibilityMeta(note.visibility ?? 'private');
+        const vm = visibilityMeta(note.visibility ?? 'private', note.sharedGroupAll);
         const shareDetail =
-          note.visibility === 'pastor'
+          note.visibility === 'pastor_share'
             ? formatSharedPastorLabel(note)
-            : note.visibility === 'group'
+            : note.visibility === 'organization_share'
               ? formatSharedGroupLabel(note)
               : '';
         return (
@@ -497,7 +497,7 @@ function PastorNotesList({
 }
 
 function RecentNoteRow({ note, onClick }: { note: GraceNote; onClick: () => void }) {
-  const vm = visibilityMeta(note.visibility ?? 'private');
+  const vm = visibilityMeta(note.visibility ?? 'private', note.sharedGroupAll);
   const title =
     note.graceTitle
     || (note.type === 'sermon' ? note.sermonTitle : null)

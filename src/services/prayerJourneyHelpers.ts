@@ -1,4 +1,5 @@
 import type { PrayerHistory, PrayerHistoryAction, PrayerVisibility } from '../types/prayer';
+import { migrateVisibility } from '../types/sharedContent';
 
 /** 여정 타임라인에 표시할 단계 */
 export const JOURNEY_ACTIONS: PrayerHistoryAction[] = [
@@ -24,10 +25,12 @@ export function getJourneyStepLabel(
   switch (action) {
     case 'created':
       return '기도 등록';
-    case 'shared':
-      if (visibility === 'pastor_shared') return '교역자 공유';
-      if (visibility === 'intercession') return '중보기도 나눔';
+    case 'shared': {
+      const v = visibility ? migrateVisibility(visibility) : undefined;
+      if (v === 'pastor_share') return '교역자 공유';
+      if (v === 'organization_share') return '중보기도 나눔';
       return '나눔';
+    }
     case 'answered':
       return '응답됨';
     case 'gratitude_testimony':

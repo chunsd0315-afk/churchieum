@@ -5,18 +5,13 @@ import {
   markPrayerAnswered,
 } from '../../services/prayerStorage';
 import type { Prayer } from '../../types/prayer';
-import { VISIBILITY_LABELS, STATUS_LABELS, ATTACHMENT_TYPE_LABELS } from '../../types/prayer';
+import { STATUS_LABELS, ATTACHMENT_TYPE_LABELS } from '../../types/prayer';
 import { formatOrganizationScopeLines } from '../../services/prayerHelpers';
 import { formatAttachmentSize } from '../../services/prayerAttachmentHelpers';
 import { getCommentCount } from '../../services/prayerCommentStorage';
-import { Heart, Lock, Check, Eye, Users, Star, MessageCircle } from 'lucide-react';
+import { Heart, Check, Star, MessageCircle } from 'lucide-react';
 import { PageLayout, Badge, ChurchList, CHURCH_LIST_ROW_CLASS } from '../../components/common/ui';
-
-const VISIBILITY_ICON = {
-  private: Lock,
-  pastor_shared: Eye,
-  intercession: Users,
-} as const;
+import { VisibilityBadge, SharedTargetSummary } from '../../components/common/shared-content';
 
 export default function PrayerManagementPage() {
   const [prayers, setPrayers] = useState<Prayer[]>([]);
@@ -59,7 +54,6 @@ export default function PrayerManagementPage() {
 
           <ChurchList>
             {prayers.map(prayer => {
-              const VisIcon = VISIBILITY_ICON[prayer.visibility];
               const orgLines = formatOrganizationScopeLines(prayer.organizationScope);
               return (
                 <div
@@ -120,11 +114,10 @@ export default function PrayerManagementPage() {
                     </div>
                   )}
 
-                  <div className="flex flex-col items-end gap-0.5 text-xs text-gray-400">
+                  <div className="flex flex-col items-end gap-1 text-xs text-gray-400">
                     <span>{prayer.createdAt.slice(0, 10)}</span>
-                    <span className="flex items-center gap-1">
-                      <VisIcon size={12} /> {VISIBILITY_LABELS[prayer.visibility]}
-                    </span>
+                    <VisibilityBadge visibility={prayer.visibility} />
+                    <SharedTargetSummary content={prayer} />
                     {orgLines.map(line => (
                       <span key={line} className="text-gray-400">{line}</span>
                     ))}

@@ -24,6 +24,7 @@ import {
   uniqueIds,
 } from '../services/graceNoteShareScope';
 import type { AppUser } from '../services/permissions';
+import { migrateVisibility } from '../types/sharedContent';
 
 const LS_PROGRESS_SEEDED = 'graceNotes_reading_progress_seeded';
 
@@ -291,6 +292,13 @@ function pickVisibilityForAuthor(author: SeedAuthor, index: number): {
     sharedDepartmentIds: [] as string[],
   };
 
+  // 전체공개(레거시) 대신 organization_share + sharedGroupAll(모두에게 공개)로 배분
+  const asFullOrgShare = () => ({
+    visibility: 'organization_share' as const,
+    ...empty,
+    sharedGroupAll: true,
+  });
+
   // 6가지 공개범위를 고르게 배분
   const mode = index % 6;
 
@@ -299,7 +307,7 @@ function pickVisibilityForAuthor(author: SeedAuthor, index: number): {
   }
 
   if (mode === 1) {
-    if (eligiblePastors.length === 0) return { visibility: 'public', ...empty };
+    if (eligiblePastors.length === 0) return asFullOrgShare();
     const preferCl1 = eligiblePastors.find(p => p.id === 'cl1');
     const preferCl2 = eligiblePastors.find(p => p.id === 'cl2');
     const preferred = (index % 2 === 0 ? preferCl1 : preferCl2) ?? eligiblePastors[0];
@@ -310,7 +318,7 @@ function pickVisibilityForAuthor(author: SeedAuthor, index: number): {
         : []),
     ]);
     return {
-      visibility: 'pastor',
+      visibility: 'pastor_share',
       ...empty,
       sharedPastorAll: false,
       sharedPastorIds: ids,
@@ -320,9 +328,9 @@ function pickVisibilityForAuthor(author: SeedAuthor, index: number): {
   if (mode === 2) {
     // 상위조직 공유
     const upper = author.districtId ? [author.districtId] : [];
-    if (upper.length === 0) return { visibility: 'public', ...empty };
+    if (upper.length === 0) return asFullOrgShare();
     return {
-      visibility: 'group',
+      visibility: 'organization_share',
       ...empty,
       sharedUpperOrganizationIds: upper,
       sharedGroupIds: composeSharedGroupIds(upper, [], []),
@@ -333,9 +341,9 @@ function pickVisibilityForAuthor(author: SeedAuthor, index: number): {
     // 하위조직 공유 (+ 상위 자동 포함)
     const lower = author.zoneId ? [author.zoneId] : [];
     const upper = author.districtId ? [author.districtId] : [];
-    if (lower.length === 0 && upper.length === 0) return { visibility: 'public', ...empty };
+    if (lower.length === 0 && upper.length === 0) return asFullOrgShare();
     return {
-      visibility: 'group',
+      visibility: 'organization_share',
       ...empty,
       sharedUpperOrganizationIds: upper,
       sharedLowerOrganizationIds: lower,
@@ -348,16 +356,16 @@ function pickVisibilityForAuthor(author: SeedAuthor, index: number): {
     const departments = author.departmentIds.length
       ? [author.departmentIds[index % author.departmentIds.length]]
       : [];
-    if (departments.length === 0) return { visibility: 'public', ...empty };
+    if (departments.length === 0) return asFullOrgShare();
     return {
-      visibility: 'group',
+      visibility: 'organization_share',
       ...empty,
       sharedDepartmentIds: departments,
       sharedGroupIds: composeSharedGroupIds([], [], departments),
     };
   }
 
-  return { visibility: 'public', ...empty };
+  return asFullOrgShare();
 }
 
 function baseEngagement(visibility: GraceNoteVisibility, createdAt: string, names: string[]) {
@@ -604,27 +612,27 @@ export function generateGraceNoteDemoData(): GraceNote[] {
   const pastor02 = authors.find(a => a.id === 'demo-pastor02');
   if (pastor01) {
     pushFixture('gn-fix-p01-private', pastor01, 'private', '[픽스처] 김영수 나만 보기 — 다른 역할은 조회 불가');
-    pushFixture('gn-fix-p01-pastor-to-cl2', pastor01, 'pastor', '[픽스처] 김영수 → 이성호 교역자 공유', {
+    pushFixture('gn-fix-p01-pastor-to-cl2', pastor01, 'pastor_share', '[픽스처] 김영수 → 이성호 교역자 공유', {
       sharedPastorIds: ['cl2'],
     });
-    pushFixture('gn-fix-p01-group-d1', pastor01, 'group', '[픽스처] 김영수 1교구 조직 공유 (강수아·김영수 조회)', {
+    pushFixture('gn-fix-p01-group-d1', pastor01, 'organization_share', '[픽스처] 김영수 1교구 조직 공유 (강수아·김영수 조회)', {
       sharedUpperOrganizationIds: ['d1'],
       sharedGroupIds: ['d1'],
     });
   }
   if (pastor02) {
     pushFixture('gn-fix-p02-private', pastor02, 'private', '[픽스처] 이성호 나만 보기 — 다른 역할은 조회 불가');
-    pushFixture('gn-fix-p02-pastor-to-cl1', pastor02, 'pastor', '[픽스처] 이성호 → 김영수 교역자 공유', {
+    pushFixture('gn-fix-p02-pastor-to-cl1', pastor02, 'pastor_share', '[픽스처] 이성호 → 김영수 교역자 공유', {
       sharedPastorIds: ['cl1'],
     });
-    pushFixture('gn-fix-p02-group-d2', pastor02, 'group', '[픽스처] 이성호 2교구 조직 공유 (이성호만 소속으로 조회)', {
+    pushFixture('gn-fix-p02-group-d2', pastor02, 'organization_share', '[픽스처] 이성호 2교구 조직 공유 (이성호만 소속으로 조회)', {
       sharedUpperOrganizationIds: ['d2'],
       sharedGroupIds: ['d2'],
     });
   }
   if (demoAuthor) {
     pushFixture('gn-fix-m60-private', demoAuthor, 'private', '[픽스처] 강수아 나만 보기 — 본인만 조회');
-    pushFixture('gn-fix-m60-pastor-cl1', demoAuthor, 'pastor', '[픽스처] 강수아 → 김영수 담당 교역자 공유', {
+    pushFixture('gn-fix-m60-pastor-cl1', demoAuthor, 'pastor_share', '[픽스처] 강수아 → 김영수 담당 교역자 공유', {
       sharedPastorIds: ['cl1'],
     });
   }
@@ -653,7 +661,7 @@ export function resetGraceNoteDemoData(): void {
 }
 
 export function formatSharedPastorLabel(note: GraceNote): string {
-  if (note.visibility !== 'pastor') return '';
+  if (migrateVisibility(note.visibility) !== 'pastor_share') return '';
   if (note.sharedPastorAll) return '담당 교역자 전체';
   const names = (note.sharedPastorIds ?? [])
     .map(id => getAllClergy().find(c => c.id === id))
@@ -663,7 +671,7 @@ export function formatSharedPastorLabel(note: GraceNote): string {
 }
 
 export function formatSharedGroupLabel(note: GraceNote): string {
-  if (note.visibility !== 'group') return '';
+  if (migrateVisibility(note.visibility) !== 'organization_share') return '';
   const labels = readOrgSettings();
   if (note.sharedGroupAll) return `${labels.level1Label}/${labels.departmentLabel} 전체`;
 

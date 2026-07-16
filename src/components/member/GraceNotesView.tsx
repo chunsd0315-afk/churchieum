@@ -52,19 +52,27 @@ export {
 
 // ─── Visibility helpers ───────────────────────────────────────────────────────
 
-export function visibilityMeta(v: GraceNoteVisibility) {
+export function visibilityMeta(v: GraceNoteVisibility, sharedGroupAll?: boolean) {
+  if (v === 'organization_share' && sharedGroupAll) {
+    return {
+      value: 'organization_share' as const,
+      label: '전체 공개',
+      desc: '교회 성도 모두에게 공개',
+      icon: <Eye className="w-3.5 h-3.5" />,
+      color: 'text-violet-600 bg-violet-50',
+    };
+  }
   const opts = [
     { value: 'private' as const, label: '나만 보기', desc: '나만 볼 수 있어요', icon: <Lock className="w-3.5 h-3.5" />, color: 'text-gray-600 bg-gray-100' },
-    { value: 'pastor' as const, label: '담당 교역자와 공유', desc: '선택한 교역자와 공유', icon: <Eye className="w-3.5 h-3.5" />, color: 'text-blue-600 bg-blue-50' },
-    { value: 'group' as const, label: `${readOrgSettings().level1Label}/${readOrgSettings().departmentLabel} 공유`, desc: `선택한 ${readOrgSettings().level1Label}·${readOrgSettings().departmentLabel}와 공유`, icon: <Users className="w-3.5 h-3.5" />, color: 'text-emerald-600 bg-emerald-50' },
-    { value: 'public' as const, label: '전체 공개', desc: '교회 성도 모두에게 공개', icon: <Eye className="w-3.5 h-3.5" />, color: 'text-violet-600 bg-violet-50' },
+    { value: 'pastor_share' as const, label: '담당 교역자와 공유', desc: '선택한 교역자와 공유', icon: <Eye className="w-3.5 h-3.5" />, color: 'text-blue-600 bg-blue-50' },
+    { value: 'organization_share' as const, label: `${readOrgSettings().level1Label}/${readOrgSettings().departmentLabel} 공유`, desc: `선택한 ${readOrgSettings().level1Label}·${readOrgSettings().departmentLabel}와 공유`, icon: <Users className="w-3.5 h-3.5" />, color: 'text-emerald-600 bg-emerald-50' },
   ];
   return opts.find(o => o.value === v) ?? opts[0];
 }
 
 function shareSummary(note: GraceNote): string | null {
-  if (note.visibility === 'pastor') return formatSharedPastorLabel(note);
-  if (note.visibility === 'group') return formatSharedGroupLabel(note);
+  if (note.visibility === 'pastor_share') return formatSharedPastorLabel(note);
+  if (note.visibility === 'organization_share') return formatSharedGroupLabel(note);
   return null;
 }
 
@@ -210,24 +218,55 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
     return 'bg-emerald-50 text-emerald-700';
   };
 
-  const tabs: { id: GraceCollectTab; label: string }[] = [
-    { id: 'mine', label: '내 기록' },
-    { id: 'shared', label: '공유받은 기록' },
-    { id: 'public', label: '전체 공개' },
-  ];
+  const tabs: { id: GraceCollectTab; label: string }[] = useMemo(() => {
+    if (user?.role === 'super_admin') {
+      return [
+        { id: 'mine', label: '내 기록' },
+        { id: 'admin_shared', label: '공유 기록' },
+        { id: 'admin_audit', label: '관리 조회' },
+      ];
+    }
+    if (user?.role === 'pastor') {
+      return [
+        { id: 'mine', label: '내 기록' },
+        { id: 'pastor_members', label: '담당 성도' },
+        { id: 'organization', label: '교구·부서' },
+      ];
+    }
+    return [
+      { id: 'mine', label: '내 기록' },
+      { id: 'shared', label: '공유받은 기록' },
+    ];
+  }, [user?.role]);
 
-  const emptyCopy: Record<GraceCollectTab, { title: string; desc: string }> = {
+  useEffect(() => {
+    if (!tabs.some(t => t.id === tab)) setTab('mine');
+  }, [tabs, tab]);
+
+  const emptyCopy: Partial<Record<GraceCollectTab, { title: string; desc: string }>> = {
     mine: {
       title: '아직 작성한 은혜기록이 없습니다.',
       desc: '말씀과 삶 속에서 받은 은혜를 기록해 보세요.',
     },
     shared: {
       title: '공유받은 은혜기록이 없습니다.',
-      desc: '교역자나 소속 조직에서 공유하면 이곳에 나타납니다.',
+      desc: '소속 교구·부서에서 공유하면 이곳에 나타납니다.',
     },
-    public: {
-      title: '전체 공개된 은혜기록이 없습니다.',
-      desc: '교회에 공개된 은혜기록이 생기면 이곳에 표시됩니다.',
+    pastor_members: {
+      title: '담당 성도가 공유한 기록이 없습니다.',
+      desc: '성도가 담당 교역자와 공유하면 이곳에 나타납니다.',
+    },
+    organization: {
+      title: '교구·부서 공유 기록이 없습니다.',
+      desc: '담당·소속 조직에 공유된 기록이 이곳에 나타납니다.',
+    },
+    admin_shared: {
+      title: '공유받은 기록이 없습니다.',
+      desc: '직접 공유되거나 소속 조직에 공유된 기록이 이곳에 나타납니다.',
+    },
+    admin_audit: {
+      title: '조회할 기록이 없습니다.',
+      desc: '관리 조회에서는 나만 보기 기록을 제외합니다.',
     },
   };
 
@@ -308,7 +347,6 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
           <div className="flex flex-wrap gap-2">
             {([
               { id: '' as const, label: '전체' },
-              { id: 'pastor' as const, label: '담당 교역자' },
               { id: 'upper' as const, label: orgLabels.level1Label },
               { id: 'lower' as const, label: orgLabels.level2Label },
               { id: 'department' as const, label: orgLabels.departmentLabel },
@@ -415,7 +453,7 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
             </button>
           </div>
 
-          <div className="grid grid-cols-3 gap-1.5">
+          <div className="grid grid-cols-2 gap-1.5">
             {tabs.map(t => (
               <button
                 key={t.id}
@@ -454,8 +492,8 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
           {filtered.length === 0 ? (
             <div className="bg-white rounded-2xl p-10 text-center border border-gray-100">
               <Heart className="w-12 h-12 text-rose-200 mx-auto mb-3" />
-              <p className="font-semibold text-gray-600 text-sm">{emptyCopy[tab].title}</p>
-              <p className="text-xs text-gray-400 mt-1 leading-relaxed">{emptyCopy[tab].desc}</p>
+              <p className="font-semibold text-gray-600 text-sm">{emptyCopy[tab]?.title ?? '기록이 없습니다.'}</p>
+              <p className="text-xs text-gray-400 mt-1 leading-relaxed">{emptyCopy[tab]?.desc ?? ''}</p>
             </div>
           ) : (
             <div className="church-list">
@@ -616,7 +654,7 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
   const isPublic = note.visibility !== 'private';
   const shareLabel = shareSummary(note);
   const authorName = user?.name ?? '성도';
-  const vm = visibilityMeta(note.visibility ?? 'private');
+  const vm = visibilityMeta(note.visibility ?? 'private', note.sharedGroupAll);
   const typeLabel = note.type === 'reading' ? '성경통독' : note.type === 'sermon' ? '설교' : '자유';
   const typeBadgeClass =
     note.type === 'reading' ? 'bg-green-50 text-green-700'

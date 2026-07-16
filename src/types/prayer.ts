@@ -1,18 +1,21 @@
 // ─── Visibility ─────────────────────────────────────────────────────────────
+// 은혜기록과 동일한 공통 VisibilityType 사용 (src/types/sharedContent.ts)
 
-export type PrayerVisibility = 'private' | 'pastor_shared' | 'intercession';
+import type { VisibilityType } from './sharedContent';
+import {
+  VISIBILITY_LABELS as SHARED_VISIBILITY_LABELS,
+  VISIBILITY_LABELS_PASTOR as SHARED_VISIBILITY_LABELS_PASTOR,
+  VISIBILITY_DESCRIPTIONS as SHARED_VISIBILITY_DESCRIPTIONS,
+  VISIBILITY_DESCRIPTIONS_PASTOR as SHARED_VISIBILITY_DESCRIPTIONS_PASTOR,
+} from './sharedContent';
 
-export const VISIBILITY_LABELS: Record<PrayerVisibility, string> = {
-  private: '작성자만 조회',
-  pastor_shared: '작성자 + 담당 교역자',
-  intercession: '작성자 + 중보기도 대상자',
-};
+export type { VisibilityType };
+export type PrayerVisibility = VisibilityType;
 
-export const VISIBILITY_DESCRIPTIONS: Record<PrayerVisibility, string> = {
-  private: '나만 볼 수 있는 기도제목입니다.',
-  pastor_shared: '작성자와 조직 범위의 담당 교역자만 볼 수 있습니다.',
-  intercession: '작성자와 조직 범위의 중보기도 대상 성도만 볼 수 있습니다.',
-};
+export const VISIBILITY_LABELS: Record<PrayerVisibility, string> = SHARED_VISIBILITY_LABELS;
+export const VISIBILITY_LABELS_PASTOR: Record<PrayerVisibility, string> = SHARED_VISIBILITY_LABELS_PASTOR;
+export const VISIBILITY_DESCRIPTIONS: Record<PrayerVisibility, string> = SHARED_VISIBILITY_DESCRIPTIONS;
+export const VISIBILITY_DESCRIPTIONS_PASTOR: Record<PrayerVisibility, string> = SHARED_VISIBILITY_DESCRIPTIONS_PASTOR;
 
 // ─── Status ───────────────────────────────────────────────────────────────────
 
@@ -144,8 +147,14 @@ export interface Prayer {
   /** 상태 */
   status: PrayerStatus;
 
-  /** 조직 */
+  /** 조직 — 레거시 호환용, sharedOrganizationIds에서 파생/동기화 */
   organizationScope: PrayerOrganizationScope;
+
+  /** pastor_share — 공유 대상 교역자(clergy) ID */
+  sharedPastorIds?: string[];
+
+  /** organization_share — 공유 대상 조직(상위·하위·부서 통합) ID */
+  sharedOrganizationIds?: string[];
 
   /** 첨부 */
   attachments: PrayerAttachment[];

@@ -4,10 +4,16 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Lock, Users, Globe, UserRound, Check, X } from 'lucide-react';
+import { Lock, Users, UserRound, Check, X } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrgSettings } from '../../contexts/OrgSettingsContext';
 import type { GraceNoteVisibility } from '../../data/graceNotes';
+import {
+  VISIBILITY_LABELS,
+  VISIBILITY_LABELS_PASTOR,
+  VISIBILITY_DESCRIPTIONS,
+  VISIBILITY_DESCRIPTIONS_PASTOR,
+} from '../../types/sharedContent';
 import {
   getEligiblePastorsForUser,
   getEligibleGroupsForUser,
@@ -172,10 +178,13 @@ export function GraceNoteShareSelector({ value, onChange }: {
   value: GraceNoteShareState;
   onChange: (v: GraceNoteShareState) => void;
 }) {
-  const { user } = useAuth();
+  const { user, isPastor, isAdmin } = useAuth();
   const { l1, l2, dept } = useOrgSettings();
   const { isMobile } = useBreakpoint();
   const labels = useMemo(() => getOrganizationLabels(), [l1, l2, dept]);
+  const isPastoralViewer = isPastor || isAdmin;
+  const visibilityLabels = isPastoralViewer ? VISIBILITY_LABELS_PASTOR : VISIBILITY_LABELS;
+  const visibilityDescriptions = isPastoralViewer ? VISIBILITY_DESCRIPTIONS_PASTOR : VISIBILITY_DESCRIPTIONS;
 
   const [orgPanelOpen, setOrgPanelOpen] = useState(true);
   const [confirmUpperClear, setConfirmUpperClear] = useState<string | null>(null);
@@ -193,29 +202,23 @@ export function GraceNoteShareSelector({ value, onChange }: {
   const visibilityOptions = useMemo(() => [
     {
       value: 'private' as const,
-      label: '나만 보기',
-      desc: '나만 확인할 수 있습니다.',
+      label: visibilityLabels.private,
+      desc: visibilityDescriptions.private,
       icon: Lock,
     },
     {
-      value: 'pastor' as const,
-      label: '담당 교역자와 공유',
-      desc: '내 소속 담당 교역자에게만 공유합니다.',
+      value: 'pastor_share' as const,
+      label: visibilityLabels.pastor_share,
+      desc: visibilityDescriptions.pastor_share,
       icon: UserRound,
     },
     {
-      value: 'group' as const,
+      value: 'organization_share' as const,
       label: formatGroupShareOptionLabel(labels),
       desc: formatGroupShareOptionDesc(labels),
       icon: Users,
     },
-    {
-      value: 'public' as const,
-      label: '전체 공개',
-      desc: '교회 구성원 전체가 볼 수 있습니다.',
-      icon: Globe,
-    },
-  ], [labels]);
+  ], [labels, visibilityLabels, visibilityDescriptions]);
 
   const childZonesOf = (districtId: string) =>
     eligibleGroups.zones.filter(z => z.parentId === districtId);
@@ -261,8 +264,8 @@ export function GraceNoteShareSelector({ value, onChange }: {
       eligiblePastors.every(p => value.sharedPastorIds.includes(p.id)));
 
   const setVisibility = (visibility: GraceNoteVisibility) => {
-    if (visibility === 'pastor' && !hasPastors) return;
-    if (visibility === 'group' && !hasGroups) return;
+    if (visibility === 'pastor_share' && !hasPastors) return;
+    if (visibility === 'organization_share' && !hasGroups) return;
     const cleared = defaultShareState({ visibility });
     const filtered = filterShareStateToMembership(toShareFields(cleared), user);
     onChange({
@@ -270,7 +273,7 @@ export function GraceNoteShareSelector({ value, onChange }: {
       ...filtered,
       upperSelectionFlags: {},
     });
-    if (visibility === 'group') setOrgPanelOpen(true);
+    if (visibility === 'organization_share') setOrgPanelOpen(true);
   };
 
   const togglePastorAll = () => {
@@ -426,8 +429,8 @@ export function GraceNoteShareSelector({ value, onChange }: {
   };
 
   const isOptionDisabled = (v: GraceNoteVisibility) => {
-    if (v === 'pastor') return !hasPastors;
-    if (v === 'group') return !hasGroups;
+    if (v === 'pastor_share') return !hasPastors;
+    if (v === 'organization_share') return !hasGroups;
     return false;
   };
 
@@ -565,7 +568,7 @@ export function GraceNoteShareSelector({ value, onChange }: {
                 type="button"
                 disabled={disabled}
                 onClick={() => {
-                  if (opt.value === 'group' && value.visibility === 'group') {
+                  if (opt.value === 'organization_share' && value.visibility === 'organization_share') {
                     setOrgPanelOpen(true);
                     return;
                   }
@@ -598,12 +601,12 @@ export function GraceNoteShareSelector({ value, onChange }: {
                   <span className="block text-[12px] md:text-[13px] text-[#6B7280] mt-1 leading-snug">
                     {opt.desc}
                   </span>
-                  {disabled && opt.value === 'pastor' && (
+                  {disabled && opt.value === 'pastor_share' && (
                     <span className="block text-[11px] text-amber-600 mt-1.5">
                       현재 연결된 담당 교역자가 없습니다.
                     </span>
                   )}
-                  {disabled && opt.value === 'group' && (
+                  {disabled && opt.value === 'organization_share' && (
                     <span className="block text-[11px] text-amber-600 mt-1.5">
                       현재 소속된 {labels.upper} 또는 {labels.department}가 없습니다.
                     </span>
@@ -620,7 +623,7 @@ export function GraceNoteShareSelector({ value, onChange }: {
         </div>
       </div>
 
-      {value.visibility === 'pastor' && (
+      {value.visibility === 'pastor_share' && (
         <div className="rounded-[18px] border border-gray-200 bg-white p-4 md:p-5 space-y-3">
           <div className="flex items-center justify-between gap-2">
             <p className="text-sm font-bold text-gray-800">담당 교역자 선택</p>
@@ -667,7 +670,7 @@ export function GraceNoteShareSelector({ value, onChange }: {
         </div>
       )}
 
-      {value.visibility === 'group' && (
+      {value.visibility === 'organization_share' && (
         <div className="rounded-[18px] border border-gray-200 bg-white p-4 md:p-5 space-y-3">
           <div className="flex items-center justify-between gap-2">
             <p className="text-sm font-bold text-gray-800">

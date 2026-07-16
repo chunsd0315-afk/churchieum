@@ -162,12 +162,13 @@ export function canViewContent(user: AppUser | null, content: ContentItem): bool
 export function canViewGraceNote(user: AppUser | null, note: GraceNoteItem): boolean {
   if (!user) return false;
   if (note.userId === user.id) return true;
-  if (note.visibility === 'private') return false;
-  if (note.visibility === 'pastor') {
+  const vis = note.visibility as string;
+  if (vis === 'private') return false;
+  if (vis === 'pastor' || vis === 'pastor_share' || vis === 'pastor_shared') {
     return user.role === 'super_admin' || user.role === 'pastor';
   }
-  if (note.visibility === 'group') {
-    return user.role === 'super_admin' || user.role === 'pastor';
+  if (vis === 'group' || vis === 'organization_share' || vis === 'intercession' || vis === 'public') {
+    return user.role === 'super_admin' || user.role === 'pastor' || user.role === 'member';
   }
   return false;
 }

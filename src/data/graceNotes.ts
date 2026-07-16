@@ -1,5 +1,6 @@
 import { applyGraceShareValidation, canPastorViewSharedGraceNote, getCurrentUserFromStorage, splitOrganizationShareIds, composeSharedGroupIds } from '../services/graceNoteShareScope';
 import type { AppUser } from '../services/permissions';
+import { migrateVisibility, isLegacyPublic, type VisibilityType } from '../types/sharedContent';
 
 const LS_KEY = 'graceNotesV2';
 const LS_DEMO_SEEDED = 'graceNotesV2_demo_seeded_v4';
@@ -8,7 +9,15 @@ const DEMO_SEED_VERSION = 'v4';
 
 export type GraceNoteType = 'reading' | 'sermon' | 'personal';
 
-export type GraceNoteVisibility = 'private' | 'pastor' | 'group' | 'public';
+/** 공통 VisibilityType — 레거시 pastor/group/public 은 normalize 시 변환 */
+export type GraceNoteVisibility = VisibilityType;
+
+/** @deprecated 읽기 호환용 */
+export type GraceNoteVisibilityLegacy =
+  | VisibilityType
+  | 'pastor'
+  | 'group'
+  | 'public';
 
 export type GraceNoteCommentType = 'comment' | 'prayer' | 'amen';
 
@@ -35,6 +44,8 @@ export type GraceNote = {
   sharedGroupAll?: boolean;
   /** 조직/부서 공유 — 통합 ID (상위·하위·부서, 레거시 호환) */
   sharedGroupIds?: string[];
+  /** 공통 필드 — sharedGroupIds 와 동기화 */
+  sharedOrganizationIds?: string[];
   /** 조직 공유 — 상위조직 ID */
   sharedUpperOrganizationIds?: string[];
   /** 조직 공유 — 하위조직 ID */
@@ -83,22 +94,27 @@ export type GraceNote = {
 export type GraceNoteInput = Omit<GraceNote, 'id' | 'createdAt' | 'updatedAt'>;
 
 function normalizeNote(n: GraceNote): GraceNote {
+  const rawVis = n.visibility as string | undefined;
+  const visibility = migrateVisibility(rawVis);
   const split = splitOrganizationShareIds({
-    sharedGroupIds: n.sharedGroupIds,
+    sharedGroupIds: n.sharedGroupIds ?? n.sharedOrganizationIds,
     sharedUpperOrganizationIds: n.sharedUpperOrganizationIds,
     sharedLowerOrganizationIds: n.sharedLowerOrganizationIds,
     sharedDepartmentIds: n.sharedDepartmentIds,
   });
+  const composed = composeSharedGroupIds(split.upper, split.lower, split.departments);
+  const sharedGroupAll = n.sharedGroupAll || isLegacyPublic(rawVis) || false;
   return {
     ...n,
-    visibility: n.visibility ?? 'private',
+    visibility,
     sharedPastorIds: n.sharedPastorIds ?? [],
     sharedPastorAll: n.sharedPastorAll ?? false,
-    sharedGroupAll: n.sharedGroupAll ?? false,
+    sharedGroupAll,
     sharedUpperOrganizationIds: split.upper,
     sharedLowerOrganizationIds: split.lower,
     sharedDepartmentIds: split.departments,
-    sharedGroupIds: composeSharedGroupIds(split.upper, split.lower, split.departments),
+    sharedGroupIds: composed,
+    sharedOrganizationIds: composed,
     likeCount: n.likeCount ?? 0,
     amenCount: n.amenCount ?? 0,
     prayCount: n.prayCount ?? 0,

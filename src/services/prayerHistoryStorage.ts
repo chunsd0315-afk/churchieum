@@ -21,7 +21,7 @@ const SEED: PrayerHistory[] = [
     action: 'shared',
     actorId: 'demo-member60',
     actorName: '강수아',
-    visibility: 'intercession',
+    visibility: 'organization_share',
     createdAt: daysAgo(5),
   },
   {
@@ -38,7 +38,7 @@ const SEED: PrayerHistory[] = [
     action: 'shared',
     actorId: 'demo-member60',
     actorName: '강수아',
-    visibility: 'pastor_shared',
+    visibility: 'pastor_share',
     createdAt: daysAgo(9),
   },
   {
@@ -72,7 +72,7 @@ const SEED: PrayerHistory[] = [
     action: 'shared',
     actorId: 'demo-pastor01',
     actorName: '김영수',
-    visibility: 'intercession',
+    visibility: 'organization_share',
     createdAt: daysAgo(1),
   },
 ];

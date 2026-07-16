@@ -6,6 +6,8 @@ import type {
   PrayerOrganizationScope,
 } from '../types/prayer';
 import { CHURCH_WIDE_SCOPE } from '../types/prayer';
+import { migrateVisibility, uniqueIds } from '../types/sharedContent';
+import { splitOrganizationShareIds } from './graceNoteShareScope';
 import { normalizePrayerAttachment } from './prayerAttachmentHelpers';
 import {
   hydratePrayersAttachments,
@@ -25,10 +27,60 @@ function actorFromPrayer(prayer: Prayer, actor?: PrayerActor): PrayerActor {
 }
 
 function isSharedVisibility(visibility: Prayer['visibility']): boolean {
-  return visibility === 'pastor_shared' || visibility === 'intercession';
+  const v = migrateVisibility(visibility);
+  return v === 'pastor_share' || v === 'organization_share';
 }
 
-const EDIT_HISTORY_KEYS = ['title', 'content', 'visibility', 'organizationScope'] as const;
+/**
+ * 공개범위별 공유 대상 필드 정규화
+ * - pastor_share: sharedPastorIds 유지, sharedOrganizationIds 비움
+ * - organization_share: sharedOrganizationIds 필수, organizationScope를 그 값으로 동기화
+ * - private: 공유 필드 모두 비움
+ */
+function syncShareFields(prayer: Prayer): Prayer {
+  const visibility = migrateVisibility(prayer.visibility);
+
+  if (visibility === 'organization_share') {
+    const sharedOrganizationIds = uniqueIds(prayer.sharedOrganizationIds);
+    const split = splitOrganizationShareIds({ sharedGroupIds: sharedOrganizationIds });
+    return {
+      ...prayer,
+      visibility,
+      sharedPastorIds: [],
+      sharedOrganizationIds,
+      organizationScope: {
+        districtIds: split.upper,
+        groupIds: split.lower,
+        departmentIds: split.departments,
+      },
+    };
+  }
+
+  if (visibility === 'pastor_share') {
+    return {
+      ...prayer,
+      visibility,
+      sharedPastorIds: uniqueIds(prayer.sharedPastorIds),
+      sharedOrganizationIds: [],
+    };
+  }
+
+  return {
+    ...prayer,
+    visibility,
+    sharedPastorIds: [],
+    sharedOrganizationIds: [],
+  };
+}
+
+const EDIT_HISTORY_KEYS = [
+  'title',
+  'content',
+  'visibility',
+  'organizationScope',
+  'sharedPastorIds',
+  'sharedOrganizationIds',
+] as const;
 
 function hasMeaningfulEdit(before: Prayer, after: Prayer, updates: Partial<Prayer>): boolean {
   return EDIT_HISTORY_KEYS.some(
@@ -57,6 +109,8 @@ const SEED: Prayer[] = [
     visibility: 'private',
     status: 'praying',
     organizationScope: CHURCH_WIDE_SCOPE,
+    sharedPastorIds: [],
+    sharedOrganizationIds: [],
     attachments: [],
     createdAt: daysAgo(3),
     updatedAt: daysAgo(3),
@@ -69,9 +123,11 @@ const SEED: Prayer[] = [
     authorRole: 'member',
     title: '직장에서의 지혜',
     content: '새 프로젝트를 진행하는 데 있어 하나님의 지혜를 구합니다. 팀원들과의 협력이 잘 이루어지게 해주세요.',
-    visibility: 'intercession',
+    visibility: 'organization_share',
     status: 'praying',
     organizationScope: { districtIds: ['d1'], groupIds: [], departmentIds: [] },
+    sharedPastorIds: [],
+    sharedOrganizationIds: ['d1'],
     attachments: [],
     createdAt: daysAgo(5),
     updatedAt: daysAgo(5),
@@ -84,9 +140,11 @@ const SEED: Prayer[] = [
     authorRole: 'member',
     title: '믿음 성장',
     content: '말씀 묵상과 기도 생활이 더욱 깊어지도록 기도합니다. 주님과의 친밀함이 날마다 더해지게 하소서.',
-    visibility: 'pastor_shared',
+    visibility: 'pastor_share',
     status: 'answered',
     organizationScope: CHURCH_WIDE_SCOPE,
+    sharedPastorIds: ['cl1'],
+    sharedOrganizationIds: [],
     attachments: [],
     answeredAt: daysAgo(2),
     answerContent: '말씀과 기도 가운데 믿음이 자라고 있습니다.',
@@ -103,9 +161,12 @@ const SEED: Prayer[] = [
     authorRole: 'pastor',
     title: '청년부 영적 각성',
     content: '청년부가 말씀과 기도로 다시 일어나게 하소서. 다음 세대가 교회의 미래가 되게 하옵소서.',
-    visibility: 'pastor_shared',
+    visibility: 'pastor_share',
     status: 'praying',
     organizationScope: { districtIds: ['d2'], groupIds: [], departmentIds: [] },
+    // 담당 교역자 미지정 — 조직범위(배정) 기반 레거시 조회 fallback 예시
+    sharedPastorIds: [],
+    sharedOrganizationIds: [],
     attachments: [],
     createdAt: daysAgo(2),
     updatedAt: daysAgo(2),
@@ -118,9 +179,11 @@ const SEED: Prayer[] = [
     authorRole: 'admin',
     title: '교회 부흥',
     content: '올해 교회가 말씀과 기도로 부흥하게 하소서. 잃어버린 영혼들이 돌아오게 하시고, 성도들이 믿음 안에서 성장하게 하소서.',
-    visibility: 'intercession',
+    visibility: 'organization_share',
     status: 'praying',
     organizationScope: CHURCH_WIDE_SCOPE,
+    sharedPastorIds: [],
+    sharedOrganizationIds: [],
     attachments: [],
     starred: true,
     createdAt: daysAgo(1),
@@ -134,13 +197,15 @@ const SEED: Prayer[] = [
     authorRole: 'member',
     title: '수능을 앞둔 조카',
     content: '조카가 수능을 앞두고 있습니다. 지혜와 평안을 주시고, 하나님의 인도하심 가운데 좋은 결과가 있게 해주세요.',
-    visibility: 'intercession',
+    visibility: 'organization_share',
     status: 'praying',
     organizationScope: {
       districtIds: ['d-youth'],
       groupIds: ['z-y1'],
       departmentIds: ['dep-y-nf', 'dep-y-ws'],
     },
+    sharedPastorIds: [],
+    sharedOrganizationIds: ['d-youth', 'z-y1', 'dep-y-nf', 'dep-y-ws'],
     attachments: [],
     createdAt: daysAgo(4),
     updatedAt: daysAgo(4),
@@ -177,6 +242,32 @@ function normalizeAttachments(raw: unknown): PrayerAttachment[] {
   return raw.map(normalizePrayerAttachment).filter((a): a is PrayerAttachment => a !== null);
 }
 
+/**
+ * 저장값 정규화 — migrateVisibility로 레거시 값 변환 + 공유 대상 필드 채움
+ * sharedOrganizationIds가 없으면(구버전 데이터) organizationScope에서 파생
+ */
+function normalizePrayerRecord(p: Prayer): Prayer {
+  const organizationScope = normalizeOrganizationScope(p.organizationScope);
+  const visibility = migrateVisibility(p.visibility);
+  const sharedPastorIds = uniqueIds(p.sharedPastorIds);
+  let sharedOrganizationIds = uniqueIds(p.sharedOrganizationIds);
+  if (sharedOrganizationIds.length === 0 && visibility === 'organization_share') {
+    sharedOrganizationIds = uniqueIds([
+      ...organizationScope.districtIds,
+      ...organizationScope.groupIds,
+      ...organizationScope.departmentIds,
+    ]);
+  }
+  return {
+    ...p,
+    visibility,
+    organizationScope,
+    sharedPastorIds,
+    sharedOrganizationIds,
+    attachments: normalizeAttachments(p.attachments),
+  };
+}
+
 function readPrayersRaw(): string | null {
   const current = localStorage.getItem(PRAYERS_STORAGE_KEY);
   if (current) return current;
@@ -197,11 +288,7 @@ function load(): Prayer[] {
     const raw = readPrayersRaw();
     if (raw) {
       const parsed = JSON.parse(raw) as Prayer[];
-      const normalized = parsed.map(p => ({
-        ...p,
-        organizationScope: normalizeOrganizationScope(p.organizationScope),
-        attachments: normalizeAttachments(p.attachments),
-      }));
+      const normalized = parsed.map(normalizePrayerRecord);
       migrateInlineAttachmentsFromPrayers(normalized);
       return hydratePrayersAttachments(
         normalized.map(p => ({ ...p, attachments: [] })),
@@ -245,13 +332,13 @@ export function addPrayer(
 ): Prayer {
   const list = load();
   const ts = new Date().toISOString();
-  const prayer: Prayer = {
+  const prayer: Prayer = syncShareFields({
     ...data,
     id: uid(),
     deleted: false,
     createdAt: ts,
     updatedAt: ts,
-  };
+  });
   save([prayer, ...list]);
   notifyPrayerCreated(prayer);
   const actor = actorFromPrayer(prayer);
@@ -271,12 +358,18 @@ export function updatePrayer(
   const idx = list.findIndex(p => p.id === id);
   if (idx < 0) return null;
   const before = list[idx];
-  const updated: Prayer = {
+  const hasShareUpdate =
+    'visibility' in updates ||
+    'sharedPastorIds' in updates ||
+    'sharedOrganizationIds' in updates ||
+    'organizationScope' in updates;
+  const merged: Prayer = {
     ...before,
     ...updates,
     id: before.id,
     updatedAt: new Date().toISOString(),
   };
+  const updated: Prayer = hasShareUpdate ? syncShareFields(merged) : merged;
   list[idx] = updated;
   save(list);
 
