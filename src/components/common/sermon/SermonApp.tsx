@@ -286,7 +286,7 @@ export default function SermonApp({
 
         {filtered.length > 0 ? (
           <>
-            <div className="space-y-3">
+            <div className="bg-white border border-[#E5E7EB] rounded-2xl overflow-hidden">
               {pageItems.map(s => (
                 <SermonCardRow
                   key={s.id}
@@ -469,8 +469,8 @@ function SermonCardRow({
       tabIndex={0}
       onClick={onSelect}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(); } }}
-      className={`w-full text-left cursor-pointer flex items-center gap-3 p-3 rounded-2xl border transition-colors ${
-        active ? 'bg-primary-50 border-primary-300' : 'bg-white border-[#E5E7EB] hover:bg-gray-50'
+      className={`w-full text-left cursor-pointer flex items-center gap-3 p-3 border-b border-[#E5E7EB] last:border-b-0 transition-colors ${
+        active ? 'bg-primary-50' : 'bg-white hover:bg-gray-50'
       }`}
     >
       <div className="relative shrink-0 rounded-lg overflow-hidden bg-gray-100" style={{ width: 104, height: 64 }}>
