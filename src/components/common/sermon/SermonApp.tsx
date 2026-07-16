@@ -229,7 +229,7 @@ export default function SermonApp({
     );
   }
 
-  /* ── 목록 (폴더 탭 → 고정 플레이어 → 카드 목록 → 페이지네이션) ── */
+  /* ── 목록 (제목 → 폴더 탭 → 플레이어 → 검색·목록 → 페이지네이션, 단일 세로 스크롤) ── */
   return (
     <SermonShell>
       {/* 메뉴명 + 설명 + 등록 버튼 (PC 전용 — 모바일은 고정 App Header 사용) */}
@@ -239,8 +239,8 @@ export default function SermonApp({
         action={registerBtn}
       />
 
-      {/* 상단 고정: 예배 폴더 탭 + 플레이어 (목록 메뉴 z-20 위 stacking) */}
-      <div className="sticky top-14 md:top-0 z-[50] -mx-6 bg-[#F8FAFC] relative isolate">
+      {/* 예배 폴더 탭 + 플레이어 — sticky/fixed 없이 본문과 함께 스크롤 */}
+      <div className="-mx-6 bg-[#F8FAFC]">
         <div className="px-6 pt-1">
           <div className="max-w-[900px] mx-auto">
             <SermonFolderTabs
@@ -253,7 +253,7 @@ export default function SermonApp({
         </div>
         <div className="px-6 pt-1 pb-3 border-b border-[#E5E7EB]">
           <div className="max-w-[900px] mx-auto">
-            <StickyPlayer
+            <SermonPlayer
               sermon={selected}
               playing={playing}
               onPlay={() => setPlaying(true)}
@@ -269,8 +269,8 @@ export default function SermonApp({
       {/* 모바일 전용: 플로팅 설교 등록 버튼 */}
       {canManage && <MobileFab label="설교 등록" onClick={openCreate} />}
 
-      {/* 검색 · 카드 목록 · 페이지네이션 (플레이어보다 낮은 stacking) */}
-      <div className="relative z-[10] max-w-[900px] mx-auto pt-4 space-y-3 overflow-visible">
+      {/* 검색 · 카드 목록 · 페이지네이션 — 내부 스크롤/고정 높이 없음 */}
+      <div className="max-w-[900px] mx-auto pt-4 space-y-3">
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
           <input value={search} onChange={e => setSearch(e.target.value)}
@@ -286,7 +286,7 @@ export default function SermonApp({
 
         {filtered.length > 0 ? (
           <>
-            <div className="relative z-[1] space-y-3 overflow-visible">
+            <div className="space-y-3">
               {pageItems.map(s => (
                 <SermonCardRow
                   key={s.id}
@@ -357,8 +357,8 @@ function SermonManageActions({
   );
 }
 
-/* ── 상단 고정 플레이어 ── */
-function StickyPlayer({
+/* ── 설교 플레이어 (본문 스크롤과 함께 이동) ── */
+function SermonPlayer({
   sermon, playing, onPlay, canManage, onEdit, onDelete, onGraceWrite,
 }: {
   sermon: Sermon | null;
