@@ -18,9 +18,11 @@ import {
   getShareableOrganizationsForWriter,
   matchesSharedContentSearch,
   matchesShareTypeFilter,
+  matchesOrganizationFilterForRecord,
   PRAYER_LIST_TAB_LABELS,
   type SharedListTab,
 } from '../../services/sharedContentAccess';
+import { getDistrictNameById } from '../../services/orgData';
 import {
   VisibilitySelector,
   PastorShareSelector,
@@ -77,6 +79,7 @@ export default function PrayerPage() {
   const [filterState, setFilterState] = useState<SharedContentFilterState>({
     visibility: 'all',
     shareType: 'all',
+    organizationIds: [],
     prayerStatus: 'all',
     authorRole: 'all',
   });
@@ -176,14 +179,36 @@ export default function PrayerPage() {
     refreshPrayers();
   };
 
+  const filterOrganizations = useMemo(() => {
+    return shareableOrganizations.all.map(g => ({
+      ...g,
+      parentName:
+        g.kind === 'zone' && g.parentId
+          ? (() => {
+              const n = getDistrictNameById(g.parentId!);
+              return n && n !== '-' ? n : undefined;
+            })()
+          : undefined,
+    }));
+  }, [shareableOrganizations]);
+
   const tabPrayers = useMemo(() => {
     const showShareType = activeTab === 'shared' || activeTab === 'admin_shared';
+    const applyOrgFilter =
+      activeTab === 'organization' ||
+      (showShareType && filterState.shareType === 'organization_share');
     const bucket = filterSharedContentByTab(prayers, user, activeTab, {
       canAuditPrivate: isAdmin,
     });
     return bucket
       .filter(p => {
         if (showShareType && !matchesShareTypeFilter(p, filterState.shareType ?? 'all')) {
+          return false;
+        }
+        if (
+          applyOrgFilter &&
+          !matchesOrganizationFilterForRecord(p, filterState.organizationIds ?? [])
+        ) {
           return false;
         }
         if (filterState.visibility && filterState.visibility !== 'all') {
@@ -199,9 +224,6 @@ export default function PrayerPage() {
         if (filterState.authorQuery) {
           if (!p.authorName.toLowerCase().includes(filterState.authorQuery.toLowerCase())) return false;
         }
-        if (filterState.orgId) {
-          if (!(p.sharedOrganizationIds ?? []).includes(filterState.orgId)) return false;
-        }
         if (filterState.dateFrom && p.createdAt.slice(0, 10) < filterState.dateFrom) return false;
         if (filterState.dateTo && p.createdAt.slice(0, 10) > filterState.dateTo) return false;
         if (search.trim() && !matchesSharedContentSearch(p, search)) return false;
@@ -216,6 +238,10 @@ export default function PrayerPage() {
     const bucket = filterSharedContentByTab(prayers, user, 'shared');
     return !bucket.some(p => migrateVisibility(p.visibility) === 'pastor_share');
   }, [filterMode, activeTab, prayers, user]);
+
+  const showShareTypeOnTab = activeTab === 'shared' || activeTab === 'admin_shared';
+  const showOrgFilterOnTab =
+    showShareTypeOnTab || activeTab === 'organization';
 
   if (loading) {
     return (
@@ -298,9 +324,10 @@ export default function PrayerPage() {
         onSearchChange={setSearch}
         mode={filterMode}
         showPrayerStatus
-        showShareTypeFilter={activeTab === 'shared' || activeTab === 'admin_shared'}
+        showShareTypeFilter={showShareTypeOnTab}
         hidePastorShareTypeOption={hidePastorShareTypeOption}
-        orgOptions={filterMode === 'member' ? [] : orgOptions}
+        forceShowOrganizationFilter={activeTab === 'organization'}
+        filterOrganizations={showOrgFilterOnTab ? filterOrganizations : []}
         className="mb-4"
       />
 

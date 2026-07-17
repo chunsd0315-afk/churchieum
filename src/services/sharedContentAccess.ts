@@ -317,6 +317,31 @@ export function filterByShareType<T extends SharedContentLike>(
   return records.filter(r => matchesShareTypeFilter(r, shareTypeFilter));
 }
 
+/**
+ * 교구·부서 세부 필터 — selectedOrganizationIds 비어 있으면 전체,
+ * 값이 있으면 OR(하나라도 일치)
+ */
+export function matchesOrganizationFilter(
+  recordOrganizationIds: string[] | undefined | null,
+  selectedOrganizationIds: string[] | undefined | null,
+): boolean {
+  const selected = selectedOrganizationIds ?? [];
+  if (selected.length === 0) return true;
+  const recordIds = recordOrganizationIds ?? [];
+  if (recordIds.length === 0) return false;
+  return recordIds.some(id => selected.includes(id));
+}
+
+export function matchesOrganizationFilterForRecord(
+  record: SharedContentLike,
+  selectedOrganizationIds: string[] | undefined | null,
+): boolean {
+  return matchesOrganizationFilter(
+    resolveSharedOrganizationIds(record),
+    selectedOrganizationIds,
+  );
+}
+
 export { SHARE_TYPE_FILTER_LABELS };
 export type { ShareTypeFilter };
 

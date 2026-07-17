@@ -1,6 +1,8 @@
 export { VisibilitySelector } from './VisibilitySelector';
 export { PastorShareSelector } from './PastorShareSelector';
 export { OrganizationShareSelector } from './OrganizationShareSelector';
+export { OrganizationFilterSelector } from './OrganizationFilterSelector';
+export type { OrganizationFilterItem } from './OrganizationFilterSelector';
 export {
   VisibilityBadge,
   SharedTargetSummary,
