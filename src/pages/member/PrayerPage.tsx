@@ -22,7 +22,6 @@ import {
   PRAYER_LIST_TAB_LABELS,
   type SharedListTab,
 } from '../../services/sharedContentAccess';
-import { getDistrictNameById } from '../../services/orgData';
 import {
   VisibilitySelector,
   PastorShareSelector,
@@ -175,19 +174,6 @@ export default function PrayerPage() {
     refreshPrayers();
   };
 
-  const filterOrganizations = useMemo(() => {
-    return shareableOrganizations.all.map(g => ({
-      ...g,
-      parentName:
-        g.kind === 'zone' && g.parentId
-          ? (() => {
-              const n = getDistrictNameById(g.parentId!);
-              return n && n !== '-' ? n : undefined;
-            })()
-          : undefined,
-    }));
-  }, [shareableOrganizations]);
-
   const tabPrayers = useMemo(() => {
     const showShareType = activeTab === 'shared' || activeTab === 'admin_shared';
     const applyOrgFilter =
@@ -236,8 +222,6 @@ export default function PrayerPage() {
   }, [filterMode, activeTab, prayers, user]);
 
   const showShareTypeOnTab = activeTab === 'shared' || activeTab === 'admin_shared';
-  const showOrgFilterOnTab =
-    showShareTypeOnTab || activeTab === 'organization';
 
   if (loading) {
     return (
@@ -319,11 +303,11 @@ export default function PrayerPage() {
         search={search}
         onSearchChange={setSearch}
         mode={filterMode}
+        user={user}
         showPrayerStatus
         showShareTypeFilter={showShareTypeOnTab}
         hidePastorShareTypeOption={hidePastorShareTypeOption}
         forceShowOrganizationFilter={activeTab === 'organization'}
-        filterOrganizations={showOrgFilterOnTab ? filterOrganizations : []}
         className="mb-4"
       />
 

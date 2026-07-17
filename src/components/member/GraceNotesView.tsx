@@ -37,13 +37,16 @@ import {
 import {
   matchesShareTypeFilter,
   matchesOrganizationFilterForRecord,
-  getShareableOrganizationsForWriter,
   SHARE_TYPE_FILTER_LABELS,
 } from '../../services/sharedContentAccess';
 import type { ShareTypeFilter } from '../../types/sharedContent';
 import { migrateVisibility } from '../../types/sharedContent';
-import { OrganizationFilterSelector } from '../common/shared-content/OrganizationFilterSelector';
-import { getDistrictNameById } from '../../services/orgData';
+import { UserOrganizationTreeSelector } from '../common/shared-content/UserOrganizationTreeSelector';
+import {
+  getOrganizationPathLabel,
+  getUserCoreOrganizationIds,
+  resolveOrgTreeMode,
+} from '../../services/userOrganizationTree';
 
 export {
   GraceNoteEditor,
@@ -140,19 +143,8 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
 
   const showShareTypeFilter = tab === 'shared' || tab === 'admin_shared';
 
-  const filterOrganizations = useMemo(() => {
-    const orgs = getShareableOrganizationsForWriter(user);
-    return orgs.all.map(g => ({
-      ...g,
-      parentName:
-        g.kind === 'zone' && g.parentId
-          ? (() => {
-              const n = getDistrictNameById(g.parentId!);
-              return n && n !== '-' ? n : undefined;
-            })()
-          : undefined,
-    }));
-  }, [user]);
+  const coreOrgIds = useMemo(() => getUserCoreOrganizationIds(user), [user]);
+  const orgTreeMode = useMemo(() => resolveOrgTreeMode(user), [user]);
 
   const hasPastorShareInTab = useMemo(
     () => tabNotes.some(n => migrateVisibility(n.visibility) === 'pastor_share'),
@@ -240,17 +232,16 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
       });
     }
     for (const id of organizationIds) {
-      const name = filterOrganizations.find(o => o.id === id)?.name ?? id;
       chips.push({
         key: `org:${id}`,
-        label: name,
+        label: getOrganizationPathLabel(id),
         clear: () => setOrganizationIds(prev => prev.filter(x => x !== id)),
       });
     }
     return chips;
   }, [
     typeFilter, datePreset, dateFrom, dateTo, sortOrder, shareType,
-    showShareTypeFilter, organizationIds, filterOrganizations,
+    showShareTypeFilter, organizationIds,
   ]);
 
   const resetFilters = () => {
@@ -321,24 +312,36 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
         shareType === 'pastor_share'
           ? '교역자에게 직접 공유받은 은혜기록이 없습니다.'
           : shareType === 'organization_share'
-            ? organizationIds.length === 1
-              ? `${filterOrganizations.find(o => o.id === organizationIds[0])?.name ?? '선택한 조직'}에 공유된 은혜기록이 없습니다.`
-              : organizationIds.length > 1
-                ? '선택한 교구·부서에 공유된 은혜기록이 없습니다.'
-                : '교구나 부서에 공유된 은혜기록이 없습니다.'
+            ? coreOrgIds.length === 0
+              ? '소속된 교구·부서가 없습니다.'
+              : organizationIds.length === 1
+                ? `${getOrganizationPathLabel(organizationIds[0])}에 공유된 은혜기록이 없습니다.`
+                : organizationIds.length > 1
+                  ? '선택한 교구·부서에 공유된 은혜기록이 없습니다.'
+                  : '내 교구·부서에 공유된 은혜기록이 없습니다.'
             : '공유받은 은혜기록이 없습니다.',
       desc:
-        shareType === 'pastor_share'
-          ? '담당 교역자가 직접 공유하면 이곳에 나타납니다.'
-          : '소속 교구·부서에서 공유하면 이곳에 나타납니다.',
+        shareType === 'organization_share' && coreOrgIds.length === 0
+          ? '내정보 또는 조직관리에서 소속 조직을 확인해 주세요.'
+          : shareType === 'pastor_share'
+            ? '담당 교역자가 직접 공유하면 이곳에 나타납니다.'
+            : '소속 교구·부서에서 공유하면 이곳에 나타납니다.',
     },
     pastor_members: {
       title: '담당 성도가 공유한 기록이 없습니다.',
       desc: '성도가 담당 교역자와 공유하면 이곳에 나타납니다.',
     },
     organization: {
-      title: '교구·부서 공유 기록이 없습니다.',
-      desc: '담당·소속 조직에 공유된 기록이 이곳에 나타납니다.',
+      title:
+        coreOrgIds.length === 0
+          ? '소속된 교구·부서가 없습니다.'
+          : organizationIds.length > 0
+            ? '선택한 교구·부서에 공유된 은혜기록이 없습니다.'
+            : '내 교구·부서에 공유된 은혜기록이 없습니다.',
+      desc:
+        coreOrgIds.length === 0
+          ? '내정보 또는 조직관리에서 소속 조직을 확인해 주세요.'
+          : '담당·소속 조직에 공유된 기록이 이곳에 나타납니다.',
     },
     admin_shared: {
       title:
@@ -347,7 +350,7 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
           : shareType === 'organization_share'
             ? organizationIds.length > 0
               ? '선택한 교구·부서에 공유된 은혜기록이 없습니다.'
-              : '교구나 부서에 공유된 은혜기록이 없습니다.'
+              : '내 교구·부서에 공유된 은혜기록이 없습니다.'
             : '공유받은 기록이 없습니다.',
       desc: '직접 공유되거나 소속 조직에 공유된 기록이 이곳에 나타납니다.',
     },
@@ -455,22 +458,22 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
           </div>
 
           {shareType === 'organization_share' && (
-            <OrganizationFilterSelector
-              organizations={filterOrganizations}
+            <UserOrganizationTreeSelector
+              user={user}
+              mode={orgTreeMode}
               selectedOrganizationIds={organizationIds}
               onChange={setOrganizationIds}
-              showSearch={user?.role === 'super_admin' || filterOrganizations.length > 6}
             />
           )}
         </div>
       )}
 
       {tab === 'organization' && (
-        <OrganizationFilterSelector
-          organizations={filterOrganizations}
+        <UserOrganizationTreeSelector
+          user={user}
+          mode={orgTreeMode}
           selectedOrganizationIds={organizationIds}
           onChange={setOrganizationIds}
-          showSearch={filterOrganizations.length > 6}
         />
       )}
 

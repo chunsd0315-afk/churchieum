@@ -3,6 +3,7 @@ export { PastorShareSelector } from './PastorShareSelector';
 export { OrganizationShareSelector } from './OrganizationShareSelector';
 export { OrganizationFilterSelector } from './OrganizationFilterSelector';
 export type { OrganizationFilterItem } from './OrganizationFilterSelector';
+export { UserOrganizationTreeSelector } from './UserOrganizationTreeSelector';
 export {
   VisibilityBadge,
   SharedTargetSummary,

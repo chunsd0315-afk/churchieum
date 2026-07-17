@@ -2,10 +2,13 @@ import { useMemo, useState } from 'react';
 import { Filter, Search, X } from 'lucide-react';
 import type { VisibilityType, ShareTypeFilter } from '../../../types/sharedContent';
 import { VISIBILITY_LABELS, SHARE_TYPE_FILTER_LABELS } from '../../../types/sharedContent';
+import type { AppUser } from '../../../services/permissions';
 import {
-  OrganizationFilterSelector,
-  type OrganizationFilterItem,
-} from './OrganizationFilterSelector';
+  getOrganizationPathLabel,
+  resolveOrgTreeMode,
+  type UserOrgTreeMode,
+} from '../../../services/userOrganizationTree';
+import { UserOrganizationTreeSelector } from './UserOrganizationTreeSelector';
 
 export type SharedContentFilterState = {
   visibility?: VisibilityType | 'all';
@@ -32,16 +35,20 @@ export type SharedContentFilterProps = {
   onSearchChange: (q: string) => void;
   /** member | pastor | admin */
   mode?: 'member' | 'pastor' | 'admin';
+  /** 조직 트리 필터용 로그인 사용자 */
+  user?: AppUser | null;
   showPrayerStatus?: boolean;
   /** 공유 유형 필터 (전체/교역자/교구·부서) */
   showShareTypeFilter?: boolean;
   /** 성도 모드: 교역자 공유 옵션 숨김(직접 공유 0건일 때) */
   hidePastorShareTypeOption?: boolean;
-  /** 교구/부서 공유 선택 시 세부 조직 목록 */
-  filterOrganizations?: OrganizationFilterItem[];
   /** 공유 유형과 무관하게 조직 세부 필터 표시 (교구·부서 탭) */
   forceShowOrganizationFilter?: boolean;
+  /** @deprecated 칩 보조 — path label로 대체 */
+  filterOrganizations?: { id: string; name: string }[];
   orgOptions?: { id: string; name: string }[];
+  /** 교역자 전체 조직 트리 확장 (기본 false) */
+  allowFullOrgTree?: boolean;
   className?: string;
 };
 
@@ -64,24 +71,33 @@ function Chip({
   );
 }
 
+function toTreeMode(mode: SharedContentFilterProps['mode'], user?: AppUser | null): UserOrgTreeMode {
+  if (mode === 'admin') return 'super_admin';
+  if (mode === 'pastor') return 'pastor';
+  if (user) return resolveOrgTreeMode(user);
+  return 'member';
+}
+
 export function SharedContentSearchFilter({
   value,
   onChange,
   search,
   onSearchChange,
   mode = 'member',
+  user = null,
   showPrayerStatus = false,
   showShareTypeFilter = false,
   hidePastorShareTypeOption = false,
-  filterOrganizations = [],
   forceShowOrganizationFilter = false,
+  filterOrganizations = [],
   orgOptions = [],
+  allowFullOrgTree = false,
   className = '',
 }: SharedContentFilterProps) {
   const [open, setOpen] = useState(false);
   const organizationIds = value.organizationIds ?? [];
   const showOrgDetail =
-    filterOrganizations.length > 0 &&
+    Boolean(user) &&
     (forceShowOrganizationFilter ||
       (showShareTypeFilter && value.shareType === 'organization_share'));
 
@@ -94,11 +110,12 @@ export function SharedContentSearchFilter({
       });
     }
     for (const id of organizationIds) {
-      const name =
+      const path = getOrganizationPathLabel(id);
+      const fallback =
         filterOrganizations.find(o => o.id === id)?.name ??
         orgOptions.find(o => o.id === id)?.name ??
         id;
-      list.push({ key: `org:${id}`, label: name, orgId: id });
+      list.push({ key: `org:${id}`, label: path || fallback, orgId: id });
     }
     if (value.visibility && value.visibility !== 'all') {
       list.push({
@@ -107,7 +124,10 @@ export function SharedContentSearchFilter({
       });
     }
     if (value.orgId) {
-      const name = orgOptions.find(o => o.id === value.orgId)?.name ?? value.orgId;
+      const name =
+        getOrganizationPathLabel(value.orgId) ||
+        orgOptions.find(o => o.id === value.orgId)?.name ||
+        value.orgId;
       list.push({ key: 'orgId', label: name });
     }
     if (value.prayerStatus && value.prayerStatus !== 'all') {
@@ -248,11 +268,12 @@ export function SharedContentSearchFilter({
           )}
 
           {showOrgDetail && (
-            <OrganizationFilterSelector
-              organizations={filterOrganizations}
+            <UserOrganizationTreeSelector
+              user={user}
+              mode={toTreeMode(mode, user)}
               selectedOrganizationIds={organizationIds}
               onChange={ids => onChange({ ...value, organizationIds: ids })}
-              showSearch={mode === 'admin' || filterOrganizations.length > 6}
+              allowFullOrgTree={allowFullOrgTree}
             />
           )}
 
