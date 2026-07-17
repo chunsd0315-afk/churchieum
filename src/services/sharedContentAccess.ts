@@ -6,10 +6,12 @@ import { isSuperAdmin } from './permissions';
 import {
   type VisibilityType,
   type SharedContentFields,
+  type ShareTypeFilter,
   migrateVisibility,
   uniqueIds,
   isLegacyPublic,
   type LegacyVisibilityRaw,
+  SHARE_TYPE_FILTER_LABELS,
 } from '../types/sharedContent';
 import {
   getEligiblePastorsForUser,
@@ -255,9 +257,9 @@ export function filterSharedContentByTab<T extends SharedContentLike & { id?: st
     if (tab === 'mine') return own;
 
     if (tab === 'shared') {
-      // 성도: organization_share만 (pastor_share 타인의 것은 불가)
+      // 성도: organization_share + 본인에게 직접 공유된 pastor_share
       if (own) return false;
-      if (visibility !== 'organization_share') return false;
+      if (visibility === 'private') return false;
       return canViewSharedContent(item, { currentUser: user });
     }
 
@@ -288,13 +290,35 @@ export function filterSharedContentByTab<T extends SharedContentLike & { id?: st
           canAuditPrivate: options?.canAuditPrivate,
         });
       }
-      // 관리 조회: private 제외한 전체 (작성자 포함 가능, 여기 도달 시 이미 private 아님)
       return true;
     }
 
     return false;
   });
 }
+
+/**
+ * 공유 유형 필터 (전체 / 교역자 공유 / 교구·부서 공유)
+ * private는 옵션에 없음 — all 이어도 private는 호출 전 탭 필터에서 제외되어야 함
+ */
+export function matchesShareTypeFilter(
+  record: SharedContentLike,
+  shareTypeFilter: ShareTypeFilter | undefined | null,
+): boolean {
+  if (!shareTypeFilter || shareTypeFilter === 'all') return true;
+  return migrateVisibility(record.visibility) === shareTypeFilter;
+}
+
+export function filterByShareType<T extends SharedContentLike>(
+  records: T[],
+  shareTypeFilter: ShareTypeFilter | undefined | null,
+): T[] {
+  if (!shareTypeFilter || shareTypeFilter === 'all') return records;
+  return records.filter(r => matchesShareTypeFilter(r, shareTypeFilter));
+}
+
+export { SHARE_TYPE_FILTER_LABELS };
+export type { ShareTypeFilter };
 
 // ─── 작성 시 선택 가능 대상 ───────────────────────────────────────────────
 

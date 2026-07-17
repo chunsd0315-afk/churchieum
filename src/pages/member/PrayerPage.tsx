@@ -17,6 +17,7 @@ import {
   getShareablePastorsForWriter,
   getShareableOrganizationsForWriter,
   matchesSharedContentSearch,
+  matchesShareTypeFilter,
   PRAYER_LIST_TAB_LABELS,
   type SharedListTab,
 } from '../../services/sharedContentAccess';
@@ -75,6 +76,7 @@ export default function PrayerPage() {
   const [search, setSearch] = useState('');
   const [filterState, setFilterState] = useState<SharedContentFilterState>({
     visibility: 'all',
+    shareType: 'all',
     prayerStatus: 'all',
     authorRole: 'all',
   });
@@ -175,11 +177,15 @@ export default function PrayerPage() {
   };
 
   const tabPrayers = useMemo(() => {
+    const showShareType = activeTab === 'shared' || activeTab === 'admin_shared';
     const bucket = filterSharedContentByTab(prayers, user, activeTab, {
       canAuditPrivate: isAdmin,
     });
     return bucket
       .filter(p => {
+        if (showShareType && !matchesShareTypeFilter(p, filterState.shareType ?? 'all')) {
+          return false;
+        }
         if (filterState.visibility && filterState.visibility !== 'all') {
           if (migrateVisibility(p.visibility) !== filterState.visibility) return false;
         }
@@ -203,6 +209,13 @@ export default function PrayerPage() {
       })
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }, [prayers, user, activeTab, filterState, search, isAdmin]);
+
+  const hidePastorShareTypeOption = useMemo(() => {
+    if (filterMode !== 'member') return false;
+    if (activeTab !== 'shared') return false;
+    const bucket = filterSharedContentByTab(prayers, user, 'shared');
+    return !bucket.some(p => migrateVisibility(p.visibility) === 'pastor_share');
+  }, [filterMode, activeTab, prayers, user]);
 
   if (loading) {
     return (
@@ -285,6 +298,8 @@ export default function PrayerPage() {
         onSearchChange={setSearch}
         mode={filterMode}
         showPrayerStatus
+        showShareTypeFilter={activeTab === 'shared' || activeTab === 'admin_shared'}
+        hidePastorShareTypeOption={hidePastorShareTypeOption}
         orgOptions={filterMode === 'member' ? [] : orgOptions}
         className="mb-4"
       />

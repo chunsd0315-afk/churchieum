@@ -1057,10 +1057,11 @@ export function getGraceNotesForCollectTab<T extends GraceNoteVisibilityInput & 
   }
 
   if (tab === 'shared') {
-    // 성도: 타인의 organization_share만
+    // 성도: 타인의 organization_share + 조회 가능한 pastor_share(직접 공유 등)
     return notes.filter(n => {
       if (isOwnNote(n, viewer)) return false;
-      if (migrateVisibility(n.visibility) !== 'organization_share') return false;
+      const visibility = migrateVisibility(n.visibility);
+      if (visibility === 'private') return false;
       return getGraceNoteViewInfo(n, viewer) !== null;
     });
   }

@@ -8,3 +8,5 @@ export {
 } from './VisibilityBadge';
 export { SharedContentSearchFilter } from './SharedContentFilter';
 export type { SharedContentFilterState } from './SharedContentFilter';
+export type { ShareTypeFilter, VisibilityFilter } from '../../../types/sharedContent';
+export { SHARE_TYPE_FILTER_LABELS } from '../../../types/sharedContent';

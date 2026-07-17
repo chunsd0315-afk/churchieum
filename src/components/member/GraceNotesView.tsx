@@ -30,12 +30,16 @@ import {
   getGraceNoteViewInfo,
   getGraceNotesForCollectTab,
   getGraceListBadge,
-  getGraceSharedShareKind,
   sortGraceNotesForMemberView,
   type GraceCollectTab,
-  type GraceSharedShareKind,
   type GraceNoteListSort,
 } from '../../services/graceNoteShareScope';
+import {
+  matchesShareTypeFilter,
+  SHARE_TYPE_FILTER_LABELS,
+} from '../../services/sharedContentAccess';
+import type { ShareTypeFilter } from '../../types/sharedContent';
+import { migrateVisibility } from '../../types/sharedContent';
 
 export {
   GraceNoteEditor,
@@ -87,7 +91,6 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
 }) {
   const { user } = useAuth();
   const { isMobile } = useBreakpoint();
-  const orgLabels = readOrgSettings();
   const [tab, setTab] = useState<GraceCollectTab>('mine');
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<GraceNoteType | ''>(initialType ?? '');
@@ -95,7 +98,7 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
   const [datePreset, setDatePreset] = useState<'all' | 'today' | 'week' | 'month' | 'custom'>('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [shareKind, setShareKind] = useState<GraceSharedShareKind | ''>('');
+  const [shareType, setShareType] = useState<ShareTypeFilter>('all');
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [notes, setNotes] = useState(() => getAllGraceNotes());
@@ -130,15 +133,30 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
     return { from: '', to: '' };
   }, [datePreset, dateFrom, dateTo]);
 
+  const showShareTypeFilter = tab === 'shared' || tab === 'admin_shared';
+
+  const hasPastorShareInTab = useMemo(
+    () => tabNotes.some(n => migrateVisibility(n.visibility) === 'pastor_share'),
+    [tabNotes],
+  );
+
+  /** 성도: 직접 공유된 교역자 공유가 없으면 옵션 숨김 */
+  const hidePastorShareTypeOption =
+    user?.role === 'member' && !hasPastorShareInTab;
+
+  useEffect(() => {
+    if (hidePastorShareTypeOption && shareType === 'pastor_share') {
+      setShareType('all');
+    }
+  }, [hidePastorShareTypeOption, shareType]);
+
   const filtered = useMemo(() => {
     let list = tabNotes.filter(n => {
       if (typeFilter && n.type !== typeFilter) return false;
       if (planFilter && n.planId !== planFilter) return false;
       if (dateRange.from && n.createdAt.slice(0, 10) < dateRange.from) return false;
       if (dateRange.to && n.createdAt.slice(0, 10) > dateRange.to) return false;
-      if (tab === 'shared' && shareKind) {
-        if (getGraceSharedShareKind(n, user) !== shareKind) return false;
-      }
+      if (showShareTypeFilter && !matchesShareTypeFilter(n, shareType)) return false;
       if (search.trim()) {
         const q = search.toLowerCase();
         const searchable = [
@@ -151,7 +169,7 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
     });
     list = sortGraceNotesForMemberView(list, user, sortOrder === 'oldest' ? 'oldest' : 'newest');
     return list;
-  }, [tabNotes, typeFilter, planFilter, dateRange, shareKind, tab, search, sortOrder, user]);
+  }, [tabNotes, typeFilter, planFilter, dateRange, shareType, showShareTypeFilter, search, sortOrder, user]);
 
   const activeChips = useMemo(() => {
     const chips: { key: string; label: string; clear: () => void }[] = [];
@@ -175,16 +193,15 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
     if (sortOrder === 'oldest') {
       chips.push({ key: 'sort', label: '오래된순', clear: () => setSortOrder('newest') });
     }
-    if (tab === 'shared' && shareKind) {
-      const shareLabel =
-        shareKind === 'pastor' ? '담당 교역자'
-          : shareKind === 'upper' ? orgLabels.level1Label
-            : shareKind === 'lower' ? orgLabels.level2Label
-              : orgLabels.departmentLabel;
-      chips.push({ key: 'share', label: shareLabel, clear: () => setShareKind('') });
+    if (showShareTypeFilter && shareType !== 'all') {
+      chips.push({
+        key: 'shareType',
+        label: SHARE_TYPE_FILTER_LABELS[shareType],
+        clear: () => setShareType('all'),
+      });
     }
     return chips;
-  }, [typeFilter, datePreset, dateFrom, dateTo, sortOrder, tab, shareKind, orgLabels]);
+  }, [typeFilter, datePreset, dateFrom, dateTo, sortOrder, shareType, showShareTypeFilter]);
 
   const resetFilters = () => {
     setTypeFilter('');
@@ -192,7 +209,7 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
     setDatePreset('all');
     setDateFrom('');
     setDateTo('');
-    setShareKind('');
+    setShareType('all');
     setSearch('');
   };
 
@@ -249,8 +266,18 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
       desc: '말씀과 삶 속에서 받은 은혜를 기록해 보세요.',
     },
     shared: {
-      title: '공유받은 은혜기록이 없습니다.',
-      desc: '소속 교구·부서에서 공유하면 이곳에 나타납니다.',
+      title:
+        shareType === 'pastor_share'
+          ? '교역자에게 직접 공유받은 은혜기록이 없습니다.'
+          : shareType === 'organization_share'
+            ? '교구나 부서에 공유된 은혜기록이 없습니다.'
+            : '공유받은 은혜기록이 없습니다.',
+      desc:
+        shareType === 'pastor_share'
+          ? '담당 교역자가 직접 공유하면 이곳에 나타납니다.'
+          : shareType === 'organization_share'
+            ? '소속 교구·부서에서 공유하면 이곳에 나타납니다.'
+            : '소속 교구·부서에서 공유하면 이곳에 나타납니다.',
     },
     pastor_members: {
       title: '담당 성도가 공유한 기록이 없습니다.',
@@ -261,7 +288,12 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
       desc: '담당·소속 조직에 공유된 기록이 이곳에 나타납니다.',
     },
     admin_shared: {
-      title: '공유받은 기록이 없습니다.',
+      title:
+        shareType === 'pastor_share'
+          ? '교역자에게 직접 공유받은 은혜기록이 없습니다.'
+          : shareType === 'organization_share'
+            ? '교구나 부서에 공유된 은혜기록이 없습니다.'
+            : '공유받은 기록이 없습니다.',
       desc: '직접 공유되거나 소속 조직에 공유된 기록이 이곳에 나타납니다.',
     },
     admin_audit: {
@@ -341,22 +373,23 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
         </div>
       </div>
 
-      {tab === 'shared' && (
+      {showShareTypeFilter && (
         <div>
-          <p className="text-sm font-bold text-gray-800 mb-2">공유 구분</p>
+          <p className="text-sm font-bold text-gray-800 mb-2">공유 유형</p>
           <div className="flex flex-wrap gap-2">
             {([
-              { id: '' as const, label: '전체' },
-              { id: 'upper' as const, label: orgLabels.level1Label },
-              { id: 'lower' as const, label: orgLabels.level2Label },
-              { id: 'department' as const, label: orgLabels.departmentLabel },
+              { id: 'all' as const, label: SHARE_TYPE_FILTER_LABELS.all },
+              ...(!hidePastorShareTypeOption
+                ? [{ id: 'pastor_share' as const, label: SHARE_TYPE_FILTER_LABELS.pastor_share }]
+                : []),
+              { id: 'organization_share' as const, label: SHARE_TYPE_FILTER_LABELS.organization_share },
             ]).map(opt => (
               <button
-                key={opt.id || 'share-all'}
+                key={opt.id}
                 type="button"
-                onClick={() => setShareKind(opt.id)}
+                onClick={() => setShareType(opt.id)}
                 className={`px-3 py-2 rounded-xl text-xs font-semibold touch-target ${
-                  shareKind === opt.id ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600'
+                  shareType === opt.id ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600'
                 }`}
               >
                 {opt.label}
@@ -458,7 +491,7 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
               <button
                 key={t.id}
                 type="button"
-                onClick={() => { setTab(t.id); setShareKind(''); }}
+                onClick={() => { setTab(t.id); setShareType('all'); }}
                 className={`py-3 rounded-2xl text-xs sm:text-sm font-bold touch-target transition-colors ${
                   tab === t.id
                     ? 'bg-primary-600 text-white shadow-sm'

@@ -5,6 +5,17 @@
 
 export type VisibilityType = 'private' | 'pastor_share' | 'organization_share';
 
+/** 공유받은 기록 필터 — private 제외, all 확장 */
+export type ShareTypeFilter = 'all' | 'pastor_share' | 'organization_share';
+
+export type VisibilityFilter = VisibilityType | 'all';
+
+export const SHARE_TYPE_FILTER_LABELS: Record<ShareTypeFilter, string> = {
+  all: '전체',
+  pastor_share: '교역자 공유',
+  organization_share: '교구/부서 공유',
+};
+
 /** 레거시 저장값 포함 — 읽기 호환용 */
 export type LegacyVisibilityRaw =
   | VisibilityType

@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
 import { Filter, Search, X } from 'lucide-react';
-import type { VisibilityType } from '../../../types/sharedContent';
-import { VISIBILITY_LABELS } from '../../../types/sharedContent';
+import type { VisibilityType, ShareTypeFilter } from '../../../types/sharedContent';
+import { VISIBILITY_LABELS, SHARE_TYPE_FILTER_LABELS } from '../../../types/sharedContent';
 
 export type SharedContentFilterState = {
   visibility?: VisibilityType | 'all';
+  /** 공유받은 기록 — 공유 유형 (private 제외) */
+  shareType?: ShareTypeFilter;
   authorQuery?: string;
   orgId?: string;
   dateFrom?: string;
@@ -25,6 +27,10 @@ export type SharedContentFilterProps = {
   /** member | pastor | admin */
   mode?: 'member' | 'pastor' | 'admin';
   showPrayerStatus?: boolean;
+  /** 공유 유형 필터 (전체/교역자/교구·부서) */
+  showShareTypeFilter?: boolean;
+  /** 성도 모드: 교역자 공유 옵션 숨김(직접 공유 0건일 때) */
+  hidePastorShareTypeOption?: boolean;
   orgOptions?: { id: string; name: string }[];
   className?: string;
 };
@@ -55,6 +61,8 @@ export function SharedContentSearchFilter({
   onSearchChange,
   mode = 'member',
   showPrayerStatus = false,
+  showShareTypeFilter = false,
+  hidePastorShareTypeOption = false,
   orgOptions = [],
   className = '',
 }: SharedContentFilterProps) {
@@ -62,6 +70,12 @@ export function SharedContentSearchFilter({
 
   const chips = useMemo(() => {
     const list: { key: keyof SharedContentFilterState; label: string }[] = [];
+    if (value.shareType && value.shareType !== 'all') {
+      list.push({
+        key: 'shareType',
+        label: SHARE_TYPE_FILTER_LABELS[value.shareType],
+      });
+    }
     if (value.visibility && value.visibility !== 'all') {
       list.push({
         key: 'visibility',
@@ -102,6 +116,7 @@ export function SharedContentSearchFilter({
   const clearAll = () => {
     onChange({
       visibility: 'all',
+      shareType: 'all',
       prayerStatus: 'all',
       authorRole: 'all',
       orgId: undefined,
@@ -149,6 +164,8 @@ export function SharedContentSearchFilter({
                   onChange({ ...value, dateFrom: undefined, dateTo: undefined });
                 } else if (c.key === 'visibility') {
                   onChange({ ...value, visibility: 'all' });
+                } else if (c.key === 'shareType') {
+                  onChange({ ...value, shareType: 'all' });
                 } else if (c.key === 'prayerStatus') {
                   onChange({ ...value, prayerStatus: 'all' });
                 } else if (c.key === 'authorRole') {
@@ -171,6 +188,30 @@ export function SharedContentSearchFilter({
 
       {open && (
         <div className="bg-white border border-gray-200 rounded-card p-4 space-y-3">
+          {showShareTypeFilter && (
+            <div>
+              <p className="text-xs font-bold text-gray-500 mb-1.5">공유 유형</p>
+              <select
+                value={value.shareType ?? 'all'}
+                onChange={e =>
+                  onChange({
+                    ...value,
+                    shareType: e.target.value as ShareTypeFilter,
+                  })
+                }
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm"
+              >
+                <option value="all">{SHARE_TYPE_FILTER_LABELS.all}</option>
+                {!hidePastorShareTypeOption && (
+                  <option value="pastor_share">{SHARE_TYPE_FILTER_LABELS.pastor_share}</option>
+                )}
+                <option value="organization_share">
+                  {SHARE_TYPE_FILTER_LABELS.organization_share}
+                </option>
+              </select>
+            </div>
+          )}
+
           <div>
             <p className="text-xs font-bold text-gray-500 mb-1.5">공개범위</p>
             <select
