@@ -89,10 +89,6 @@ export default function PrayerPage() {
 
   const shareablePastors = useMemo(() => getShareablePastorsForWriter(user), [user]);
   const shareableOrganizations = useMemo(() => getShareableOrganizationsForWriter(user), [user]);
-  const orgOptions = useMemo(
-    () => shareableOrganizations.all.map(o => ({ id: o.id, name: o.name })),
-    [shareableOrganizations],
-  );
 
   const openForm = () => {
     setVisibility('private');
