@@ -25,6 +25,10 @@ export type UserOrganizationTreeSelectorProps = {
   className?: string;
   /** 빈 선택 = 전체 (권장 true) */
   emptyMeansAll?: boolean;
+  /** 기본 스코프 (관리자: 전체 조직 등) */
+  defaultScope?: UserOrgTreeScope;
+  /** 섹션 제목 */
+  sectionTitle?: string;
 };
 
 function TreeCheckboxRow({
@@ -130,11 +134,17 @@ export function UserOrganizationTreeSelector({
   allowFullOrgTree = false,
   className = '',
   emptyMeansAll = true,
+  defaultScope = 'mine',
+  sectionTitle = '공유 조직',
 }: UserOrganizationTreeSelectorProps) {
   const resolvedMode = mode ?? resolveOrgTreeMode(user);
-  const [scope, setScope] = useState<UserOrgTreeScope>('mine');
+  const [scope, setScope] = useState<UserOrgTreeScope>(defaultScope);
   const [q, setQ] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    setScope(defaultScope);
+  }, [defaultScope]);
 
   const tree = useMemo(
     () =>
@@ -199,7 +209,7 @@ export function UserOrganizationTreeSelector({
   return (
     <div className={className}>
       <div className="flex items-center justify-between mb-2 gap-2">
-        <p className="text-xs font-bold text-gray-500">공유 조직</p>
+        <p className="text-xs font-bold text-gray-500">{sectionTitle}</p>
         {!isAll && (
           <span className="text-[11px] font-semibold text-primary-600">
             {selectedOrganizationIds.length}개 선택

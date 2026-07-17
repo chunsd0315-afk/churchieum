@@ -3,6 +3,7 @@
  */
 
 import type { AppUser } from './permissions';
+import { isSuperAdmin } from './permissions';
 import { getClergyByEmail } from './clergyData';
 import {
   getDistricts,
@@ -888,7 +889,8 @@ export function getGraceNoteViewInfo(
   const scope = getViewerOrganizationScope(viewer);
 
   if (visibility === 'pastor_share') {
-    if (matchesPastorShareToViewer(note, viewer)) {
+    // 최고관리자: 모든 pastor_share 조회 (일반 모아보기 공유받은 기록)
+    if (isSuperAdmin(viewer)) {
       return {
         kind: 'pastor_share',
         badgeLabel: '담당 교역자 공유',
@@ -896,8 +898,8 @@ export function getGraceNoteViewInfo(
         buckets: ['pastor_share'],
       };
     }
-    // 성도: 담당 교역자가 작성해 공유한 기록 (§1 ②)
-    if (viewer.role === 'member' && isAuthoredByMyShepherdPastor(note, viewer)) {
+    // 교역자: 본인에게 직접 공유된 기록만 (성도는 pastor_share 조회 불가)
+    if (matchesPastorShareToViewer(note, viewer)) {
       return {
         kind: 'pastor_share',
         badgeLabel: '담당 교역자 공유',
@@ -909,6 +911,21 @@ export function getGraceNoteViewInfo(
   }
 
   if (visibility === 'organization_share') {
+    if (isSuperAdmin(viewer)) {
+      const labels = formatOrganizationShareDisplayLabels({
+        sharedGroupIds: note.sharedGroupIds,
+        sharedUpperOrganizationIds: note.sharedUpperOrganizationIds,
+        sharedLowerOrganizationIds: note.sharedLowerOrganizationIds,
+        sharedDepartmentIds: note.sharedDepartmentIds,
+      });
+      const badge = labels[0] ? (labels[0].endsWith('공유') ? labels[0] : `${labels[0]} 공유`) : '교구·부서 공유';
+      return {
+        kind: 'group_department',
+        badgeLabel: badge,
+        badges: [badge],
+        buckets: ['group_org'],
+      };
+    }
     const g = matchGroupShare(note, scope);
     if (!g) return null;
     return {
@@ -947,7 +964,11 @@ export function getVisibleGraceNotesForUser<T extends GraceNoteVisibilityInput &
   return result;
 }
 
-/** 모아보기 탭 — 역할별 (성도 mine/shared, 교역자 mine/pastor_members/organization, 관리자 mine/admin_shared/admin_audit) */
+/**
+ * 모아보기 탭
+ * UI는 mine / shared 만 사용.
+ * pastor_members·organization·admin_* 는 레거시·관리 확장용으로 유지.
+ */
 export type GraceCollectTab =
   | 'mine'
   | 'shared'
@@ -955,6 +976,12 @@ export type GraceCollectTab =
   | 'organization'
   | 'admin_shared'
   | 'admin_audit';
+
+/** 공통 UI 탭 (모든 모드) */
+export const GRACE_COLLECTION_UI_TABS: { id: GraceCollectTab; label: string }[] = [
+  { id: 'mine', label: '내 기록' },
+  { id: 'shared', label: '공유받은 기록' },
+];
 
 /** 공유받은 기록 상세 구분 */
 export type GraceSharedShareKind = 'pastor' | 'upper' | 'lower' | 'department';
@@ -988,7 +1015,6 @@ export function getGraceSharedShareKind(
 
   if (visibility === 'pastor_share') {
     if (matchesPastorShareToViewer(note, viewer)) return 'pastor';
-    if (viewer.role === 'member' && isAuthoredByMyShepherdPastor(note, viewer)) return 'pastor';
     return null;
   }
 
@@ -1057,12 +1083,31 @@ export function getGraceNotesForCollectTab<T extends GraceNoteVisibilityInput & 
   }
 
   if (tab === 'shared') {
-    // 성도: 타인의 organization_share + 조회 가능한 pastor_share(직접 공유 등)
     return notes.filter(n => {
       if (isOwnNote(n, viewer)) return false;
       const visibility = migrateVisibility(n.visibility);
       if (visibility === 'private') return false;
-      return getGraceNoteViewInfo(n, viewer) !== null;
+
+      // 성도: 소속 조직 organization_share 만 (타인의 pastor_share 절대 불가)
+      if (viewer.role === 'member' && !isSuperAdmin(viewer)) {
+        if (visibility !== 'organization_share') return false;
+        return getGraceNoteViewInfo(n, viewer) !== null;
+      }
+
+      // 교역자: 본인 pastor_share + 조회 가능 organization_share
+      if (viewer.role === 'pastor' && !isSuperAdmin(viewer)) {
+        if (visibility === 'pastor_share') return matchesPastorShareToViewer(n, viewer);
+        if (visibility === 'organization_share') return getGraceNoteViewInfo(n, viewer) !== null;
+        return false;
+      }
+
+      // 최고관리자: 모든 pastor_share + organization_share (private 제외)
+      if (isSuperAdmin(viewer)) {
+        if (visibility !== 'pastor_share' && visibility !== 'organization_share') return false;
+        return getGraceNoteViewInfo(n, viewer) !== null;
+      }
+
+      return false;
     });
   }
 
@@ -1070,6 +1115,7 @@ export function getGraceNotesForCollectTab<T extends GraceNoteVisibilityInput & 
     return notes.filter(n => {
       if (isOwnNote(n, viewer)) return false;
       if (migrateVisibility(n.visibility) !== 'pastor_share') return false;
+      if (isSuperAdmin(viewer)) return true;
       return matchesPastorShareToViewer(n, viewer);
     });
   }
@@ -1083,19 +1129,51 @@ export function getGraceNotesForCollectTab<T extends GraceNoteVisibilityInput & 
   }
 
   if (tab === 'admin_shared') {
-    return notes.filter(n => {
-      if (isOwnNote(n, viewer)) return false;
-      if (migrateVisibility(n.visibility) === 'private') return false;
-      return getGraceNoteViewInfo(n, viewer) !== null;
-    });
+    // 레거시 → shared 와 동일 (관리자)
+    return getGraceNotesForCollectTab(notes, viewer, 'shared');
   }
 
   if (tab === 'admin_audit') {
-    // 관리 조회: private 제외 기본 (특별 권한 시 확장 가능)
+    // 관리 조회 확장용 — UI에서는 비노출, private 제외
     return notes.filter(n => migrateVisibility(n.visibility) !== 'private');
   }
 
   return [];
+}
+
+/** 작성자 소속 조직 ID (pastor_share 세부 필터용) */
+export function getAuthorOrganizationIds(note: {
+  userId?: string;
+  authorName?: string;
+  authorDistrictId?: string;
+  authorZoneId?: string;
+  authorDepartmentIds?: string[];
+}): string[] {
+  const m = resolveMembershipForAuthor(note);
+  if (!m) return [];
+  const ids: string[] = [];
+  if (m.districtId) ids.push(m.districtId);
+  if (m.zoneId) ids.push(m.zoneId);
+  for (const id of m.departmentIds) ids.push(id);
+  return uniqueIds(ids);
+}
+
+/** 작성자 소속 조직 OR 필터 ([] = 전체) */
+export function matchesAuthorOrganizationFilter(
+  note: {
+    userId?: string;
+    authorName?: string;
+    authorDistrictId?: string;
+    authorZoneId?: string;
+    authorDepartmentIds?: string[];
+  },
+  selectedOrganizationIds: string[] | undefined | null,
+): boolean {
+  const selected = selectedOrganizationIds ?? [];
+  if (selected.length === 0) return true;
+  const authorOrgs = getAuthorOrganizationIds(note);
+  if (authorOrgs.length === 0) return false;
+  return authorOrgs.some(id => selected.includes(id));
 }
 
 /** @deprecated alias */

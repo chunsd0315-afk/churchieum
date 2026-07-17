@@ -22,19 +22,10 @@ export const GRACE_HUB_FEATURES: FeatureCardConfig[] = [
   {
     id: 'all-list',
     title: '은혜기록 모아보기',
-    description: '작성한 은혜기록을 한곳에서 확인하고 검색합니다.',
+    description: '내 기록과 공유받은 은혜를 한곳에서 확인합니다.',
     icon: Library,
     iconBg: 'bg-amber-50',
     iconColor: 'text-amber-600',
-  },
-  {
-    id: 'pastor-notes',
-    title: '담당 성도 은혜기록',
-    description: '담당 성도가 공유한 은혜기록을 확인하고 함께 돌봅니다.',
-    icon: HeartHandshake,
-    iconBg: 'bg-rose-50',
-    iconColor: 'text-rose-600',
-    roles: ['pastor', 'super_admin'],
   },
 ];
 

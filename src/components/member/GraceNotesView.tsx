@@ -31,6 +31,8 @@ import {
   getGraceNotesForCollectTab,
   getGraceListBadge,
   sortGraceNotesForMemberView,
+  matchesAuthorOrganizationFilter,
+  GRACE_COLLECTION_UI_TABS,
   type GraceCollectTab,
   type GraceNoteListSort,
 } from '../../services/graceNoteShareScope';
@@ -39,14 +41,15 @@ import {
   matchesOrganizationFilterForRecord,
   SHARE_TYPE_FILTER_LABELS,
 } from '../../services/sharedContentAccess';
-import type { ShareTypeFilter } from '../../types/sharedContent';
-import { migrateVisibility } from '../../types/sharedContent';
+import type { ShareTypeFilter, VisibilityFilter } from '../../types/sharedContent';
+import { migrateVisibility, VISIBILITY_LABELS } from '../../types/sharedContent';
 import { UserOrganizationTreeSelector } from '../common/shared-content/UserOrganizationTreeSelector';
 import {
   getOrganizationPathLabel,
   getUserCoreOrganizationIds,
   resolveOrgTreeMode,
 } from '../../services/userOrganizationTree';
+import { isSuperAdmin } from '../../services/permissions';
 
 export {
   GraceNoteEditor,
@@ -101,18 +104,22 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
   const [tab, setTab] = useState<GraceCollectTab>('mine');
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<GraceNoteType | ''>(initialType ?? '');
+  const [visibilityFilter, setVisibilityFilter] = useState<VisibilityFilter>('all');
   const [sortOrder, setSortOrder] = useState<GraceNoteListSort>('newest');
   const [datePreset, setDatePreset] = useState<'all' | 'today' | 'week' | 'month' | 'custom'>('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [shareType, setShareType] = useState<ShareTypeFilter>('all');
   const [organizationIds, setOrganizationIds] = useState<string[]>([]);
+  const [authorQuery, setAuthorQuery] = useState('');
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [notes, setNotes] = useState(() => getAllGraceNotes());
 
-  // 통독센터에서 plan 지정으로 진입한 경우 유지
   const planFilter = initialPlanId ?? '';
+  const isAdminUser = isSuperAdmin(user);
+  const isPastorUser = user?.role === 'pastor' && !isAdminUser;
+  const isMemberUser = !isAdminUser && !isPastorUser;
 
   const tabNotes = useMemo(
     () => getGraceNotesForCollectTab(notes, user, tab),
@@ -128,7 +135,7 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
     }
     if (datePreset === 'week') {
       const start = new Date(today);
-      start.setDate(today.getDate() - ((today.getDay() + 6) % 7)); // 월요일 시작
+      start.setDate(today.getDate() - ((today.getDay() + 6) % 7));
       return { from: toIso(start), to: toIso(today) };
     }
     if (datePreset === 'month') {
@@ -141,19 +148,22 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
     return { from: '', to: '' };
   }, [datePreset, dateFrom, dateTo]);
 
-  const showShareTypeFilter = tab === 'shared' || tab === 'admin_shared';
+  const showShareTypeFilter = tab === 'shared';
+  /** 공유 유형이 세부일 때만 조직 트리 표시 */
+  const showOrgTree =
+    tab === 'shared' &&
+    (shareType === 'organization_share' ||
+      ((isPastorUser || isAdminUser) && shareType === 'pastor_share'));
 
   const coreOrgIds = useMemo(() => getUserCoreOrganizationIds(user), [user]);
   const orgTreeMode = useMemo(() => resolveOrgTreeMode(user), [user]);
+  const orgTreeDefaultScope =
+    isAdminUser && (shareType === 'organization_share' || shareType === 'pastor_share')
+      ? 'all'
+      : 'mine';
 
-  const hasPastorShareInTab = useMemo(
-    () => tabNotes.some(n => migrateVisibility(n.visibility) === 'pastor_share'),
-    [tabNotes],
-  );
-
-  /** 성도: 직접 공유된 교역자 공유가 없으면 옵션 숨김 */
-  const hidePastorShareTypeOption =
-    user?.role === 'member' && !hasPastorShareInTab;
+  /** 성도: 담당 교역자 공유 필터 숨김 */
+  const hidePastorShareTypeOption = isMemberUser;
 
   useEffect(() => {
     if (hidePastorShareTypeOption && shareType === 'pastor_share') {
@@ -162,29 +172,47 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
   }, [hidePastorShareTypeOption, shareType]);
 
   useEffect(() => {
-    if (shareType !== 'organization_share' && organizationIds.length > 0) {
+    if (!showOrgTree && organizationIds.length > 0) {
       setOrganizationIds([]);
     }
-  }, [shareType, organizationIds.length]);
+  }, [showOrgTree, organizationIds.length]);
 
   const handleShareTypeChange = (next: ShareTypeFilter) => {
     setShareType(next);
-    if (next !== 'organization_share') setOrganizationIds([]);
+    setOrganizationIds([]);
   };
 
   const filtered = useMemo(() => {
     let list = tabNotes.filter(n => {
-      if (typeFilter && n.type !== typeFilter) return false;
+      if (tab === 'mine') {
+        if (typeFilter && n.type !== typeFilter) return false;
+        if (visibilityFilter !== 'all' && migrateVisibility(n.visibility) !== visibilityFilter) {
+          return false;
+        }
+      }
+
+      if (tab === 'shared') {
+        if (showShareTypeFilter && !matchesShareTypeFilter(n, shareType)) return false;
+
+        if (showOrgTree && organizationIds.length > 0) {
+          if (shareType === 'pastor_share') {
+            if (!matchesAuthorOrganizationFilter(n, organizationIds)) return false;
+          } else if (shareType === 'organization_share') {
+            if (!matchesOrganizationFilterForRecord(n, organizationIds)) return false;
+          }
+        }
+
+        if ((isPastorUser || isAdminUser) && authorQuery.trim()) {
+          if (!n.authorName?.toLowerCase().includes(authorQuery.trim().toLowerCase())) {
+            return false;
+          }
+        }
+      }
+
       if (planFilter && n.planId !== planFilter) return false;
       if (dateRange.from && n.createdAt.slice(0, 10) < dateRange.from) return false;
       if (dateRange.to && n.createdAt.slice(0, 10) > dateRange.to) return false;
-      if (showShareTypeFilter && !matchesShareTypeFilter(n, shareType)) return false;
-      const applyOrgFilter =
-        tab === 'organization' ||
-        (showShareTypeFilter && shareType === 'organization_share');
-      if (applyOrgFilter && !matchesOrganizationFilterForRecord(n, organizationIds)) {
-        return false;
-      }
+
       if (search.trim()) {
         const q = search.toLowerCase();
         const searchable = [
@@ -198,17 +226,25 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
     list = sortGraceNotesForMemberView(list, user, sortOrder === 'oldest' ? 'oldest' : 'newest');
     return list;
   }, [
-    tabNotes, typeFilter, planFilter, dateRange, shareType, organizationIds,
-    showShareTypeFilter, search, sortOrder, user, tab,
+    tabNotes, tab, typeFilter, visibilityFilter, planFilter, dateRange,
+    shareType, organizationIds, showShareTypeFilter, showOrgTree,
+    authorQuery, isPastorUser, isAdminUser, search, sortOrder, user,
   ]);
 
   const activeChips = useMemo(() => {
     const chips: { key: string; label: string; clear: () => void }[] = [];
-    if (typeFilter) {
+    if (tab === 'mine' && typeFilter) {
       chips.push({
         key: 'type',
         label: typeFilter === 'reading' ? '성경통독' : typeFilter === 'sermon' ? '설교' : '자유',
         clear: () => setTypeFilter(''),
+      });
+    }
+    if (tab === 'mine' && visibilityFilter !== 'all') {
+      chips.push({
+        key: 'visibility',
+        label: VISIBILITY_LABELS[visibilityFilter],
+        clear: () => setVisibilityFilter('all'),
       });
     }
     if (datePreset === 'today') chips.push({ key: 'date', label: '오늘', clear: () => setDatePreset('all') });
@@ -238,20 +274,29 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
         clear: () => setOrganizationIds(prev => prev.filter(x => x !== id)),
       });
     }
+    if (authorQuery.trim()) {
+      chips.push({
+        key: 'author',
+        label: `작성자: ${authorQuery.trim()}`,
+        clear: () => setAuthorQuery(''),
+      });
+    }
     return chips;
   }, [
-    typeFilter, datePreset, dateFrom, dateTo, sortOrder, shareType,
-    showShareTypeFilter, organizationIds,
+    tab, typeFilter, visibilityFilter, datePreset, dateFrom, dateTo, sortOrder,
+    shareType, showShareTypeFilter, organizationIds, authorQuery,
   ]);
 
   const resetFilters = () => {
     setTypeFilter('');
+    setVisibilityFilter('all');
     setSortOrder('newest');
     setDatePreset('all');
     setDateFrom('');
     setDateTo('');
     setShareType('all');
     setOrganizationIds([]);
+    setAuthorQuery('');
     setSearch('');
   };
 
@@ -277,113 +322,116 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
     return 'bg-emerald-50 text-emerald-700';
   };
 
-  const tabs: { id: GraceCollectTab; label: string }[] = useMemo(() => {
-    if (user?.role === 'super_admin') {
-      return [
-        { id: 'mine', label: '내 기록' },
-        { id: 'admin_shared', label: '공유 기록' },
-        { id: 'admin_audit', label: '관리 조회' },
-      ];
-    }
-    if (user?.role === 'pastor') {
-      return [
-        { id: 'mine', label: '내 기록' },
-        { id: 'pastor_members', label: '담당 성도' },
-        { id: 'organization', label: '교구·부서' },
-      ];
-    }
-    return [
-      { id: 'mine', label: '내 기록' },
-      { id: 'shared', label: '공유받은 기록' },
-    ];
-  }, [user?.role]);
+  const tabs = GRACE_COLLECTION_UI_TABS;
 
   useEffect(() => {
     if (!tabs.some(t => t.id === tab)) setTab('mine');
   }, [tabs, tab]);
 
-  const emptyCopy: Partial<Record<GraceCollectTab, { title: string; desc: string }>> = {
-    mine: {
-      title: '아직 작성한 은혜기록이 없습니다.',
-      desc: '말씀과 삶 속에서 받은 은혜를 기록해 보세요.',
-    },
-    shared: {
-      title:
-        shareType === 'pastor_share'
-          ? '교역자에게 직접 공유받은 은혜기록이 없습니다.'
-          : shareType === 'organization_share'
-            ? coreOrgIds.length === 0
-              ? '소속된 교구·부서가 없습니다.'
-              : organizationIds.length === 1
-                ? `${getOrganizationPathLabel(organizationIds[0])}에 공유된 은혜기록이 없습니다.`
-                : organizationIds.length > 1
-                  ? '선택한 교구·부서에 공유된 은혜기록이 없습니다.'
-                  : '내 교구·부서에 공유된 은혜기록이 없습니다.'
-            : '공유받은 은혜기록이 없습니다.',
-      desc:
-        shareType === 'organization_share' && coreOrgIds.length === 0
-          ? '내정보 또는 조직관리에서 소속 조직을 확인해 주세요.'
-          : shareType === 'pastor_share'
-            ? '담당 교역자가 직접 공유하면 이곳에 나타납니다.'
-            : '소속 교구·부서에서 공유하면 이곳에 나타납니다.',
-    },
-    pastor_members: {
-      title: '담당 성도가 공유한 기록이 없습니다.',
-      desc: '성도가 담당 교역자와 공유하면 이곳에 나타납니다.',
-    },
-    organization: {
-      title:
-        coreOrgIds.length === 0
-          ? '소속된 교구·부서가 없습니다.'
-          : organizationIds.length > 0
+  const emptyState = useMemo((): { title: string; desc: string } => {
+    if (tab === 'mine') {
+      return {
+        title: '아직 작성한 은혜기록이 없습니다.',
+        desc: '말씀과 삶 속에서 받은 은혜를 기록해 보세요.',
+      };
+    }
+
+    if (shareType === 'pastor_share') {
+      return {
+        title: '교역자에게 직접 공유받은 은혜기록이 없습니다.',
+        desc: isMemberUser
+          ? '담당 교역자가 직접 공유하면 이곳에 나타납니다.'
+          : '성도·교역자가 교역자와 공유한 기록이 이곳에 나타납니다.',
+      };
+    }
+
+    if (shareType === 'organization_share') {
+      if (coreOrgIds.length === 0 && isMemberUser) {
+        return {
+          title: '소속된 교구·부서가 없습니다.',
+          desc: '내정보 또는 조직관리에서 소속 조직을 확인해 주세요.',
+        };
+      }
+      const title =
+        organizationIds.length === 1
+          ? `${getOrganizationPathLabel(organizationIds[0])}에 공유된 은혜기록이 없습니다.`
+          : organizationIds.length > 1
             ? '선택한 교구·부서에 공유된 은혜기록이 없습니다.'
-            : '내 교구·부서에 공유된 은혜기록이 없습니다.',
-      desc:
-        coreOrgIds.length === 0
-          ? '내정보 또는 조직관리에서 소속 조직을 확인해 주세요.'
-          : '담당·소속 조직에 공유된 기록이 이곳에 나타납니다.',
-    },
-    admin_shared: {
-      title:
-        shareType === 'pastor_share'
-          ? '교역자에게 직접 공유받은 은혜기록이 없습니다.'
-          : shareType === 'organization_share'
-            ? organizationIds.length > 0
-              ? '선택한 교구·부서에 공유된 은혜기록이 없습니다.'
-              : '내 교구·부서에 공유된 은혜기록이 없습니다.'
-            : '공유받은 기록이 없습니다.',
+            : '내 교구·부서에 공유된 은혜기록이 없습니다.';
+      return {
+        title,
+        desc: isMemberUser
+          ? '소속 교구·부서에서 공유하면 이곳에 나타납니다.'
+          : '직접 공유되거나 소속 조직에 공유된 기록이 이곳에 나타납니다.',
+      };
+    }
+
+    if (isMemberUser) {
+      return {
+        title: '공유받은 은혜기록이 없습니다.',
+        desc: '소속 교구·부서에서 공유하면 이곳에 나타납니다.',
+      };
+    }
+    return {
+      title: '공유받은 기록이 없습니다.',
       desc: '직접 공유되거나 소속 조직에 공유된 기록이 이곳에 나타납니다.',
-    },
-    admin_audit: {
-      title: '조회할 기록이 없습니다.',
-      desc: '관리 조회에서는 나만 보기 기록을 제외합니다.',
-    },
-  };
+    };
+  }, [tab, shareType, coreOrgIds.length, organizationIds, isMemberUser]);
+
+  const orgTreeSectionTitle =
+    shareType === 'pastor_share' ? '작성자 소속 조직' : '공유 조직';
 
   const filterPanel = (
     <div className="space-y-5">
-      <div>
-        <p className="text-sm font-bold text-gray-800 mb-2">기록 유형</p>
-        <div className="flex flex-wrap gap-2">
-          {([
-            { id: '' as const, label: '전체' },
-            { id: 'reading' as const, label: '성경통독' },
-            { id: 'sermon' as const, label: '설교' },
-            { id: 'personal' as const, label: '자유' },
-          ]).map(opt => (
-            <button
-              key={opt.id || 'all'}
-              type="button"
-              onClick={() => setTypeFilter(opt.id)}
-              className={`px-3 py-2 rounded-xl text-xs font-semibold touch-target ${
-                typeFilter === opt.id ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600'
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      {tab === 'mine' && (
+        <>
+          <div>
+            <p className="text-sm font-bold text-gray-800 mb-2">기록 유형</p>
+            <div className="flex flex-wrap gap-2">
+              {([
+                { id: '' as const, label: '전체' },
+                { id: 'reading' as const, label: '성경통독' },
+                { id: 'sermon' as const, label: '설교' },
+                { id: 'personal' as const, label: '자유' },
+              ]).map(opt => (
+                <button
+                  key={opt.id || 'all'}
+                  type="button"
+                  onClick={() => setTypeFilter(opt.id)}
+                  className={`px-3 py-2 rounded-xl text-xs font-semibold touch-target ${
+                    typeFilter === opt.id ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-sm font-bold text-gray-800 mb-2">공개범위</p>
+            <div className="flex flex-wrap gap-2">
+              {([
+                { id: 'all' as const, label: '전체' },
+                { id: 'private' as const, label: VISIBILITY_LABELS.private },
+                { id: 'pastor_share' as const, label: VISIBILITY_LABELS.pastor_share },
+                { id: 'organization_share' as const, label: VISIBILITY_LABELS.organization_share },
+              ]).map(opt => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setVisibilityFilter(opt.id)}
+                  className={`px-3 py-2 rounded-xl text-xs font-semibold touch-target ${
+                    visibilityFilter === opt.id ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
 
       <div>
         <p className="text-sm font-bold text-gray-800 mb-2">기간</p>
@@ -432,49 +480,53 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
       </div>
 
       {showShareTypeFilter && (
-        <div className="space-y-3">
-          <div>
-            <p className="text-sm font-bold text-gray-800 mb-2">공유 유형</p>
-            <div className="flex flex-wrap gap-2">
-              {([
-                { id: 'all' as const, label: SHARE_TYPE_FILTER_LABELS.all },
-                ...(!hidePastorShareTypeOption
-                  ? [{ id: 'pastor_share' as const, label: SHARE_TYPE_FILTER_LABELS.pastor_share }]
-                  : []),
-                { id: 'organization_share' as const, label: SHARE_TYPE_FILTER_LABELS.organization_share },
-              ]).map(opt => (
-                <button
-                  key={opt.id}
-                  type="button"
-                  onClick={() => handleShareTypeChange(opt.id)}
-                  className={`px-3 py-2 rounded-xl text-xs font-semibold touch-target ${
-                    shareType === opt.id ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
+        <div>
+          <p className="text-sm font-bold text-gray-800 mb-2">공유 유형</p>
+          <div className="flex flex-wrap gap-2">
+            {([
+              { id: 'all' as const, label: SHARE_TYPE_FILTER_LABELS.all },
+              ...(!hidePastorShareTypeOption
+                ? [{ id: 'pastor_share' as const, label: SHARE_TYPE_FILTER_LABELS.pastor_share }]
+                : []),
+              { id: 'organization_share' as const, label: SHARE_TYPE_FILTER_LABELS.organization_share },
+            ]).map(opt => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => handleShareTypeChange(opt.id)}
+                className={`px-3 py-2 rounded-xl text-xs font-semibold touch-target ${
+                  shareType === opt.id ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
           </div>
-
-          {shareType === 'organization_share' && (
-            <UserOrganizationTreeSelector
-              user={user}
-              mode={orgTreeMode}
-              selectedOrganizationIds={organizationIds}
-              onChange={setOrganizationIds}
-            />
-          )}
         </div>
       )}
 
-      {tab === 'organization' && (
+      {showOrgTree && (
         <UserOrganizationTreeSelector
           user={user}
           mode={orgTreeMode}
           selectedOrganizationIds={organizationIds}
           onChange={setOrganizationIds}
+          defaultScope={orgTreeDefaultScope}
+          sectionTitle={orgTreeSectionTitle}
         />
+      )}
+
+      {tab === 'shared' && (isPastorUser || isAdminUser) && (
+        <div>
+          <p className="text-sm font-bold text-gray-800 mb-2">작성자</p>
+          <input
+            type="text"
+            value={authorQuery}
+            onChange={e => setAuthorQuery(e.target.value)}
+            placeholder="작성자 이름"
+            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50"
+          />
+        </div>
       )}
 
       <div className="flex gap-2 pt-1">
@@ -489,7 +541,6 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
       </div>
     </div>
   );
-
   return (
     <>
       {deleteId && (
@@ -569,7 +620,7 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
               <button
                 key={t.id}
                 type="button"
-                onClick={() => { setTab(t.id); setShareType('all'); setOrganizationIds([]); }}
+                onClick={() => { setTab(t.id); setShareType('all'); setOrganizationIds([]); setVisibilityFilter('all'); setAuthorQuery(''); }}
                 className={`py-3 rounded-2xl text-xs sm:text-sm font-bold touch-target transition-colors ${
                   tab === t.id
                     ? 'bg-primary-600 text-white shadow-sm'
@@ -603,8 +654,8 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
           {filtered.length === 0 ? (
             <div className="bg-white rounded-2xl p-10 text-center border border-gray-100">
               <Heart className="w-12 h-12 text-rose-200 mx-auto mb-3" />
-              <p className="font-semibold text-gray-600 text-sm">{emptyCopy[tab]?.title ?? '기록이 없습니다.'}</p>
-              <p className="text-xs text-gray-400 mt-1 leading-relaxed">{emptyCopy[tab]?.desc ?? ''}</p>
+              <p className="font-semibold text-gray-600 text-sm">{emptyState.title ?? '기록이 없습니다.'}</p>
+              <p className="text-xs text-gray-400 mt-1 leading-relaxed">{emptyState.desc ?? ''}</p>
             </div>
           ) : (
             <div className="church-list">

@@ -196,10 +196,12 @@ export function canViewSharedContent(
   }
 
   if (visibility === 'pastor_share') {
+    if (isSuperAdmin(currentUser)) return true;
     return pastorShareMatches(content, currentUser);
   }
 
   if (visibility === 'organization_share') {
+    if (isSuperAdmin(currentUser)) return true;
     return organizationShareMatches(content, currentUser);
   }
 
@@ -257,9 +259,13 @@ export function filterSharedContentByTab<T extends SharedContentLike & { id?: st
     if (tab === 'mine') return own;
 
     if (tab === 'shared') {
-      // 성도: organization_share + 본인에게 직접 공유된 pastor_share
       if (own) return false;
       if (visibility === 'private') return false;
+      // 성도: organization_share만
+      if (user.role === 'member' && !isSuperAdmin(user)) {
+        if (visibility !== 'organization_share') return false;
+        return canViewSharedContent(item, { currentUser: user });
+      }
       return canViewSharedContent(item, { currentUser: user });
     }
 

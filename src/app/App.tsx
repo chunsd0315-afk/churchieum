@@ -26,7 +26,6 @@ import AdminContentsPage from '../pages/admin/AdminContentsPage';
 import MemberManagementPage from '../pages/admin/MemberManagementPage';
 import DepartmentManagementPage from '../pages/admin/DepartmentManagementPage';
 import SermonManagementPage from '../pages/admin/SermonManagementPage';
-import QtManagementPage from '../pages/admin/QtManagementPage';
 import AnnouncementManagementPage from '../pages/admin/AnnouncementManagementPage';
 import PrayerManagementPage from '../pages/admin/PrayerManagementPage';
 import VisitManagementPage from '../pages/admin/VisitManagementPage';
@@ -253,7 +252,7 @@ function AppContent() {
         {adminPage === 'invitations' && <SafePage><InvitationPage onNavigate={(p) => setAdminPage(p as AdminPage)} /></SafePage>}
         {adminPage === 'contents' && <SafePage><AdminContentsPage onNavigate={setAdminPage} /></SafePage>}
         {adminPage === 'sermons' && <SafePage><SermonManagementPage /></SafePage>}
-        {adminPage === 'qt' && <SafePage><QtManagementPage /></SafePage>}
+        {adminPage === 'qt' && <SafePage><GraceNotesPage /></SafePage>}
         {adminPage === 'announcements' && <SafePage><AnnouncementManagementPage /></SafePage>}
         {adminPage === 'bulletins' && <SafePage><BulletinManagementPage /></SafePage>}
         {adminPage === 'events' && <SafePage><EventManagementPage /></SafePage>}
