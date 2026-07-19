@@ -44,12 +44,18 @@ import {
 import type { ShareTypeFilter, VisibilityFilter } from '../../types/sharedContent';
 import { migrateVisibility, VISIBILITY_LABELS } from '../../types/sharedContent';
 import { UserOrganizationTreeSelector } from '../common/shared-content/UserOrganizationTreeSelector';
+import { PastorOrgFilterSelector } from '../common/shared-content/PastorOrgFilterSelector';
 import {
   getOrganizationPathLabel,
   getUserCoreOrganizationIds,
   resolveOrgTreeMode,
 } from '../../services/userOrganizationTree';
 import { isSuperAdmin } from '../../services/permissions';
+import {
+  getFilterPastorsForUser,
+  matchesSharedPastorFilter,
+  pastorLabel,
+} from '../../services/graceShareFilterHelpers';
 
 export {
   GraceNoteEditor,
@@ -90,6 +96,17 @@ function shareSummary(note: GraceNote): string | null {
   return null;
 }
 
+const PASTORAL_AUTHOR_ROLES = new Set([
+  'pastor', 'admin', 'super_admin',
+  '담임목사', '부목사', '목사', '전도사', '교육전도사', '선교사', '간사',
+]);
+
+function isPastoralGraceAuthorRole(role?: string): boolean {
+  if (!role) return false;
+  if (PASTORAL_AUTHOR_ROLES.has(role)) return true;
+  return role.includes('목사') || role.includes('전도사');
+}
+
 // ─── Grace Note List View (모아보기) ─────────────────────────────────────────
 
 export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, initialType }: {
@@ -111,6 +128,8 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
   const [dateTo, setDateTo] = useState('');
   const [shareType, setShareType] = useState<ShareTypeFilter>('all');
   const [organizationIds, setOrganizationIds] = useState<string[]>([]);
+  const [selectedPastorIds, setSelectedPastorIds] = useState<string[]>([]);
+  const [authorRole, setAuthorRole] = useState<'all' | 'member' | 'pastor'>('all');
   const [authorQuery, setAuthorQuery] = useState('');
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -149,18 +168,46 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
   }, [datePreset, dateFrom, dateTo]);
 
   const showShareTypeFilter = tab === 'shared';
-  /** 공유 유형이 세부일 때만 조직 트리 표시 */
-  const showOrgTree =
+
+  const showMineOrgTree =
+    tab === 'mine' &&
+    (visibilityFilter === 'pastor_share' || visibilityFilter === 'organization_share');
+
+  const showSharedOrgTree =
     tab === 'shared' &&
     (shareType === 'organization_share' ||
-      ((isPastorUser || isAdminUser) && shareType === 'pastor_share'));
+      ((isPastorUser || isAdminUser) && shareType === 'pastor_share') ||
+      (isMemberUser && shareType === 'organization_share'));
+
+  const showOrgTree = showMineOrgTree || showSharedOrgTree;
+
+  const showPastorPicker =
+    (tab === 'mine' && visibilityFilter === 'pastor_share') ||
+    (tab === 'shared' && isAdminUser && shareType === 'pastor_share');
 
   const coreOrgIds = useMemo(() => getUserCoreOrganizationIds(user), [user]);
   const orgTreeMode = useMemo(() => resolveOrgTreeMode(user), [user]);
+
   const orgTreeDefaultScope =
-    isAdminUser && (shareType === 'organization_share' || shareType === 'pastor_share')
+    isAdminUser &&
+    ((tab === 'mine' && (visibilityFilter === 'pastor_share' || visibilityFilter === 'organization_share')) ||
+      (tab === 'shared' && (shareType === 'pastor_share' || shareType === 'organization_share')))
       ? 'all'
       : 'mine';
+
+  const orgTreeSectionTitle =
+    tab === 'mine'
+      ? visibilityFilter === 'pastor_share'
+        ? '조직 선택'
+        : '공유 조직'
+      : shareType === 'pastor_share'
+        ? '작성자 소속 조직'
+        : '공유 조직';
+
+  const pastorFilterData = useMemo(
+    () => getFilterPastorsForUser(user, organizationIds),
+    [user, organizationIds],
+  );
 
   /** 성도: 담당 교역자 공유 필터 숨김 */
   const hidePastorShareTypeOption = isMemberUser;
@@ -177,9 +224,25 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
     }
   }, [showOrgTree, organizationIds.length]);
 
+  useEffect(() => {
+    if (!showPastorPicker && selectedPastorIds.length > 0) {
+      setSelectedPastorIds([]);
+    }
+  }, [showPastorPicker, selectedPastorIds.length]);
+
+  const handleVisibilityFilterChange = (next: VisibilityFilter) => {
+    setVisibilityFilter(next);
+    setOrganizationIds([]);
+    setSelectedPastorIds([]);
+  };
+
   const handleShareTypeChange = (next: ShareTypeFilter) => {
     setShareType(next);
     setOrganizationIds([]);
+    setSelectedPastorIds([]);
+    if (next !== 'pastor_share') {
+      setAuthorRole('all');
+    }
   };
 
   const filtered = useMemo(() => {
@@ -188,6 +251,24 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
         if (typeFilter && n.type !== typeFilter) return false;
         if (visibilityFilter !== 'all' && migrateVisibility(n.visibility) !== visibilityFilter) {
           return false;
+        }
+
+        if (visibilityFilter === 'pastor_share' && selectedPastorIds.length > 0) {
+          if (!matchesSharedPastorFilter(n, selectedPastorIds)) return false;
+        }
+        if (visibilityFilter === 'organization_share' && organizationIds.length > 0) {
+          if (!matchesOrganizationFilterForRecord(n, organizationIds)) return false;
+        }
+        if (
+          visibilityFilter === 'pastor_share' &&
+          organizationIds.length > 0 &&
+          selectedPastorIds.length === 0
+        ) {
+          const allowed = new Set(pastorFilterData.flat.map(p => p.id));
+          if (allowed.size > 0) {
+            const ids = n.sharedPastorIds ?? [];
+            if (!n.sharedPastorAll && !ids.some(id => allowed.has(id))) return false;
+          }
         }
       }
 
@@ -200,6 +281,16 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
           } else if (shareType === 'organization_share') {
             if (!matchesOrganizationFilterForRecord(n, organizationIds)) return false;
           }
+        }
+
+        if (showPastorPicker && selectedPastorIds.length > 0) {
+          if (!matchesSharedPastorFilter(n, selectedPastorIds)) return false;
+        }
+
+        if ((isPastorUser || isAdminUser) && authorRole !== 'all') {
+          const isPastoral = isPastoralGraceAuthorRole(n.authorRole);
+          if (authorRole === 'member' && isPastoral) return false;
+          if (authorRole === 'pastor' && !isPastoral) return false;
         }
 
         if ((isPastorUser || isAdminUser) && authorQuery.trim()) {
@@ -227,8 +318,9 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
     return list;
   }, [
     tabNotes, tab, typeFilter, visibilityFilter, planFilter, dateRange,
-    shareType, organizationIds, showShareTypeFilter, showOrgTree,
-    authorQuery, isPastorUser, isAdminUser, search, sortOrder, user,
+    shareType, organizationIds, selectedPastorIds, showShareTypeFilter, showOrgTree,
+    showPastorPicker, authorRole, authorQuery, isPastorUser, isAdminUser,
+    search, sortOrder, user, pastorFilterData,
   ]);
 
   const activeChips = useMemo(() => {
@@ -244,7 +336,7 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
       chips.push({
         key: 'visibility',
         label: VISIBILITY_LABELS[visibilityFilter],
-        clear: () => setVisibilityFilter('all'),
+        clear: () => handleVisibilityFilterChange('all'),
       });
     }
     if (datePreset === 'today') chips.push({ key: 'date', label: '오늘', clear: () => setDatePreset('all') });
@@ -264,7 +356,7 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
       chips.push({
         key: 'shareType',
         label: SHARE_TYPE_FILTER_LABELS[shareType],
-        clear: () => { setShareType('all'); setOrganizationIds([]); },
+        clear: () => handleShareTypeChange('all'),
       });
     }
     for (const id of organizationIds) {
@@ -272,6 +364,21 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
         key: `org:${id}`,
         label: getOrganizationPathLabel(id),
         clear: () => setOrganizationIds(prev => prev.filter(x => x !== id)),
+      });
+    }
+    for (const id of selectedPastorIds) {
+      const p = pastorFilterData.flat.find(x => x.id === id);
+      chips.push({
+        key: `pastor:${id}`,
+        label: p ? pastorLabel(p) : id,
+        clear: () => setSelectedPastorIds(prev => prev.filter(x => x !== id)),
+      });
+    }
+    if (tab === 'shared' && authorRole !== 'all') {
+      chips.push({
+        key: 'authorRole',
+        label: authorRole === 'member' ? '성도' : '교역자',
+        clear: () => setAuthorRole('all'),
       });
     }
     if (authorQuery.trim()) {
@@ -284,7 +391,8 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
     return chips;
   }, [
     tab, typeFilter, visibilityFilter, datePreset, dateFrom, dateTo, sortOrder,
-    shareType, showShareTypeFilter, organizationIds, authorQuery,
+    shareType, showShareTypeFilter, organizationIds, selectedPastorIds,
+    authorRole, authorQuery, pastorFilterData,
   ]);
 
   const resetFilters = () => {
@@ -296,9 +404,23 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
     setDateTo('');
     setShareType('all');
     setOrganizationIds([]);
+    setSelectedPastorIds([]);
+    setAuthorRole('all');
     setAuthorQuery('');
     setSearch('');
   };
+
+  const hasAppliedFilters =
+    typeFilter !== '' ||
+    visibilityFilter !== 'all' ||
+    datePreset !== 'all' ||
+    sortOrder !== 'oldest' ||
+    shareType !== 'all' ||
+    organizationIds.length > 0 ||
+    selectedPastorIds.length > 0 ||
+    authorRole !== 'all' ||
+    authorQuery.trim() !== '' ||
+    search.trim() !== '';
 
   const isOwn = (note: GraceNote) => Boolean(user?.id && note.userId === user.id);
 
@@ -330,6 +452,12 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
 
   const emptyState = useMemo((): { title: string; desc: string } => {
     if (tab === 'mine') {
+      if (hasAppliedFilters) {
+        return {
+          title: '조건에 맞는 내 은혜기록이 없습니다.',
+          desc: '필터 조건을 바꾸거나 초기화해 보세요.',
+        };
+      }
       return {
         title: '아직 작성한 은혜기록이 없습니다.',
         desc: '말씀과 삶 속에서 받은 은혜를 기록해 보세요.',
@@ -376,10 +504,7 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
       title: '공유받은 기록이 없습니다.',
       desc: '직접 공유되거나 소속 조직에 공유된 기록이 이곳에 나타납니다.',
     };
-  }, [tab, shareType, coreOrgIds.length, organizationIds, isMemberUser]);
-
-  const orgTreeSectionTitle =
-    shareType === 'pastor_share' ? '작성자 소속 조직' : '공유 조직';
+  }, [tab, shareType, coreOrgIds.length, organizationIds, isMemberUser, hasAppliedFilters]);
 
   const filterPanel = (
     <div className="space-y-5">
@@ -420,7 +545,7 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
                 <button
                   key={opt.id}
                   type="button"
-                  onClick={() => setVisibilityFilter(opt.id)}
+                  onClick={() => handleVisibilityFilterChange(opt.id)}
                   className={`px-3 py-2 rounded-xl text-xs font-semibold touch-target ${
                     visibilityFilter === opt.id ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600'
                   }`}
@@ -430,6 +555,26 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
               ))}
             </div>
           </div>
+
+          {showMineOrgTree && (
+            <>
+              <UserOrganizationTreeSelector
+                user={user}
+                mode={orgTreeMode}
+                selectedOrganizationIds={organizationIds}
+                onChange={setOrganizationIds}
+                defaultScope={orgTreeDefaultScope}
+                sectionTitle={orgTreeSectionTitle}
+              />
+              {showPastorPicker && (
+                <PastorOrgFilterSelector
+                  groups={pastorFilterData.groups}
+                  selectedPastorIds={selectedPastorIds}
+                  onChange={setSelectedPastorIds}
+                />
+              )}
+            </>
+          )}
         </>
       )}
 
@@ -516,17 +661,49 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
         />
       )}
 
+      {showPastorPicker && tab === 'shared' && (
+        <PastorOrgFilterSelector
+          groups={pastorFilterData.groups}
+          selectedPastorIds={selectedPastorIds}
+          onChange={setSelectedPastorIds}
+          sectionTitle="공유받은 교역자"
+        />
+      )}
+
       {tab === 'shared' && (isPastorUser || isAdminUser) && (
-        <div>
-          <p className="text-sm font-bold text-gray-800 mb-2">작성자</p>
-          <input
-            type="text"
-            value={authorQuery}
-            onChange={e => setAuthorQuery(e.target.value)}
-            placeholder="작성자 이름"
-            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50"
-          />
-        </div>
+        <>
+          <div>
+            <p className="text-sm font-bold text-gray-800 mb-2">작성자 구분</p>
+            <div className="flex flex-wrap gap-2">
+              {([
+                { id: 'all' as const, label: '전체' },
+                { id: 'member' as const, label: '성도' },
+                { id: 'pastor' as const, label: '교역자' },
+              ]).map(opt => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setAuthorRole(opt.id)}
+                  className={`px-3 py-2 rounded-xl text-xs font-semibold touch-target ${
+                    authorRole === opt.id ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="text-sm font-bold text-gray-800 mb-2">작성자</p>
+            <input
+              type="text"
+              value={authorQuery}
+              onChange={e => setAuthorQuery(e.target.value)}
+              placeholder="작성자 이름"
+              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50"
+            />
+          </div>
+        </>
       )}
 
       <div className="flex gap-2 pt-1">
@@ -620,7 +797,15 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
               <button
                 key={t.id}
                 type="button"
-                onClick={() => { setTab(t.id); setShareType('all'); setOrganizationIds([]); setVisibilityFilter('all'); setAuthorQuery(''); }}
+                onClick={() => {
+                  setTab(t.id);
+                  setShareType('all');
+                  setOrganizationIds([]);
+                  setSelectedPastorIds([]);
+                  setAuthorRole('all');
+                  setVisibilityFilter('all');
+                  setAuthorQuery('');
+                }}
                 className={`py-3 rounded-2xl text-xs sm:text-sm font-bold touch-target transition-colors ${
                   tab === t.id
                     ? 'bg-primary-600 text-white shadow-sm'
