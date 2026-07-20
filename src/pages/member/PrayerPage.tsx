@@ -45,6 +45,7 @@ import {
   matchesSharedPastorFilter,
   pastorLabel,
 } from '../../services/graceShareFilterHelpers';
+import type { EligiblePastor } from '../../services/graceNoteShareScope';
 import type { GraceNote } from '../../data/graceNotes';
 import { resolveOrgTreeMode, getOrganizationPathLabel } from '../../services/userOrganizationTree';
 import { isSuperAdmin } from '../../services/permissions';
@@ -54,6 +55,7 @@ import { PrayerWriteForm } from '../../components/member/PrayerWriteForm';
 import { getCommentCount } from '../../services/prayerCommentStorage';
 import { Heart, Plus, Check, Star, MessageCircle, Loader } from 'lucide-react';
 import { MobileFab, PageHeaderBar, useToast } from '../../components/common/ui';
+import { sermonPrimaryBtnClass } from '../../components/common/sermon/sermonDesign';
 import { ensurePrayerDemoData } from '../../data/prayerSeed';
 
 type PrayerCollectTab = 'mine' | 'shared';
@@ -153,7 +155,7 @@ function buildAuthorPool(prayers: Prayer[], user: ReturnType<typeof useAuth>['us
 }
 
 export default function PrayerPage() {
-  const { user, isPastor, isAdmin } = useAuth();
+  const { user } = useAuth();
   const toast = useToast();
   const [view, setView] = useState<PrayerPageView>('collection');
   const [prayers, setPrayers] = useState<Prayer[]>([]);
@@ -200,9 +202,9 @@ export default function PrayerPage() {
   );
 
   const pastorLookupFlat = useMemo(() => {
-    const map = new Map<string, { id: string; name: string; position: string }>();
+    const map = new Map<string, EligiblePastor>();
     for (const p of [...pastorFilterGroups.current, ...pastorFilterGroups.historical]) {
-      map.set(p.id, { id: p.id, name: p.name, position: p.position ?? '' });
+      map.set(p.id, p);
     }
     for (const p of getFilterPastorsForUser(user, applied.organizationIds).flat) {
       map.set(p.id, p);
