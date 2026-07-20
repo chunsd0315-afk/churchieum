@@ -113,6 +113,48 @@ function isPastoralGraceAuthorRole(role?: string): boolean {
   return role.includes('목사') || role.includes('전도사');
 }
 
+const GRACE_RECORD_TYPE_OPTIONS = [
+  { id: '' as const, label: '전체' },
+  { id: 'reading' as const, label: '성경통독' },
+  { id: 'sermon' as const, label: '설교' },
+  { id: 'personal' as const, label: '자유' },
+] as const;
+
+function graceRecordTypeLabel(type: GraceNoteType): string {
+  return type === 'reading' ? '성경통독' : type === 'sermon' ? '설교' : '자유';
+}
+
+function GraceRecordTypeFilterButtons({
+  value,
+  onChange,
+}: {
+  value: GraceNoteType | '';
+  onChange: (next: GraceNoteType | '') => void;
+}) {
+  return (
+    <div>
+      <p className="text-sm font-bold text-gray-800 mb-2">기록유형</p>
+      <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
+        {GRACE_RECORD_TYPE_OPTIONS.map(opt => (
+          <button
+            key={opt.id || 'all'}
+            type="button"
+            onClick={() => onChange(opt.id)}
+            aria-pressed={value === opt.id}
+            className={`px-3 py-2.5 rounded-xl text-xs font-semibold touch-target min-h-[44px] ${
+              value === opt.id
+                ? 'bg-primary-600 text-white'
+                : 'bg-gray-100 text-gray-600 border border-gray-200'
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Grace Note List View (모아보기) ─────────────────────────────────────────
 
 type GraceListFilterState = {
@@ -134,6 +176,16 @@ const EMPTY_FILTER: GraceListFilterState = {
   authorRole: 'all',
   authorQuery: '',
 };
+
+function hasSharedTabSecondaryFilters(applied: GraceListFilterState): boolean {
+  return (
+    applied.shareType !== 'all' ||
+    applied.organizationIds.length > 0 ||
+    applied.selectedPastorIds.length > 0 ||
+    applied.authorRole !== 'all' ||
+    applied.authorQuery.trim() !== ''
+  );
+}
 
 function deriveGraceListShowFlags(
   f: GraceListFilterState,
@@ -348,6 +400,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
       }
 
       if (tab === 'shared') {
+        if (typeFilter && n.type !== typeFilter) return false;
         if (showShareTypeFilter && !matchesShareTypeFilter(n, shareType)) return false;
 
         if (showOrgTree && organizationIds.length > 0 && shareType === 'organization_share') {
@@ -392,10 +445,10 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
 
   const activeChips = useMemo(() => {
     const chips: { key: string; label: string; clear: () => void }[] = [];
-    if (tab === 'mine' && applied.typeFilter) {
+    if (applied.typeFilter) {
       chips.push({
         key: 'type',
-        label: applied.typeFilter === 'reading' ? '성경통독' : applied.typeFilter === 'sermon' ? '설교' : '자유',
+        label: graceRecordTypeLabel(applied.typeFilter),
         clear: () => setApplied(prev => ({ ...prev, typeFilter: '' })),
       });
     }
@@ -520,8 +573,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
     setDeleteId(null);
   };
 
-  const typeLabel = (type: GraceNoteType) =>
-    type === 'reading' ? '성경통독' : type === 'sermon' ? '설교' : '자유';
+  const typeLabel = (type: GraceNoteType) => graceRecordTypeLabel(type);
   const typeBadgeClass = (type: GraceNoteType) =>
     type === 'reading' ? 'bg-green-50 text-green-700'
       : type === 'sermon' ? 'bg-blue-50 text-blue-700'
@@ -558,6 +610,19 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
       return {
         title: '작성한 은혜기록이 없습니다.',
         desc: '말씀과 삶 속에서 받은 은혜를 기록해 보세요.',
+      };
+    }
+
+    if (hasAppliedFilters) {
+      if (applied.typeFilter && !hasSharedTabSecondaryFilters(applied)) {
+        return {
+          title: `공유받은 ${graceRecordTypeLabel(applied.typeFilter)} 은혜기록이 없습니다.`,
+          desc: '다른 상세설정을 선택하거나 초기화해 보세요.',
+        };
+      }
+      return {
+        title: '선택한 상세설정에 맞는 은혜기록이 없습니다.',
+        desc: '상세설정 조건을 바꾸거나 초기화해 보세요.',
       };
     }
 
@@ -607,7 +672,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
       title: '조회 가능한 공유 은혜기록이 없습니다.',
       desc: '공유된 은혜기록이 이곳에 나타납니다.',
     };
-  }, [tab, applied.shareType, applied.organizationIds, coreOrgIds.length, isMemberUser, isPastorUser, hasAppliedFilters]);
+  }, [tab, applied, applied.organizationIds, coreOrgIds.length, isMemberUser, isPastorUser, hasAppliedFilters]);
 
   if (collectionView === 'filter') {
     return (
@@ -635,31 +700,13 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
         }
       >
         <div className="space-y-5">
+          <GraceRecordTypeFilterButtons
+            value={draft.typeFilter}
+            onChange={id => setDraft(prev => ({ ...prev, typeFilter: id }))}
+          />
+
           {tab === 'mine' && (
             <>
-              <div>
-                <p className="text-sm font-bold text-gray-800 mb-2">기록 유형</p>
-                <div className="flex flex-wrap gap-2">
-                  {([
-                    { id: '' as const, label: '전체' },
-                    { id: 'reading' as const, label: '성경통독' },
-                    { id: 'sermon' as const, label: '설교' },
-                    { id: 'personal' as const, label: '자유' },
-                  ]).map(opt => (
-                    <button
-                      key={opt.id || 'all'}
-                      type="button"
-                      onClick={() => setDraft(prev => ({ ...prev, typeFilter: opt.id }))}
-                      className={`px-3 py-2 rounded-xl text-xs font-semibold touch-target ${
-                        draft.typeFilter === opt.id ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               <div>
                 <p className="text-sm font-bold text-gray-800 mb-2">공개범위</p>
                 <div className="flex flex-wrap gap-2">
