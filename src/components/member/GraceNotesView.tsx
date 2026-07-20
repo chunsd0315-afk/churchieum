@@ -445,17 +445,18 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
 
   const isMineMode = tab === 'mine';
 
-  const toggleCollectionMode = () => {
-    if (isMineMode) {
-      setTab('shared');
-      setApplied(prev => ({
-        ...prev,
-        visibilityFilter: 'all',
-        typeFilter: '',
-        selectedPastorIds: [],
-        organizationIds: [],
-      }));
-    } else {
+  const mineTabCount = useMemo(
+    () => getGraceNotesForCollectTab(notes, user, 'mine').length,
+    [notes, user],
+  );
+  const sharedTabCount = useMemo(
+    () => getGraceNotesForCollectTab(notes, user, 'shared').length,
+    [notes, user],
+  );
+
+  const switchCollectionMode = (mode: GraceCollectTab) => {
+    if (mode === tab) return;
+    if (mode === 'mine') {
       setTab('mine');
       setApplied(prev => ({
         ...prev,
@@ -464,6 +465,15 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
         selectedPastorIds: [],
         authorRole: 'all',
         authorQuery: '',
+      }));
+    } else {
+      setTab('shared');
+      setApplied(prev => ({
+        ...prev,
+        visibilityFilter: 'all',
+        typeFilter: '',
+        selectedPastorIds: [],
+        organizationIds: [],
       }));
     }
   };
@@ -753,7 +763,52 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
 
   const pageDescription = isMineMode
     ? '내가 작성한 은혜기록을 확인합니다.'
-    : '공유받은 은혜기록을 함께 확인하세요.';
+    : '나에게 또는 내 교구·부서에 공유된 은혜기록을 확인합니다.';
+
+  const collectionTabs = (
+    <div
+      role="tablist"
+      aria-label="은혜기록 보기"
+      className="grid grid-cols-2 gap-1 rounded-xl bg-gray-100 p-1 w-full"
+    >
+      <button
+        type="button"
+        role="tab"
+        id="grace-tab-mine"
+        aria-selected={isMineMode}
+        aria-controls="grace-collection-panel"
+        onClick={() => switchCollectionMode('mine')}
+        className={`min-h-[44px] px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors touch-target ${
+          isMineMode
+            ? 'bg-[#2F8F62] text-white shadow-sm'
+            : 'bg-white text-gray-600 border border-[#E5E7EB]'
+        }`}
+      >
+        <span className="hidden sm:inline">내 기록 보기</span>
+        <span className="sm:hidden">내 기록</span>
+        {' '}
+        <span className={isMineMode ? 'text-white/90' : 'text-gray-400'}>{mineTabCount}</span>
+      </button>
+      <button
+        type="button"
+        role="tab"
+        id="grace-tab-shared"
+        aria-selected={!isMineMode}
+        aria-controls="grace-collection-panel"
+        onClick={() => switchCollectionMode('shared')}
+        className={`min-h-[44px] px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors touch-target ${
+          !isMineMode
+            ? 'bg-[#2F8F62] text-white shadow-sm'
+            : 'bg-white text-gray-600 border border-[#E5E7EB]'
+        }`}
+      >
+        <span className="hidden sm:inline">공유받은 기록 보기</span>
+        <span className="sm:hidden">공유받은 기록</span>
+        {' '}
+        <span className={!isMineMode ? 'text-white/90' : 'text-gray-400'}>{sharedTabCount}</span>
+      </button>
+    </div>
+  );
 
   const writeBtn = onWrite && user ? (
     <button type="button" onClick={onWrite} className={sermonPrimaryBtnClass}>
@@ -762,39 +817,38 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
   ) : undefined;
 
   const listBody = (
-    <div className={`space-y-3 ${isRootPage && onWrite && user ? 'pb-24 md:pb-0' : ''}`}>
-      <div className="relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
-        <input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="키워드, 말씀, 설교 검색"
-          className={`${sermonInputClass} pl-12 pr-12 !bg-white`}
-        />
-        {search && (
-          <button
-            type="button"
-            onClick={() => setSearch('')}
-            className="absolute right-4 top-1/2 -translate-y-1/2 touch-target"
-            aria-label="검색어 지우기"
-          >
-            <X className="w-5 h-5 text-gray-400" />
-          </button>
-        )}
-      </div>
+    <div
+      id="grace-collection-panel"
+      role="tabpanel"
+      aria-labelledby={isMineMode ? 'grace-tab-mine' : 'grace-tab-shared'}
+      className={`space-y-3 ${isRootPage && onWrite && user ? 'pb-24 md:pb-0' : ''}`}
+    >
+      {collectionTabs}
 
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={toggleCollectionMode}
-          className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-3 rounded-2xl text-sm font-semibold touch-target min-w-[120px] bg-gray-100 text-gray-700"
-        >
-          {isMineMode ? '공유받은 기록 보기' : '내 기록 보기'}
-        </button>
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className="relative flex-1 min-w-0">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="키워드, 말씀, 설교 검색"
+            className={`${sermonInputClass} pl-12 pr-12 !bg-white`}
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="absolute right-4 top-1/2 -translate-y-1/2 touch-target"
+              aria-label="검색어 지우기"
+            >
+              <X className="w-5 h-5 text-gray-400" />
+            </button>
+          )}
+        </div>
         <button
           type="button"
           onClick={openFilter}
-          className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-3 rounded-2xl text-sm font-semibold touch-target min-w-[88px] ${
+          className={`shrink-0 flex items-center justify-center gap-1.5 px-4 py-3 rounded-2xl text-sm font-semibold touch-target min-h-[48px] min-w-[88px] ${
             activeChips.length > 0 ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700'
           }`}
         >
