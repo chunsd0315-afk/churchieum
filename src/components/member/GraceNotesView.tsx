@@ -11,7 +11,7 @@ import { useState, useMemo, useEffect } from 'react';
 import {
   Heart, BookOpen, Edit3, Trash2, Copy, Search,
   Filter, X, CheckCircle, ChevronDown, BookMarked,
-  Sparkles, Mic, Lock, Users, Eye, MessageCircle, HandHeart,
+  Sparkles, Mic, Lock, Users, Eye, MessageCircle, HandHeart, PenLine,
 } from 'lucide-react';
 import {
   getAllGraceNotes, getGraceNote, getGraceNotesByProgress,
@@ -25,6 +25,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { readOrgSettings } from '../../contexts/OrgSettingsContext';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
 import { MobileFullScreenPage } from '../layout/ContentEditorLayout';
+import { MobileFab } from '../common/ui/MobileFab';
 import { ChurchDropdownMenu } from '../common/ui/ChurchDropdownMenu';
 import {
   getGraceNoteViewInfo,
@@ -177,15 +178,16 @@ function deriveGraceListShowFlags(
   };
 }
 
-export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, initialType }: {
+export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPlanId, initialType }: {
   onBack: () => void;
+  onWrite?: () => void;
   onDetail: (id: string) => void;
   onEdit: (note: GraceNote) => void;
   initialPlanId?: string;
   initialType?: GraceNoteType;
 }) {
   const { user } = useAuth();
-  const [tab, setTab] = useState<GraceCollectTab>('mine');
+  const [tab, setTab] = useState<GraceCollectTab>('shared');
   const [collectionView, setCollectionView] = useState<'list' | 'filter'>('list');
   const [applied, setApplied] = useState<GraceListFilterState>({
     ...EMPTY_FILTER,
@@ -436,6 +438,31 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
     setApplied({ ...EMPTY_FILTER, typeFilter: '' });
   };
 
+  const isMineMode = tab === 'mine';
+
+  const toggleCollectionMode = () => {
+    if (isMineMode) {
+      setTab('shared');
+      setApplied(prev => ({
+        ...prev,
+        visibilityFilter: 'all',
+        typeFilter: '',
+        selectedPastorIds: [],
+        organizationIds: [],
+      }));
+    } else {
+      setTab('mine');
+      setApplied(prev => ({
+        ...prev,
+        shareType: 'all',
+        organizationIds: [],
+        selectedPastorIds: [],
+        authorRole: 'all',
+        authorQuery: '',
+      }));
+    }
+  };
+
   const hasAppliedFilters =
     activeChips.length > 0 ||
     search.trim() !== '';
@@ -465,7 +492,7 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
   const tabs = GRACE_COLLECTION_UI_TABS;
 
   useEffect(() => {
-    if (!tabs.some(t => t.id === tab)) setTab('mine');
+    if (!tabs.some(t => t.id === tab)) setTab('shared');
   }, [tabs, tab]);
 
   const emptyState = useMemo((): { title: string; desc: string } => {
@@ -477,7 +504,7 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
         };
       }
       return {
-        title: '아직 작성한 은혜기록이 없습니다.',
+        title: '작성한 은혜기록이 없습니다.',
         desc: '말씀과 삶 속에서 받은 은혜를 기록해 보세요.',
       };
     }
@@ -514,15 +541,21 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
 
     if (isMemberUser) {
       return {
-        title: '공유받은 은혜기록이 없습니다.',
+        title: '내 교구·부서에 공유된 은혜기록이 없습니다.',
         desc: '소속 교구·부서에서 공유하면 이곳에 나타납니다.',
       };
     }
+    if (isPastorUser) {
+      return {
+        title: '나에게 공유된 은혜기록이 없습니다.',
+        desc: '직접 공유되거나 소속 조직에 공유된 기록이 이곳에 나타납니다.',
+      };
+    }
     return {
-      title: '공유받은 기록이 없습니다.',
-      desc: '직접 공유되거나 소속 조직에 공유된 기록이 이곳에 나타납니다.',
+      title: '조회 가능한 공유 은혜기록이 없습니다.',
+      desc: '공유된 은혜기록이 이곳에 나타납니다.',
     };
-  }, [tab, applied.shareType, applied.organizationIds, coreOrgIds.length, isMemberUser, hasAppliedFilters]);
+  }, [tab, applied.shareType, applied.organizationIds, coreOrgIds.length, isMemberUser, isPastorUser, hasAppliedFilters]);
 
   if (collectionView === 'filter') {
     return (
@@ -723,17 +756,33 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
 
       <MobileFullScreenPage
         title="은혜기록 모아보기"
-        description="내가 작성한 기록과 공유받은 은혜를 함께 확인하세요."
+        description={
+          isMineMode
+            ? '내가 작성한 은혜기록을 확인합니다.'
+            : '공유받은 은혜기록을 함께 확인하세요.'
+        }
         onBack={onBack}
         saveButton={
-          <span className="text-xs text-gray-400 font-medium px-2 shrink-0">
-            {filtered.length}개
-          </span>
+          <div className="flex items-center gap-2 shrink-0">
+            {onWrite && (
+              <button
+                type="button"
+                onClick={onWrite}
+                className="hidden md:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold bg-primary-600 text-white touch-target hover:bg-primary-700"
+              >
+                <PenLine className="w-4 h-4" />
+                은혜기록 작성
+              </button>
+            )}
+            <span className="text-xs text-gray-400 font-medium px-2 shrink-0">
+              {filtered.length}개
+            </span>
+          </div>
         }
       >
         <div className="space-y-3">
-          <div className="flex gap-2">
-            <div className="flex-1 relative">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="flex-1 relative min-w-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 value={search}
@@ -742,47 +791,39 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
                 className="w-full pl-9 pr-3 py-3 text-sm border border-gray-200 rounded-2xl focus:outline-none focus:border-primary-300 bg-white"
               />
             </div>
-            <button
-              type="button"
-              onClick={openFilter}
-              className={`flex items-center gap-1.5 px-4 py-3 rounded-2xl text-sm font-semibold touch-target ${
-                activeChips.length > 0 ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700'
-              }`}
-            >
-              <Filter className="w-4 h-4" />
-              필터
-              {activeChips.length > 0 && (
-                <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded-full">{activeChips.length}</span>
-              )}
-            </button>
-          </div>
-
-          <div className="grid grid-cols-2 gap-1.5">
-            {tabs.map(t => (
+            <div className="flex gap-2 shrink-0">
               <button
-                key={t.id}
                 type="button"
-                onClick={() => {
-                  setTab(t.id);
-                  setApplied(prev => ({
-                    ...prev,
-                    shareType: 'all',
-                    organizationIds: [],
-                    selectedPastorIds: [],
-                    authorRole: 'all',
-                    visibilityFilter: 'all',
-                    authorQuery: '',
-                  }));
-                }}
-                className={`py-3 rounded-2xl text-xs sm:text-sm font-bold touch-target transition-colors ${
-                  tab === t.id
+                onClick={toggleCollectionMode}
+                className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-3 rounded-2xl text-sm font-semibold touch-target min-w-[120px] ${
+                  isMineMode
                     ? 'bg-primary-600 text-white shadow-sm'
-                    : 'bg-white text-gray-600 border border-gray-100'
+                    : 'bg-gray-100 text-gray-700'
                 }`}
               >
-                {t.label}
+                {isMineMode ? (
+                  <>
+                    <CheckCircle className="w-4 h-4" />
+                    전체 기록 보기
+                  </>
+                ) : (
+                  '내 기록 보기'
+                )}
               </button>
-            ))}
+              <button
+                type="button"
+                onClick={openFilter}
+                className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-3 rounded-2xl text-sm font-semibold touch-target min-w-[88px] ${
+                  activeChips.length > 0 ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700'
+                }`}
+              >
+                <Filter className="w-4 h-4" />
+                필터
+                {activeChips.length > 0 && (
+                  <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded-full">{activeChips.length}</span>
+                )}
+              </button>
+            </div>
           </div>
 
           {activeChips.length > 0 && (
@@ -892,6 +933,9 @@ export function GraceNoteListView({ onBack, onDetail, onEdit, initialPlanId, ini
           )}
         </div>
       </MobileFullScreenPage>
+      {onWrite && (
+        <MobileFab label="은혜기록 작성" onClick={onWrite} />
+      )}
     </>
   );
 }

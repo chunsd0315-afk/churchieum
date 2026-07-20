@@ -17,12 +17,8 @@ import {
   type ReadingEditorCtx, type SermonEditorCtx,
 } from '../../components/member/GraceNotesView';
 import { ReadingProgressPicker, buildReadingFormCtx } from '../../components/member/ReadingProgressPicker';
-import { useAuth } from '../../contexts/AuthContext';
-import { FeatureHubPage } from '../../components/common/feature-hub';
-import { GRACE_HUB } from '../../config/featureHub/memberHubs';
 
 type SubView =
-  | 'main'
   | 'today'
   | 'write'
   | 'reading-pick'
@@ -43,9 +39,8 @@ function excerpt(text: string, max = 60) {
   return t.slice(0, max) + '…';
 }
 
-export default function GraceNotesPage() {
-  const { isPastor, isAdmin, user } = useAuth();
-  const [view, setView] = useState<SubView>('main');
+export default function GraceNotesPage({ onExit }: { onExit?: () => void }) {
+  const [view, setView] = useState<SubView>('all-list');
   const [, setRefresh] = useState(0);
 
   useEffect(() => {
@@ -54,8 +49,8 @@ export default function GraceNotesPage() {
   }, []);
 
   const [detailId, setDetailId] = useState<string | null>(null);
-  const [backView, setBackView] = useState<SubView>('main');
-  const backViewRef = useRef<SubView>('main');
+  const [backView, setBackView] = useState<SubView>('all-list');
+  const backViewRef = useRef<SubView>('all-list');
   backViewRef.current = backView;
 
   const [editId, setEditId] = useState<string | undefined>(undefined);
@@ -105,7 +100,7 @@ export default function GraceNotesPage() {
     sermon?: SermonEditorCtx | null;
     from?: SubView;
   }) => {
-    setBackView(opts?.from ?? 'main');
+    setBackView(opts?.from ?? 'all-list');
     setEditId(opts?.editId);
     setWriteType(opts?.type);
     setLockWriteType(Boolean(opts?.lockType));
@@ -145,17 +140,13 @@ export default function GraceNotesPage() {
   if (view === 'write') {
     return (
       <GraceNoteEditor
-        onSave={id => navToDetail(id, backView === 'detail' ? 'main' : backView)}
+        onSave={id => navToDetail(id, backView === 'detail' ? 'all-list' : backView)}
         onBack={() => {
           setEditId(undefined);
           setReadingCtx(null);
           setSermonCtx(null);
           setWriteType(undefined);
-          if (backView === 'all-list') {
-            setView(backView);
-          } else {
-            setView('main');
-          }
+          setView('all-list');
         }}
         editId={editId}
         initialType={writeType}
@@ -179,7 +170,8 @@ export default function GraceNotesPage() {
             aria-hidden={view === 'detail'}
           >
             <GraceNoteListView
-              onBack={() => setView('main')}
+              onBack={() => onExit?.()}
+              onWrite={() => openWrite({ from: 'all-list' })}
               onDetail={id => navToDetail(id, 'all-list')}
               onEdit={note => navToEdit(note, 'all-list')}
             />
@@ -205,7 +197,7 @@ export default function GraceNotesPage() {
     return (
       <div className="flex flex-col" style={{ minHeight: 'calc(100vh - 120px)' }}>
         <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-3 sticky top-0 z-10">
-          <button type="button" onClick={() => setView('main')} className="p-1.5 hover:bg-gray-100 rounded-lg touch-target">
+          <button type="button" onClick={() => setView('all-list')} className="p-1.5 hover:bg-gray-100 rounded-lg touch-target">
             <ArrowLeft className="w-5 h-5 text-gray-600" />
           </button>
           <div className="flex-1">
@@ -247,7 +239,7 @@ export default function GraceNotesPage() {
     return (
       <div className="flex flex-col" style={{ minHeight: 'calc(100vh - 120px)' }}>
         <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-3 sticky top-0 z-10">
-          <button type="button" onClick={() => setView('main')} className="p-1.5 hover:bg-gray-100 rounded-lg touch-target">
+          <button type="button" onClick={() => setView('all-list')} className="p-1.5 hover:bg-gray-100 rounded-lg touch-target">
             <ArrowLeft className="w-5 h-5 text-gray-600" />
           </button>
           <div className="flex-1">
@@ -273,23 +265,5 @@ export default function GraceNotesPage() {
     );
   }
 
-  const handleHubSelect = (id: string) => {
-    if (id === 'write') {
-      openWrite({ from: 'main' });
-      return;
-    }
-    if (id === 'all-list') {
-      setView('all-list');
-    }
-  };
-
-  return (
-    <FeatureHubPage
-      title={GRACE_HUB.title}
-      description={GRACE_HUB.description}
-      features={GRACE_HUB.features}
-      viewer={{ isPastor, isAdmin, role: user?.role }}
-      onSelect={handleHubSelect}
-    />
-  );
+  return null;
 }
