@@ -394,7 +394,9 @@ const LS_PROGRESSES_KEY = 'readingProgressesV3';
 export function getAllProgresses(): ReadingProgress[] {
   try {
     const raw = localStorage.getItem(LS_PROGRESSES_KEY);
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
   } catch { return []; }
 }
 

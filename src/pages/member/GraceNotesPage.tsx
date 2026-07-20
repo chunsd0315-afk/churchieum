@@ -17,6 +17,7 @@ import {
   type ReadingEditorCtx, type SermonEditorCtx,
 } from '../../components/member/GraceNotesView';
 import { ReadingProgressPicker, buildReadingFormCtx } from '../../components/member/ReadingProgressPicker';
+import { getAllProgresses } from '../../data/readingPlans';
 
 type SubView =
   | 'today'
@@ -124,8 +125,12 @@ export default function GraceNotesPage() {
   };
 
   if (view === 'reading-pick') {
+    const readingProgresses = getAllProgresses().filter(
+      p => p.status === 'active' || p.status === 'paused',
+    );
     return (
       <ReadingProgressPicker
+        progresses={readingProgresses}
         onBack={() => setView(pickReturn)}
         onSelect={progress => {
           const ctx = buildReadingFormCtx(progress);

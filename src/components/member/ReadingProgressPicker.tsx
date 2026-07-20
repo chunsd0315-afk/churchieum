@@ -8,12 +8,14 @@ import { getProgressPercent, getPlanColor } from '../../data/readingPlans';
 import ContentEditorLayout, { ContentFormCard } from '../layout/ContentEditorLayout';
 
 type Props = {
-  progresses: ReadingProgress[];
+  progresses?: ReadingProgress[];
   onSelect: (progress: ReadingProgress) => void;
   onBack: () => void;
 };
 
 export function ReadingProgressPicker({ progresses, onSelect, onBack }: Props) {
+  const list = Array.isArray(progresses) ? progresses : [];
+
   return (
     <ContentEditorLayout
       title="은혜기록 작성"
@@ -22,7 +24,15 @@ export function ReadingProgressPicker({ progresses, onSelect, onBack }: Props) {
       mobileHeaderVariant="subpage"
     >
       <ContentFormCard className="space-y-3">
-        {progresses.map(prog => {
+        {list.length === 0 ? (
+          <div className="py-12 text-center">
+            <BookOpen className="w-12 h-12 text-gray-200 mx-auto mb-3" />
+            <p className="font-semibold text-gray-600 text-sm">연결할 성경통독 기록이 없습니다.</p>
+            <p className="text-xs text-gray-400 mt-1 leading-relaxed">
+              성경통독센터에서 플랜에 참여하면 이곳에서 선택할 수 있습니다.
+            </p>
+          </div>
+        ) : list.map(prog => {
           const pct = getProgressPercent(prog);
           const planColor = getPlanColor(prog.planId);
           return (
