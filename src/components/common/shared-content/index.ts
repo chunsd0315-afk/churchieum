@@ -5,6 +5,7 @@ export { OrganizationFilterSelector } from './OrganizationFilterSelector';
 export type { OrganizationFilterItem } from './OrganizationFilterSelector';
 export { UserOrganizationTreeSelector } from './UserOrganizationTreeSelector';
 export { PastorOrgFilterSelector } from './PastorOrgFilterSelector';
+export { PastorFlatFilterSelector } from './PastorFlatFilterSelector';
 export {
   VisibilityBadge,
   SharedTargetSummary,

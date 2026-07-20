@@ -46,6 +46,7 @@ import type { ShareTypeFilter, VisibilityFilter } from '../../types/sharedConten
 import { migrateVisibility, VISIBILITY_LABELS } from '../../types/sharedContent';
 import { UserOrganizationTreeSelector } from '../common/shared-content/UserOrganizationTreeSelector';
 import { PastorOrgFilterSelector } from '../common/shared-content/PastorOrgFilterSelector';
+import { PastorFlatFilterSelector } from '../common/shared-content/PastorFlatFilterSelector';
 import {
   getOrganizationPathLabel,
   getUserCoreOrganizationIds,
@@ -53,6 +54,7 @@ import {
 } from '../../services/userOrganizationTree';
 import { isSuperAdmin } from '../../services/permissions';
 import {
+  getAvailablePastorsForUser,
   getFilterPastorsForUser,
   matchesSharedPastorFilter,
   pastorLabel,
@@ -139,7 +141,7 @@ function deriveGraceListShowFlags(
 ) {
   const showMineOrgTree =
     tab === 'mine' &&
-    (f.visibilityFilter === 'pastor_share' || f.visibilityFilter === 'organization_share');
+    f.visibilityFilter === 'organization_share';
 
   const showSharedOrgTree =
     tab === 'shared' &&
@@ -155,16 +157,14 @@ function deriveGraceListShowFlags(
 
   const orgTreeDefaultScope =
     isAdminUser &&
-    ((tab === 'mine' && (f.visibilityFilter === 'pastor_share' || f.visibilityFilter === 'organization_share')) ||
+    ((tab === 'mine' && f.visibilityFilter === 'organization_share') ||
       (tab === 'shared' && (f.shareType === 'pastor_share' || f.shareType === 'organization_share')))
       ? 'all' as const
       : 'mine' as const;
 
   const orgTreeSectionTitle =
     tab === 'mine'
-      ? f.visibilityFilter === 'pastor_share'
-        ? '조직 선택'
-        : '공유 조직'
+      ? '공유 조직'
       : f.shareType === 'pastor_share'
         ? '작성자 소속 조직'
         : '공유 조직';
@@ -223,6 +223,11 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
   const coreOrgIds = useMemo(() => getUserCoreOrganizationIds(user), [user]);
   const orgTreeMode = useMemo(() => resolveOrgTreeMode(user), [user]);
 
+  const availablePastorsForMine = useMemo(
+    () => getAvailablePastorsForUser(user),
+    [user],
+  );
+
   const draftPastorFilterData = useMemo(
     () => getFilterPastorsForUser(user, draft.organizationIds),
     [user, draft.organizationIds],
@@ -231,6 +236,17 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
     () => getFilterPastorsForUser(user, applied.organizationIds),
     [user, applied.organizationIds],
   );
+
+  const pastorLookupFlat = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; position: string }>();
+    for (const p of availablePastorsForMine) {
+      map.set(p.id, { id: p.id, name: p.name, position: p.position ?? '' });
+    }
+    for (const p of appliedPastorFilterData.flat) {
+      map.set(p.id, p);
+    }
+    return map;
+  }, [availablePastorsForMine, appliedPastorFilterData.flat]);
 
   /** 성도: 담당 교역자 공유 필터 숨김 */
   const hidePastorShareTypeOption = isMemberUser;
@@ -307,17 +323,6 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
         if (visibilityFilter === 'organization_share' && organizationIds.length > 0) {
           if (!matchesOrganizationFilterForRecord(n, organizationIds)) return false;
         }
-        if (
-          visibilityFilter === 'pastor_share' &&
-          organizationIds.length > 0 &&
-          selectedPastorIds.length === 0
-        ) {
-          const allowed = new Set(appliedPastorFilterData.flat.map(p => p.id));
-          if (allowed.size > 0) {
-            const ids = n.sharedPastorIds ?? [];
-            if (!n.sharedPastorAll && !ids.some(id => allowed.has(id))) return false;
-          }
-        }
       }
 
       if (tab === 'shared') {
@@ -364,7 +369,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
     return list;
   }, [
     tabNotes, tab, applied, appliedFlags, planFilter, showShareTypeFilter,
-    isPastorUser, isAdminUser, search, user, appliedPastorFilterData,
+    isPastorUser, isAdminUser, search, user,
   ]);
 
   const activeChips = useMemo(() => {
@@ -412,7 +417,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
       });
     }
     for (const id of applied.selectedPastorIds) {
-      const p = appliedPastorFilterData.flat.find(x => x.id === id);
+      const p = pastorLookupFlat.get(id);
       chips.push({
         key: `pastor:${id}`,
         label: p ? pastorLabel(p) : id,
@@ -437,7 +442,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
       });
     }
     return chips;
-  }, [tab, applied, showShareTypeFilter, appliedPastorFilterData]);
+  }, [tab, applied, showShareTypeFilter, pastorLookupFlat]);
 
   const resetAppliedFilters = () => {
     setApplied({ ...EMPTY_FILTER, typeFilter: '' });
@@ -654,23 +659,22 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
               </div>
 
               {draftFlags.showMineOrgTree && (
-                <>
-                  <UserOrganizationTreeSelector
-                    user={user}
-                    mode={orgTreeMode}
-                    selectedOrganizationIds={draft.organizationIds}
-                    onChange={ids => setDraft(prev => ({ ...prev, organizationIds: ids }))}
-                    defaultScope={draftFlags.orgTreeDefaultScope}
-                    sectionTitle={draftFlags.orgTreeSectionTitle}
-                  />
-                  {draftFlags.showPastorPicker && (
-                    <PastorOrgFilterSelector
-                      groups={draftPastorFilterData.groups}
-                      selectedPastorIds={draft.selectedPastorIds}
-                      onChange={ids => setDraft(prev => ({ ...prev, selectedPastorIds: ids }))}
-                    />
-                  )}
-                </>
+                <UserOrganizationTreeSelector
+                  user={user}
+                  mode={orgTreeMode}
+                  selectedOrganizationIds={draft.organizationIds}
+                  onChange={ids => setDraft(prev => ({ ...prev, organizationIds: ids }))}
+                  defaultScope={draftFlags.orgTreeDefaultScope}
+                  sectionTitle={draftFlags.orgTreeSectionTitle}
+                />
+              )}
+
+              {tab === 'mine' && draft.visibilityFilter === 'pastor_share' && (
+                <PastorFlatFilterSelector
+                  pastors={availablePastorsForMine}
+                  selectedPastorIds={draft.selectedPastorIds}
+                  onChange={ids => setDraft(prev => ({ ...prev, selectedPastorIds: ids }))}
+                />
               )}
             </>
           )}

@@ -135,6 +135,41 @@ export function getPastorsGroupedByOrganizationIds(
   return groups;
 }
 
+export type AvailablePastor = {
+  id: string;
+  name: string;
+  position?: string;
+  organizationIds: string[];
+  organizationNames: string[];
+};
+
+/** 내 기록 · 담당 교역자 공유 필터 — 사용자 소속 조직 기준 교역자 (조직 UI 없음) */
+export function getAvailablePastorsForUser(user: AppUser | null): AvailablePastor[] {
+  if (!user) return [];
+
+  if (isSuperAdmin(user)) {
+    return getAllClergy()
+      .filter(isPastoralClergy)
+      .map(c => ({
+        id: c.id,
+        name: c.name,
+        position: positionLabel(c),
+        organizationIds: [],
+        organizationNames: [],
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+  }
+
+  const orgIds = getUserVisibleOrganizationIds(user, 'mine');
+  return getPastorsByOrganizationIds(orgIds).map(p => ({
+    id: p.id,
+    name: p.name,
+    position: p.position,
+    organizationIds: [],
+    organizationNames: p.orgLabels ?? [],
+  }));
+}
+
 /** 필터용 — 사용자 조회 가능 조직 기준으로 교역자 목록 */
 export function getFilterPastorsForUser(
   user: AppUser | null,
