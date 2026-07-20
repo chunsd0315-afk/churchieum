@@ -39,10 +39,13 @@ import {
 import {
   matchesShareTypeFilter,
   matchesOrganizationFilterForRecord,
-  SHARE_TYPE_FILTER_LABELS,
 } from '../../services/sharedContentAccess';
 import type { ShareTypeFilter, VisibilityFilter } from '../../types/sharedContent';
 import { migrateVisibility, VISIBILITY_LABELS } from '../../types/sharedContent';
+import {
+  getGraceShareTypeFilterLabel,
+  getGraceShareTypeFilterOptions,
+} from '../../services/graceShareTypeFilterLabels';
 import { UserOrganizationTreeSelector } from '../common/shared-content/UserOrganizationTreeSelector';
 import { PastorOrgFilterSelector } from '../common/shared-content/PastorOrgFilterSelector';
 import { PastorFlatFilterSelector } from '../common/shared-content/PastorFlatFilterSelector';
@@ -190,6 +193,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
   resetToMineSignal?: number;
 }) {
   const { user } = useAuth();
+  const { isMobile } = useBreakpoint();
   const [tab, setTab] = useState<GraceCollectTab>('mine');
   const [collectionView, setCollectionView] = useState<'list' | 'filter'>('list');
   const [applied, setApplied] = useState<GraceListFilterState>({
@@ -261,6 +265,13 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
 
   /** 성도: 담당 교역자 공유 필터 숨김 */
   const hidePastorShareTypeOption = isMemberUser;
+
+  const shareTypeFilterOptions = useMemo(
+    () => getGraceShareTypeFilterOptions(user, { includePastorShare: !hidePastorShareTypeOption }),
+    [user, hidePastorShareTypeOption],
+  );
+
+  const shareTypeChipVariant = isMobile ? 'chip' as const : 'full' as const;
 
   useEffect(() => {
     if (hidePastorShareTypeOption && draft.shareType === 'pastor_share') {
@@ -403,7 +414,12 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
     if (showShareTypeFilter && applied.shareType !== 'all') {
       chips.push({
         key: 'shareType',
-        label: SHARE_TYPE_FILTER_LABELS[applied.shareType],
+        label: getGraceShareTypeFilterLabel(
+          user,
+          applied.shareType,
+          shareTypeChipVariant,
+          !hidePastorShareTypeOption,
+        ),
         clear: () => setApplied(prev => ({
           ...prev,
           shareType: 'all',
@@ -451,7 +467,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
       });
     }
     return chips;
-  }, [tab, applied, appliedFlags, showShareTypeFilter, pastorLookupFlat]);
+  }, [tab, applied, appliedFlags, showShareTypeFilter, pastorLookupFlat, user, shareTypeChipVariant, hidePastorShareTypeOption]);
 
   const resetAppliedFilters = () => {
     setApplied({ ...EMPTY_FILTER, typeFilter: '' });
@@ -691,25 +707,33 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
           {showShareTypeFilter && (
             <div>
               <p className="text-sm font-bold text-gray-800 mb-2">공유 유형</p>
-              <div className="flex flex-wrap gap-2">
-                {([
-                  { id: 'all' as const, label: SHARE_TYPE_FILTER_LABELS.all },
-                  ...(!hidePastorShareTypeOption
-                    ? [{ id: 'pastor_share' as const, label: SHARE_TYPE_FILTER_LABELS.pastor_share }]
-                    : []),
-                  { id: 'organization_share' as const, label: SHARE_TYPE_FILTER_LABELS.organization_share },
-                ]).map(opt => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => handleDraftShareTypeChange(opt.id)}
-                    className={`px-3 py-2 rounded-xl text-xs font-semibold touch-target ${
-                      draft.shareType === opt.id ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+              <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2">
+                {shareTypeFilterOptions.map(opt => {
+                  const selected = draft.shareType === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => handleDraftShareTypeChange(opt.id)}
+                      aria-label={opt.ariaLabel}
+                      aria-pressed={selected}
+                      className={`px-3 py-2.5 rounded-xl text-xs font-semibold touch-target min-h-[44px] text-left leading-snug whitespace-normal ${
+                        selected ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600'
+                      }`}
+                    >
+                      <span className="block">{opt.label}</span>
+                      {opt.description && (
+                        <span
+                          className={`block text-[10px] font-normal mt-1 leading-snug ${
+                            selected ? 'text-white/85' : 'text-gray-500'
+                          }`}
+                        >
+                          {opt.description}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
