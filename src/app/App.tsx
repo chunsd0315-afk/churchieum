@@ -44,6 +44,7 @@ import OrganizationManagementPage from '../pages/admin/OrganizationManagementPag
 import InviteSignupPage from '../pages/member/InviteSignupPage';
 import ChurchSharingPage from '../pages/shared/ChurchSharingPage';
 import type { BibleRef } from '../utils/bibleParser';
+import { runTestDataSeed, formatTestDataSeedReport } from '../services/testDataSeed';
 
 // ─── Error Boundary ───────────────────────────────────────────────────────────
 
@@ -99,6 +100,22 @@ function AppContent() {
   const urlParams = new URLSearchParams(window.location.search);
   const inviteCode = urlParams.get('code') || urlParams.get('invite') ||
     (window.location.pathname.startsWith('/invite/') ? window.location.pathname.split('/invite/')[1] : null);
+
+  // Auto-seed test data (?autoSeed=1 or npm run seed)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('autoSeed') !== '1') return;
+    if (!import.meta.env.DEV) return;
+    try {
+      const report = runTestDataSeed();
+      console.info('[Churchieum seed]\n' + formatTestDataSeedReport(report));
+      params.delete('autoSeed');
+      const qs = params.toString();
+      window.history.replaceState({}, '', `${window.location.pathname}${qs ? `?${qs}` : ''}`);
+    } catch (err) {
+      console.error('[Churchieum seed] failed', err);
+    }
+  }, []);
 
   // Reset mode when user logs out
   useEffect(() => {

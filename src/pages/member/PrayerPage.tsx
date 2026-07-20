@@ -54,7 +54,7 @@ import { PrayerWriteForm } from '../../components/member/PrayerWriteForm';
 import { getCommentCount } from '../../services/prayerCommentStorage';
 import { Heart, Plus, Check, Star, MessageCircle, Loader } from 'lucide-react';
 import { MobileFab, PageHeaderBar, useToast } from '../../components/common/ui';
-import { sermonPrimaryBtnClass } from '../../components/common/sermon/sermonDesign';
+import { ensurePrayerDemoData } from '../../data/prayerSeed';
 
 type PrayerCollectTab = 'mine' | 'shared';
 type PrayerPageView = 'collection' | 'filter' | 'write' | 'detail';
@@ -223,6 +223,7 @@ export default function PrayerPage() {
   }, []);
 
   useEffect(() => {
+    ensurePrayerDemoData();
     refreshPrayers();
     setLoading(false);
   }, [refreshPrayers]);

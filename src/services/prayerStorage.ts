@@ -90,6 +90,8 @@ function hasMeaningfulEdit(before: Prayer, after: Prayer, updates: Partial<Praye
 
 /** localStorage 키 — 기도제목 목록 */
 export const PRAYERS_STORAGE_KEY = 'churchieum_prayers';
+const LS_DEMO_SEEDED = 'churchieum_prayers_demo_seeded_v1';
+const DEMO_SEED_VERSION = 'v1';
 const LEGACY_PRAYER_KEYS = ['churchieum_prayers_v1'];
 
 // ─── Seed ─────────────────────────────────────────────────────────────────────
@@ -295,6 +297,9 @@ function load(): Prayer[] {
       );
     }
   } catch { /* ignore */ }
+  if (isDemoPrayersSeeded()) {
+    return [];
+  }
   try {
     localStorage.setItem(
       PRAYERS_STORAGE_KEY,
@@ -464,4 +469,16 @@ export function defaultOrganizationScope(user: AppUser): PrayerOrganizationScope
     groupIds: user.zoneId ? [user.zoneId] : [],
     departmentIds: user.departmentIds ? [...user.departmentIds] : [],
   };
+}
+
+export function isDemoPrayersSeeded(): boolean {
+  try { return localStorage.getItem(LS_DEMO_SEEDED) === DEMO_SEED_VERSION; } catch { return false; }
+}
+
+export function markDemoPrayersSeeded(): void {
+  try { localStorage.setItem(LS_DEMO_SEEDED, DEMO_SEED_VERSION); } catch { /* ignore */ }
+}
+
+export function replaceAllPrayers(prayers: Prayer[]): void {
+  save(prayers.map(p => syncShareFields(normalizePrayerRecord({ ...p, attachments: [] }))));
 }

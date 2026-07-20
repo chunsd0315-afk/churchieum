@@ -522,11 +522,16 @@ function ensureDemoReadingProgresses(): void {
   } catch { /* ignore */ }
 }
 
-export function generateGraceNoteDemoData(): GraceNote[] {
-  // assignments 로드 유도
+/** 은혜기록·기도 시드 공통 — 등록된 성도·교역자·관리자 작성자 목록 */
+export function prepareDemoSeedAuthors(): SeedAuthor[] {
   void getAllActiveAssignments();
   const authors = buildAuthors();
   syncAuthorsToDemoStore(authors);
+  return authors;
+}
+
+export function generateGraceNoteDemoData(): GraceNote[] {
+  const authors = prepareDemoSeedAuthors();
   const names = authors.map(a => a.name);
   const sermon = generateSermonNotes(100, authors, names);
   const reading = generateReadingNotes(120, authors, names);

@@ -5,6 +5,7 @@ import {
   UserPlus, BarChart2, Calendar, Award, Target, Flame,
 } from 'lucide-react';
 import { PageHeaderBar } from '../../components/common/ui';
+import TestDataSeedPanel from '../../components/admin/TestDataSeedPanel';
 
 type FaithStats = {
   totalMembers: number;
@@ -361,6 +362,8 @@ export default function StatisticsPage() {
         </div>
         <p className="text-xs text-gray-400 mt-3 text-center">* 데모 데이터 포함. 실제 집계는 운영 환경에서 확인하세요.</p>
       </div>
+
+      <TestDataSeedPanel />
     </div>
   );
 }
