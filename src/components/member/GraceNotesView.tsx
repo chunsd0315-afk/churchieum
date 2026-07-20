@@ -536,7 +536,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
       if (hasAppliedFilters) {
         return {
           title: '조건에 맞는 내 은혜기록이 없습니다.',
-          desc: '필터 조건을 바꾸거나 초기화해 보세요.',
+          desc: '상세설정 조건을 바꾸거나 초기화해 보세요.',
         };
       }
       return {
@@ -596,7 +596,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
   if (collectionView === 'filter') {
     return (
       <MobileFullScreenPage
-        title="은혜기록 필터"
+        title="상세설정"
         description="조건에 맞는 기록을 찾아보세요."
         onBack={() => setCollectionView('list')}
         saveButton={
@@ -605,7 +605,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
             onClick={() => setDraft({ ...EMPTY_FILTER, typeFilter: '' })}
             className="text-sm font-semibold text-gray-600 px-2 py-2 touch-target shrink-0"
           >
-            초기화
+            상세설정 초기화
           </button>
         }
         footer={
@@ -614,7 +614,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
             onClick={applyFilter}
             className="w-full btn-primary text-sm font-bold touch-target"
           >
-            적용하기
+            상세설정 적용
           </button>
         }
       >
@@ -861,12 +861,13 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
         <button
           type="button"
           onClick={openFilter}
+          aria-label="상세설정"
           className={`shrink-0 flex items-center justify-center gap-1.5 px-4 py-3 rounded-2xl text-sm font-semibold touch-target min-h-[48px] min-w-[88px] ${
             activeChips.length > 0 ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700'
           }`}
         >
-          <Filter className="w-4 h-4" />
-          필터
+          <Filter className="w-4 h-4" aria-hidden />
+          상세설정
           {activeChips.length > 0 && (
             <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded-full">{activeChips.length}</span>
           )}
@@ -891,7 +892,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
             onClick={resetAppliedFilters}
             className="text-[11px] text-gray-500 font-medium px-2 py-1.5"
           >
-            전체 초기화
+            상세설정 초기화
           </button>
         </div>
       )}
