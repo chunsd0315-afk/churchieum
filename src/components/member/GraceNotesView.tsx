@@ -27,6 +27,7 @@ import { useBreakpoint } from '../../hooks/useBreakpoint';
 import { MobileFab, PageHeaderBar } from '../common/ui';
 import { sermonPrimaryBtnClass } from '../common/sermon/sermonDesign';
 import { ChurchDropdownMenu } from '../common/ui/ChurchDropdownMenu';
+import { MobileFullScreenPage } from '../layout/ContentEditorLayout';
 import {
   getGraceNoteViewInfo,
   getGraceNotesForCollectTab,
