@@ -52,7 +52,8 @@ export function PastorOrgFilterSelector({
           p =>
             p.name.toLowerCase().includes(needle) ||
             p.position.toLowerCase().includes(needle) ||
-            g.organizationName.toLowerCase().includes(needle),
+            g.organizationName.toLowerCase().includes(needle) ||
+            (p.orgLabels ?? []).some(l => l.toLowerCase().includes(needle)),
         ),
       }))
       .filter(g => g.pastors.length > 0);
@@ -103,7 +104,7 @@ export function PastorOrgFilterSelector({
           <input
             value={q}
             onChange={e => setQ(e.target.value)}
-            placeholder="교역자·조직 검색"
+            placeholder="교역자 조직 검색"
             className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white focus:border-primary-400 focus:outline-none"
           />
         </div>

@@ -33,7 +33,6 @@ import {
   getGraceNotesForCollectTab,
   getGraceListBadge,
   sortGraceNotesForMemberView,
-  matchesAuthorOrganizationFilter,
   GRACE_COLLECTION_UI_TABS,
   type GraceCollectTab,
 } from '../../services/graceNoteShareScope';
@@ -144,11 +143,9 @@ function deriveGraceListShowFlags(
     tab === 'mine' &&
     f.visibilityFilter === 'organization_share';
 
+  /** 교구/부서 공유에만 작성자·공유 조직 트리 표시 (담당 교역자 공유는 제외) */
   const showSharedOrgTree =
-    tab === 'shared' &&
-    (f.shareType === 'organization_share' ||
-      ((isPastorUser || isAdminUser) && f.shareType === 'pastor_share') ||
-      (isMemberUser && f.shareType === 'organization_share'));
+    tab === 'shared' && f.shareType === 'organization_share';
 
   const showOrgTree = showMineOrgTree || showSharedOrgTree;
 
@@ -159,7 +156,7 @@ function deriveGraceListShowFlags(
   const orgTreeDefaultScope =
     isAdminUser &&
     ((tab === 'mine' && f.visibilityFilter === 'organization_share') ||
-      (tab === 'shared' && (f.shareType === 'pastor_share' || f.shareType === 'organization_share')))
+      (tab === 'shared' && f.shareType === 'organization_share'))
       ? 'all' as const
       : 'mine' as const;
 
@@ -238,13 +235,17 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
     [user, minePastorShareNotes],
   );
 
+  /** 공유받은 · 담당 교역자 공유 — 조직 트리 없이 전체 교역자 목록 사용 */
+  const pastorFilterOrgScope = (f: GraceListFilterState) =>
+    tab === 'shared' && f.shareType === 'pastor_share' ? [] : f.organizationIds;
+
   const draftPastorFilterData = useMemo(
-    () => getFilterPastorsForUser(user, draft.organizationIds),
-    [user, draft.organizationIds],
+    () => getFilterPastorsForUser(user, pastorFilterOrgScope(draft)),
+    [user, draft, tab],
   );
   const appliedPastorFilterData = useMemo(
-    () => getFilterPastorsForUser(user, applied.organizationIds),
-    [user, applied.organizationIds],
+    () => getFilterPastorsForUser(user, pastorFilterOrgScope(applied)),
+    [user, applied, tab],
   );
 
   const pastorLookupFlat = useMemo(() => {
@@ -338,12 +339,8 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
       if (tab === 'shared') {
         if (showShareTypeFilter && !matchesShareTypeFilter(n, shareType)) return false;
 
-        if (showOrgTree && organizationIds.length > 0) {
-          if (shareType === 'pastor_share') {
-            if (!matchesAuthorOrganizationFilter(n, organizationIds)) return false;
-          } else if (shareType === 'organization_share') {
-            if (!matchesOrganizationFilterForRecord(n, organizationIds)) return false;
-          }
+        if (showOrgTree && organizationIds.length > 0 && shareType === 'organization_share') {
+          if (!matchesOrganizationFilterForRecord(n, organizationIds)) return false;
         }
 
         if (showPastorPicker && selectedPastorIds.length > 0) {
@@ -416,15 +413,17 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
         })),
       });
     }
-    for (const id of applied.organizationIds) {
-      chips.push({
-        key: `org:${id}`,
-        label: getOrganizationPathLabel(id),
-        clear: () => setApplied(prev => ({
-          ...prev,
-          organizationIds: prev.organizationIds.filter(x => x !== id),
-        })),
-      });
+    if (appliedFlags.showMineOrgTree || appliedFlags.showSharedOrgTree) {
+      for (const id of applied.organizationIds) {
+        chips.push({
+          key: `org:${id}`,
+          label: getOrganizationPathLabel(id),
+          clear: () => setApplied(prev => ({
+            ...prev,
+            organizationIds: prev.organizationIds.filter(x => x !== id),
+          })),
+        });
+      }
     }
     for (const id of applied.selectedPastorIds) {
       const p = pastorLookupFlat.get(id);
@@ -452,7 +451,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
       });
     }
     return chips;
-  }, [tab, applied, showShareTypeFilter, pastorLookupFlat]);
+  }, [tab, applied, appliedFlags, showShareTypeFilter, pastorLookupFlat]);
 
   const resetAppliedFilters = () => {
     setApplied({ ...EMPTY_FILTER, typeFilter: '' });
