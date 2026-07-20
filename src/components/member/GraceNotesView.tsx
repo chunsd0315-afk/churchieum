@@ -11,7 +11,7 @@ import { useState, useMemo, useEffect } from 'react';
 import {
   Heart, BookOpen, Edit3, Trash2, Copy, Search,
   Filter, X, CheckCircle, ChevronDown, BookMarked,
-  Sparkles, Mic, Lock, Users, Eye, MessageCircle, HandHeart, PenLine,
+  Sparkles, Mic, Lock, Users, Eye, MessageCircle, HandHeart, Plus,
 } from 'lucide-react';
 import {
   getAllGraceNotes, getGraceNote, getGraceNotesByProgress,
@@ -25,7 +25,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { readOrgSettings } from '../../contexts/OrgSettingsContext';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
 import { MobileFullScreenPage } from '../layout/ContentEditorLayout';
-import { MobileFab } from '../common/ui/MobileFab';
+import { MobileFab, PageHeaderBar } from '../common/ui';
+import { sermonInputClass, sermonPrimaryBtnClass } from '../common/sermon/sermonDesign';
 import { ChurchDropdownMenu } from '../common/ui/ChurchDropdownMenu';
 import {
   getGraceNoteViewInfo,
@@ -178,15 +179,15 @@ function deriveGraceListShowFlags(
   };
 }
 
-export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPlanId, initialType, hideBack, resetToMineSignal }: {
+export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPlanId, initialType, isRootPage, resetToMineSignal }: {
   onBack: () => void;
   onWrite?: () => void;
   onDetail: (id: string) => void;
   onEdit: (note: GraceNote) => void;
   initialPlanId?: string;
   initialType?: GraceNoteType;
-  /** 은혜기록 메뉴 루트 화면 — 뒤로가기 숨김 */
-  hideBack?: boolean;
+  /** 은혜기록 메뉴 루트 — 설교 페이지와 동일한 PageHeaderBar 레이아웃 */
+  isRootPage?: boolean;
   /** 작성 완료 등 — 내 기록 화면으로 복귀 */
   resetToMineSignal?: number;
 }) {
@@ -750,113 +751,93 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
     );
   }
 
-  return (
-    <>
-      {deleteId && (
-        <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl">
-            <h3 className="font-bold text-gray-900 mb-2">은혜기록을 삭제하시겠습니까?</h3>
-            <p className="text-sm text-gray-500 mb-5">삭제한 기록은 복구할 수 없습니다.</p>
-            <div className="flex gap-2">
-              <button type="button" onClick={() => handleDelete(deleteId)} className="flex-1 py-3 bg-red-500 text-white rounded-2xl text-sm font-bold">삭제</button>
-              <button type="button" onClick={() => setDeleteId(null)} className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-2xl text-sm font-bold">취소</button>
-            </div>
-          </div>
+  const pageDescription = isMineMode
+    ? '내가 작성한 은혜기록을 확인합니다.'
+    : '공유받은 은혜기록을 함께 확인하세요.';
+
+  const writeBtn = onWrite && user ? (
+    <button type="button" onClick={onWrite} className={sermonPrimaryBtnClass}>
+      <Plus className="w-5 h-5" /> 은혜기록 작성
+    </button>
+  ) : undefined;
+
+  const listBody = (
+    <div className={`space-y-3 ${isRootPage && onWrite && user ? 'pb-24 md:pb-0' : ''}`}>
+      <div className="relative">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="키워드, 말씀, 설교 검색"
+          className={`${sermonInputClass} pl-12 pr-12 !bg-white`}
+        />
+        {search && (
+          <button
+            type="button"
+            onClick={() => setSearch('')}
+            className="absolute right-4 top-1/2 -translate-y-1/2 touch-target"
+            aria-label="검색어 지우기"
+          >
+            <X className="w-5 h-5 text-gray-400" />
+          </button>
+        )}
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={toggleCollectionMode}
+          className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-3 rounded-2xl text-sm font-semibold touch-target min-w-[120px] bg-gray-100 text-gray-700"
+        >
+          {isMineMode ? '공유받은 기록 보기' : '내 기록 보기'}
+        </button>
+        <button
+          type="button"
+          onClick={openFilter}
+          className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-3 rounded-2xl text-sm font-semibold touch-target min-w-[88px] ${
+            activeChips.length > 0 ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700'
+          }`}
+        >
+          <Filter className="w-4 h-4" />
+          필터
+          {activeChips.length > 0 && (
+            <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded-full">{activeChips.length}</span>
+          )}
+        </button>
+      </div>
+
+      {activeChips.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {activeChips.map(chip => (
+            <button
+              key={chip.key + chip.label}
+              type="button"
+              onClick={chip.clear}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-semibold bg-primary-50 text-primary-700"
+            >
+              {chip.label}
+              <X className="w-3 h-3" />
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={resetAppliedFilters}
+            className="text-[11px] text-gray-500 font-medium px-2 py-1.5"
+          >
+            전체 초기화
+          </button>
         </div>
       )}
 
-      <MobileFullScreenPage
-        title="은혜기록"
-        description={
-          isMineMode
-            ? '내가 작성한 은혜기록을 확인합니다.'
-            : '공유받은 은혜기록을 함께 확인하세요.'
-        }
-        onBack={onBack}
-        hideBack={hideBack}
-        saveButton={
-          <span className="text-xs text-gray-400 font-medium px-2 shrink-0">
-            {filtered.length}개
-          </span>
-        }
-      >
-        <div className={`space-y-3 ${onWrite ? 'pb-24 md:pb-0' : ''}`}>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <div className="flex-1 relative min-w-0">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="키워드, 말씀, 설교 검색"
-                className="w-full pl-9 pr-3 py-3 text-sm border border-gray-200 rounded-2xl focus:outline-none focus:border-primary-300 bg-white"
-              />
-            </div>
-            <div className="flex flex-wrap gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={toggleCollectionMode}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-3 rounded-2xl text-sm font-semibold touch-target min-w-[120px] bg-gray-100 text-gray-700"
-              >
-                {isMineMode ? '공유받은 기록 보기' : '내 기록 보기'}
-              </button>
-              <button
-                type="button"
-                onClick={openFilter}
-                className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-3 rounded-2xl text-sm font-semibold touch-target min-w-[88px] ${
-                  activeChips.length > 0 ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700'
-                }`}
-              >
-                <Filter className="w-4 h-4" />
-                필터
-                {activeChips.length > 0 && (
-                  <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded-full">{activeChips.length}</span>
-                )}
-              </button>
-              {onWrite && user && (
-                <button
-                  type="button"
-                  onClick={onWrite}
-                  className="hidden md:inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-2xl text-sm font-semibold touch-target bg-primary-600 text-white hover:bg-primary-700"
-                >
-                  <PenLine className="w-4 h-4" />
-                  은혜기록 작성
-                </button>
-              )}
-            </div>
-          </div>
-
-          {activeChips.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              {activeChips.map(chip => (
-                <button
-                  key={chip.key + chip.label}
-                  type="button"
-                  onClick={chip.clear}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-semibold bg-primary-50 text-primary-700"
-                >
-                  {chip.label}
-                  <X className="w-3 h-3" />
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={resetAppliedFilters}
-                className="text-[11px] text-gray-500 font-medium px-2 py-1.5"
-              >
-                전체 초기화
-              </button>
-            </div>
-          )}
-
-          {filtered.length === 0 ? (
-            <div className="bg-white rounded-2xl p-10 text-center border border-gray-100">
-              <Heart className="w-12 h-12 text-rose-200 mx-auto mb-3" />
-              <p className="font-semibold text-gray-600 text-sm">{emptyState.title ?? '기록이 없습니다.'}</p>
-              <p className="text-xs text-gray-400 mt-1 leading-relaxed">{emptyState.desc ?? ''}</p>
-            </div>
-          ) : (
-            <div className="church-list">
-              {filtered.map(note => {
+      {filtered.length === 0 ? (
+        <div className="bg-white rounded-2xl p-10 text-center border border-gray-100">
+          <Heart className="w-12 h-12 text-rose-200 mx-auto mb-3" />
+          <p className="font-semibold text-gray-600 text-sm">{emptyState.title ?? '기록이 없습니다.'}</p>
+          <p className="text-xs text-gray-400 mt-1 leading-relaxed">{emptyState.desc ?? ''}</p>
+        </div>
+      ) : (
+        <div className="church-list">
+          {filtered.map(note => {
             const badge = getGraceListBadge(note, user, tab);
             const title =
               note.graceTitle
@@ -928,12 +909,51 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
               </div>
             );
           })}
-            </div>
-          )}
         </div>
-      </MobileFullScreenPage>
-      {onWrite && user && (
-        <MobileFab label="은혜기록 작성" onClick={onWrite} />
+      )}
+    </div>
+  );
+
+  return (
+    <>
+      {deleteId && (
+        <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl">
+            <h3 className="font-bold text-gray-900 mb-2">은혜기록을 삭제하시겠습니까?</h3>
+            <p className="text-sm text-gray-500 mb-5">삭제한 기록은 복구할 수 없습니다.</p>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => handleDelete(deleteId)} className="flex-1 py-3 bg-red-500 text-white rounded-2xl text-sm font-bold">삭제</button>
+              <button type="button" onClick={() => setDeleteId(null)} className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-2xl text-sm font-bold">취소</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isRootPage ? (
+        <>
+          <PageHeaderBar
+            title="은혜기록"
+            description={pageDescription}
+            action={writeBtn}
+          />
+          <div className="pt-4">{listBody}</div>
+          {onWrite && user && (
+            <MobileFab label="은혜기록 작성" onClick={onWrite} />
+          )}
+        </>
+      ) : (
+        <MobileFullScreenPage
+          title="은혜기록"
+          description={pageDescription}
+          onBack={onBack}
+          saveButton={
+            <span className="text-xs text-gray-400 font-medium px-2 shrink-0">
+              {filtered.length}개
+            </span>
+          }
+        >
+          {listBody}
+        </MobileFullScreenPage>
       )}
     </>
   );

@@ -178,7 +178,7 @@ export default function GraceNotesPage() {
             aria-hidden={view === 'detail'}
           >
             <GraceNoteListView
-              hideBack
+              isRootPage
               onBack={() => {}}
               resetToMineSignal={listMineReset}
               onWrite={() => openWrite({ from: 'all-list' })}
