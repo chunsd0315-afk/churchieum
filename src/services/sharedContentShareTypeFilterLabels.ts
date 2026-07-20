@@ -24,14 +24,28 @@ const CONTENT_NOUN: Record<SharedContentDomain, string> = {
 };
 
 function contentNoun(domain: SharedContentDomain): string {
-  return CONTENT_NOUN[domain];
+  const label = CONTENT_NOUN[domain];
+  if (typeof label === 'string' && label.trim()) return label.trim();
+  return '기록';
+}
+
+/** 받침 유무에 따른 을/를 */
+function objectParticle(noun: string): string {
+  const last = noun.charCodeAt(noun.length - 1);
+  if (last >= 0xac00 && last <= 0xd7a3) {
+    const hasBatchim = (last - 0xac00) % 28 !== 0;
+    return hasBatchim ? '을' : '를';
+  }
+  return '을';
 }
 
 /** 이름 + 직분 (직분 중복·빈값 방지) */
 export function buildSharedContentUserTitle(user: AppUser): string {
   const name = user.name?.trim() || '사용자';
   const clergy = getClergyByEmail(user.email);
-  const position = (clergy ? positionLabel(clergy) : user.position?.trim()) || '';
+  const fromClergy = clergy ? positionLabel(clergy)?.trim() : '';
+  const fromUser = user.position?.trim() || '';
+  const position = fromClergy || fromUser;
   if (!position) return name;
   if (name.includes(position)) return name;
   return `${name} ${position}`;
@@ -43,13 +57,14 @@ export function getSharedContentShareTypeFilterOptions(
   options?: { includePastorShare?: boolean },
 ): SharedContentShareTypeFilterOption[] {
   const noun = contentNoun(domain);
+  const obj = objectParticle(noun);
   const includePastorShare = options?.includePastorShare ?? true;
 
   const allOption: SharedContentShareTypeFilterOption = {
     id: 'all',
     label: '전체',
     chipLabel: '전체',
-    description: `공유받은 ${noun}을 모두 봅니다.`,
+    description: `공유받은 ${noun}${obj} 모두 봅니다.`,
     ariaLabel: `공유받은 ${noun} 전체 보기`,
   };
 
