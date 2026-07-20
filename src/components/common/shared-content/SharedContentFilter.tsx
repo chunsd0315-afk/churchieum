@@ -24,8 +24,12 @@ export type SharedContentFilterState = {
   prayerStatus?: 'all' | 'praying' | 'answered';
   /** 사용자 구분 */
   authorRole?: 'all' | 'member' | 'pastor' | 'super_admin';
-  /** 은혜기록 유형 */
+  /** 은혜기록 유형 / 기도 유형 (도메인별 contentType) */
+  contentType?: string;
+  /** @deprecated contentType 사용 */
   graceType?: string;
+  /** 공유받은 기록 — 교역자 세부 선택 */
+  selectedPastorIds?: string[];
 };
 
 export type SharedContentFilterProps = {
@@ -202,7 +206,7 @@ export function SharedContentSearchFilter({
           }`}
         >
           <Filter className="w-4 h-4" />
-          필터
+          상세설정
         </button>
       </div>
 

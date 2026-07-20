@@ -7,12 +7,20 @@ import {
   VISIBILITY_LABELS_PASTOR,
 } from '../../../types/sharedContent';
 
+export type VisibilityOptionOverride = {
+  label?: string;
+  description?: string;
+  disabledHint?: string;
+};
+
 export type VisibilitySelectorProps = {
   value: VisibilityType;
   onChange: (v: VisibilityType) => void;
   /** pastor / admin UI labels */
   variant?: 'member' | 'pastor';
   disabledOptions?: VisibilityType[];
+  /** 도메인별 라벨·설명·비활성 안내 문구 */
+  optionOverrides?: Partial<Record<VisibilityType, VisibilityOptionOverride>>;
   className?: string;
 };
 
@@ -29,6 +37,7 @@ export function VisibilitySelector({
   onChange,
   variant = 'member',
   disabledOptions = [],
+  optionOverrides = {},
   className = '',
 }: VisibilitySelectorProps) {
   const labels = variant === 'pastor' ? VISIBILITY_LABELS_PASTOR : VISIBILITY_LABELS;
@@ -38,6 +47,7 @@ export function VisibilitySelector({
     <div className={`flex flex-col ${className}`} role="radiogroup" aria-label="공개범위">
       {ORDER.map(opt => {
         const Icon = ICONS[opt];
+        const override = optionOverrides[opt];
         const disabled = disabledOptions.includes(opt);
         const selected = value === opt;
         return (
@@ -64,9 +74,14 @@ export function VisibilitySelector({
             />
             <span className="min-w-0">
               <span className={`block text-[15px] font-bold ${selected ? 'text-primary-800' : 'text-gray-900'}`}>
-                {labels[opt]}
+                {override?.label ?? labels[opt]}
               </span>
-              <span className="block text-[13px] text-gray-500 mt-0.5">{descs[opt]}</span>
+              <span className="block text-[13px] text-gray-500 mt-0.5">
+                {override?.description ?? descs[opt]}
+              </span>
+              {disabled && override?.disabledHint && (
+                <span className="block text-[11px] text-amber-600 mt-1">{override.disabledHint}</span>
+              )}
             </span>
           </button>
         );

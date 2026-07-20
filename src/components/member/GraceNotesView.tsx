@@ -9,8 +9,8 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import {
-  Heart, BookOpen, Edit3, Trash2, Copy, Search,
-  Filter, X, CheckCircle, ChevronDown, BookMarked,
+  Heart, BookOpen, Edit3, Trash2, Copy,
+  CheckCircle, ChevronDown, BookMarked,
   Sparkles, Mic, Lock, Users, Eye, MessageCircle, HandHeart, Plus,
 } from 'lucide-react';
 import {
@@ -24,9 +24,8 @@ import { formatSharedPastorLabel, formatSharedGroupLabel } from '../../data/grac
 import { useAuth } from '../../contexts/AuthContext';
 import { readOrgSettings } from '../../contexts/OrgSettingsContext';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
-import { MobileFullScreenPage } from '../layout/ContentEditorLayout';
 import { MobileFab, PageHeaderBar } from '../common/ui';
-import { sermonInputClass, sermonPrimaryBtnClass } from '../common/sermon/sermonDesign';
+import { sermonPrimaryBtnClass } from '../common/sermon/sermonDesign';
 import { ChurchDropdownMenu } from '../common/ui/ChurchDropdownMenu';
 import {
   getGraceNoteViewInfo,
@@ -46,6 +45,15 @@ import {
   getGraceShareTypeFilterLabel,
   getGraceShareTypeFilterOptions,
 } from '../../services/graceShareTypeFilterLabels';
+import {
+  SharedContentSegmentButtons,
+  SharedContentListToolbar,
+  SharedContentDetailSettingsPage,
+  SharedContentVisibilityFilterSection,
+  SharedContentShareTypeFilterSection,
+  SharedContentAuthorRoleFilterSection,
+  SharedContentAuthorQueryField,
+} from '../common/shared-content';
 import { UserOrganizationTreeSelector } from '../common/shared-content/UserOrganizationTreeSelector';
 import { PastorOrgFilterSelector } from '../common/shared-content/PastorOrgFilterSelector';
 import { PastorFlatFilterSelector } from '../common/shared-content/PastorFlatFilterSelector';
@@ -132,26 +140,12 @@ function GraceRecordTypeFilterButtons({
   onChange: (next: GraceNoteType | '') => void;
 }) {
   return (
-    <div>
-      <p className="text-sm font-bold text-gray-800 mb-2">기록유형</p>
-      <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
-        {GRACE_RECORD_TYPE_OPTIONS.map(opt => (
-          <button
-            key={opt.id || 'all'}
-            type="button"
-            onClick={() => onChange(opt.id)}
-            aria-pressed={value === opt.id}
-            className={`px-3 py-2.5 rounded-xl text-xs font-semibold touch-target min-h-[44px] ${
-              value === opt.id
-                ? 'bg-primary-600 text-white'
-                : 'bg-gray-100 text-gray-600 border border-gray-200'
-            }`}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
-    </div>
+    <SharedContentSegmentButtons
+      title="기록유형"
+      options={GRACE_RECORD_TYPE_OPTIONS}
+      value={value}
+      onChange={onChange}
+    />
   );
 }
 
@@ -676,172 +670,86 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
 
   if (collectionView === 'filter') {
     return (
-      <MobileFullScreenPage
-        title="상세설정"
-        description="조건에 맞는 기록을 찾아보세요."
+      <SharedContentDetailSettingsPage
         onBack={() => setCollectionView('list')}
-        saveButton={
-          <button
-            type="button"
-            onClick={() => setDraft({ ...EMPTY_FILTER, typeFilter: '' })}
-            className="text-sm font-semibold text-gray-600 px-2 py-2 touch-target shrink-0"
-          >
-            상세설정 초기화
-          </button>
-        }
-        footer={
-          <button
-            type="button"
-            onClick={applyFilter}
-            className="w-full btn-primary text-sm font-bold touch-target"
-          >
-            상세설정 적용
-          </button>
-        }
+        onReset={() => setDraft({ ...EMPTY_FILTER, typeFilter: '' })}
+        onApply={applyFilter}
+        description="조건에 맞는 은혜기록을 찾아보세요."
       >
-        <div className="space-y-5">
-          <GraceRecordTypeFilterButtons
-            value={draft.typeFilter}
-            onChange={id => setDraft(prev => ({ ...prev, typeFilter: id }))}
+        <GraceRecordTypeFilterButtons
+          value={draft.typeFilter}
+          onChange={id => setDraft(prev => ({ ...prev, typeFilter: id }))}
+        />
+
+        {tab === 'mine' && (
+          <>
+            <SharedContentVisibilityFilterSection
+              value={draft.visibilityFilter}
+              onChange={handleDraftVisibilityChange}
+            />
+
+            {draftFlags.showMineOrgTree && (
+              <UserOrganizationTreeSelector
+                user={user}
+                mode={orgTreeMode}
+                selectedOrganizationIds={draft.organizationIds}
+                onChange={ids => setDraft(prev => ({ ...prev, organizationIds: ids }))}
+                defaultScope={draftFlags.orgTreeDefaultScope}
+                sectionTitle={draftFlags.orgTreeSectionTitle}
+              />
+            )}
+
+            {tab === 'mine' && draft.visibilityFilter === 'pastor_share' && (
+              <PastorFlatFilterSelector
+                pastorGroups={pastorFilterGroups}
+                selectedPastorIds={draft.selectedPastorIds}
+                onChange={ids => setDraft(prev => ({ ...prev, selectedPastorIds: ids }))}
+              />
+            )}
+          </>
+        )}
+
+        {showShareTypeFilter && (
+          <SharedContentShareTypeFilterSection
+            options={shareTypeFilterOptions}
+            value={draft.shareType}
+            onChange={handleDraftShareTypeChange}
           />
+        )}
 
-          {tab === 'mine' && (
-            <>
-              <div>
-                <p className="text-sm font-bold text-gray-800 mb-2">공개범위</p>
-                <div className="flex flex-wrap gap-2">
-                  {([
-                    { id: 'all' as const, label: '전체' },
-                    { id: 'private' as const, label: VISIBILITY_LABELS.private },
-                    { id: 'pastor_share' as const, label: VISIBILITY_LABELS.pastor_share },
-                    { id: 'organization_share' as const, label: VISIBILITY_LABELS.organization_share },
-                  ]).map(opt => (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => handleDraftVisibilityChange(opt.id)}
-                      className={`px-3 py-2 rounded-xl text-xs font-semibold touch-target ${
-                        draft.visibilityFilter === opt.id ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+        {draftFlags.showSharedOrgTree && (
+          <UserOrganizationTreeSelector
+            user={user}
+            mode={orgTreeMode}
+            selectedOrganizationIds={draft.organizationIds}
+            onChange={ids => setDraft(prev => ({ ...prev, organizationIds: ids }))}
+            defaultScope={draftFlags.orgTreeDefaultScope}
+            sectionTitle={draftFlags.orgTreeSectionTitle}
+          />
+        )}
 
-              {draftFlags.showMineOrgTree && (
-                <UserOrganizationTreeSelector
-                  user={user}
-                  mode={orgTreeMode}
-                  selectedOrganizationIds={draft.organizationIds}
-                  onChange={ids => setDraft(prev => ({ ...prev, organizationIds: ids }))}
-                  defaultScope={draftFlags.orgTreeDefaultScope}
-                  sectionTitle={draftFlags.orgTreeSectionTitle}
-                />
-              )}
+        {draftFlags.showPastorPicker && tab === 'shared' && (
+          <PastorOrgFilterSelector
+            groups={draftPastorFilterData.groups}
+            selectedPastorIds={draft.selectedPastorIds}
+            onChange={ids => setDraft(prev => ({ ...prev, selectedPastorIds: ids }))}
+            sectionTitle="공유받은 교역자"
+          />
+        )}
 
-              {tab === 'mine' && draft.visibilityFilter === 'pastor_share' && (
-                <PastorFlatFilterSelector
-                  pastorGroups={pastorFilterGroups}
-                  selectedPastorIds={draft.selectedPastorIds}
-                  onChange={ids => setDraft(prev => ({ ...prev, selectedPastorIds: ids }))}
-                />
-              )}
-            </>
-          )}
-
-          {showShareTypeFilter && (
-            <div>
-              <p className="text-sm font-bold text-gray-800 mb-2">공유 유형</p>
-              <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2">
-                {shareTypeFilterOptions.map(opt => {
-                  const selected = draft.shareType === opt.id;
-                  return (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => handleDraftShareTypeChange(opt.id)}
-                      aria-label={opt.ariaLabel}
-                      aria-pressed={selected}
-                      className={`px-3 py-2.5 rounded-xl text-xs font-semibold touch-target min-h-[44px] text-left leading-snug whitespace-normal ${
-                        selected ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600'
-                      }`}
-                    >
-                      <span className="block">{opt.label}</span>
-                      {opt.description && (
-                        <span
-                          className={`block text-[10px] font-normal mt-1 leading-snug ${
-                            selected ? 'text-white/85' : 'text-gray-500'
-                          }`}
-                        >
-                          {opt.description}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {draftFlags.showSharedOrgTree && (
-            <UserOrganizationTreeSelector
-              user={user}
-              mode={orgTreeMode}
-              selectedOrganizationIds={draft.organizationIds}
-              onChange={ids => setDraft(prev => ({ ...prev, organizationIds: ids }))}
-              defaultScope={draftFlags.orgTreeDefaultScope}
-              sectionTitle={draftFlags.orgTreeSectionTitle}
+        {tab === 'shared' && (isPastorUser || isAdminUser) && (
+          <>
+            <SharedContentAuthorRoleFilterSection
+              value={draft.authorRole}
+              onChange={id => setDraft(prev => ({ ...prev, authorRole: id }))}
             />
-          )}
-
-          {draftFlags.showPastorPicker && tab === 'shared' && (
-            <PastorOrgFilterSelector
-              groups={draftPastorFilterData.groups}
-              selectedPastorIds={draft.selectedPastorIds}
-              onChange={ids => setDraft(prev => ({ ...prev, selectedPastorIds: ids }))}
-              sectionTitle="공유받은 교역자"
+            <SharedContentAuthorQueryField
+              value={draft.authorQuery}
+              onChange={q => setDraft(prev => ({ ...prev, authorQuery: q }))}
             />
-          )}
-
-          {tab === 'shared' && (isPastorUser || isAdminUser) && (
-            <>
-              <div>
-                <p className="text-sm font-bold text-gray-800 mb-2">작성자 구분</p>
-                <div className="flex flex-wrap gap-2">
-                  {([
-                    { id: 'all' as const, label: '전체' },
-                    { id: 'member' as const, label: '성도' },
-                    { id: 'pastor' as const, label: '교역자' },
-                  ]).map(opt => (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => setDraft(prev => ({ ...prev, authorRole: opt.id }))}
-                      className={`px-3 py-2 rounded-xl text-xs font-semibold touch-target ${
-                        draft.authorRole === opt.id ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className="text-sm font-bold text-gray-800 mb-2">작성자</p>
-                <input
-                  type="text"
-                  value={draft.authorQuery}
-                  onChange={e => setDraft(prev => ({ ...prev, authorQuery: e.target.value }))}
-                  placeholder="작성자 이름"
-                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50"
-                />
-              </div>
-            </>
-          )}
-        </div>
-      </MobileFullScreenPage>
+          </>
+        )}
+      </SharedContentDetailSettingsPage>
     );
   }
 
@@ -909,64 +817,19 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
     >
       {collectionTabs}
 
-      <div className="flex flex-col sm:flex-row gap-2">
-        <div className="relative flex-1 min-w-0">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="키워드, 말씀, 설교 검색"
-            className={`${sermonInputClass} pl-12 pr-12 !bg-white`}
-          />
-          {search && (
-            <button
-              type="button"
-              onClick={() => setSearch('')}
-              className="absolute right-4 top-1/2 -translate-y-1/2 touch-target"
-              aria-label="검색어 지우기"
-            >
-              <X className="w-5 h-5 text-gray-400" />
-            </button>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={openFilter}
-          aria-label="상세설정"
-          className={`shrink-0 flex items-center justify-center gap-1.5 px-4 py-3 rounded-2xl text-sm font-semibold touch-target min-h-[48px] min-w-[88px] ${
-            activeChips.length > 0 ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700'
-          }`}
-        >
-          <Filter className="w-4 h-4" aria-hidden />
-          상세설정
-          {activeChips.length > 0 && (
-            <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded-full">{activeChips.length}</span>
-          )}
-        </button>
-      </div>
-
-      {activeChips.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          {activeChips.map(chip => (
-            <button
-              key={chip.key + chip.label}
-              type="button"
-              onClick={chip.clear}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-semibold bg-primary-50 text-primary-700"
-            >
-              {chip.label}
-              <X className="w-3 h-3" />
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={resetAppliedFilters}
-            className="text-[11px] text-gray-500 font-medium px-2 py-1.5"
-          >
-            상세설정 초기화
-          </button>
-        </div>
-      )}
+      <SharedContentListToolbar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="키워드, 말씀, 설교 검색"
+        onOpenDetailSettings={openFilter}
+        activeFilterCount={activeChips.length}
+        chips={activeChips.map(c => ({
+          key: c.key,
+          label: c.label,
+          onClear: c.clear,
+        }))}
+        onResetFilters={resetAppliedFilters}
+      />
 
       {filtered.length === 0 ? (
         <div className="bg-white rounded-2xl p-10 text-center border border-gray-100">

@@ -29,9 +29,22 @@ import {
   VisibilityBadge,
   SharedTargetSummary,
   PrayerStatusBadge,
-  SharedContentSearchFilter,
+  SharedContentListToolbar,
+  SharedContentDetailSettingsPage,
+  SharedContentShareTypeFilterSection,
+  SharedContentAuthorRoleFilterSection,
+  SharedContentAuthorQueryField,
+  SharedContentPrayerStatusFilterSection,
+  UserOrganizationTreeSelector,
   type SharedContentFilterState,
+  type SharedContentFilterChip,
 } from '../../components/common/shared-content';
+import {
+  getSharedContentShareTypeFilterLabel,
+  getSharedContentShareTypeFilterOptions,
+} from '../../services/sharedContentShareTypeFilterLabels';
+import { resolveOrgTreeMode } from '../../services/userOrganizationTree';
+import { getOrganizationPathLabel } from '../../services/userOrganizationTree';
 import { useAuth } from '../../contexts/AuthContext';
 import PrayerAttachmentPicker from '../../components/layout/PrayerAttachmentPicker';
 import PrayerDetailSheet from '../../components/layout/PrayerDetailSheet';
@@ -52,6 +65,14 @@ function formatDate(iso: string) {
   const d = new Date(iso);
   return isNaN(d.getTime()) ? iso.slice(0, 10) : d.toLocaleDateString('ko-KR');
 }
+
+const EMPTY_PRAYER_FILTER: SharedContentFilterState = {
+  visibility: 'all',
+  shareType: 'all',
+  organizationIds: [],
+  prayerStatus: 'all',
+  authorRole: 'all',
+};
 
 export default function PrayerPage() {
   const { user, isPastor, isAdmin } = useAuth();
@@ -75,13 +96,9 @@ export default function PrayerPage() {
   const [saving, setSaving] = useState(false);
 
   const [search, setSearch] = useState('');
-  const [filterState, setFilterState] = useState<SharedContentFilterState>({
-    visibility: 'all',
-    shareType: 'all',
-    organizationIds: [],
-    prayerStatus: 'all',
-    authorRole: 'all',
-  });
+  const [filterView, setFilterView] = useState<'list' | 'filter'>('list');
+  const [appliedFilter, setAppliedFilter] = useState<SharedContentFilterState>(EMPTY_PRAYER_FILTER);
+  const [draftFilter, setDraftFilter] = useState<SharedContentFilterState>(EMPTY_PRAYER_FILTER);
 
   const filterMode = isAdmin ? 'admin' : isPastor ? 'pastor' : 'member';
   const selectorVariant = isAdmin || isPastor ? 'pastor' : 'member';
@@ -178,41 +195,41 @@ export default function PrayerPage() {
     const showShareType = activeTab === 'shared' || activeTab === 'admin_shared';
     const applyOrgFilter =
       activeTab === 'organization' ||
-      (showShareType && filterState.shareType === 'organization_share');
+      (showShareType && appliedFilter.shareType === 'organization_share');
     const bucket = filterSharedContentByTab(prayers, user, activeTab, {
       canAuditPrivate: isAdmin,
     });
     return bucket
       .filter(p => {
-        if (showShareType && !matchesShareTypeFilter(p, filterState.shareType ?? 'all')) {
+        if (showShareType && !matchesShareTypeFilter(p, appliedFilter.shareType ?? 'all')) {
           return false;
         }
         if (
           applyOrgFilter &&
-          !matchesOrganizationFilterForRecord(p, filterState.organizationIds ?? [])
+          !matchesOrganizationFilterForRecord(p, appliedFilter.organizationIds ?? [])
         ) {
           return false;
         }
-        if (filterState.visibility && filterState.visibility !== 'all') {
-          if (migrateVisibility(p.visibility) !== filterState.visibility) return false;
+        if (appliedFilter.visibility && appliedFilter.visibility !== 'all') {
+          if (migrateVisibility(p.visibility) !== appliedFilter.visibility) return false;
         }
-        if (filterState.prayerStatus && filterState.prayerStatus !== 'all') {
-          if (p.status !== filterState.prayerStatus) return false;
+        if (appliedFilter.prayerStatus && appliedFilter.prayerStatus !== 'all') {
+          if (p.status !== appliedFilter.prayerStatus) return false;
         }
-        if (filterState.authorRole && filterState.authorRole !== 'all') {
-          const wanted = filterState.authorRole === 'super_admin' ? 'admin' : filterState.authorRole;
+        if (appliedFilter.authorRole && appliedFilter.authorRole !== 'all') {
+          const wanted = appliedFilter.authorRole === 'super_admin' ? 'admin' : appliedFilter.authorRole;
           if (p.authorRole !== wanted) return false;
         }
-        if (filterState.authorQuery) {
-          if (!p.authorName.toLowerCase().includes(filterState.authorQuery.toLowerCase())) return false;
+        if (appliedFilter.authorQuery) {
+          if (!p.authorName.toLowerCase().includes(appliedFilter.authorQuery.toLowerCase())) return false;
         }
-        if (filterState.dateFrom && p.createdAt.slice(0, 10) < filterState.dateFrom) return false;
-        if (filterState.dateTo && p.createdAt.slice(0, 10) > filterState.dateTo) return false;
+        if (appliedFilter.dateFrom && p.createdAt.slice(0, 10) < appliedFilter.dateFrom) return false;
+        if (appliedFilter.dateTo && p.createdAt.slice(0, 10) > appliedFilter.dateTo) return false;
         if (search.trim() && !matchesSharedContentSearch(p, search)) return false;
         return true;
       })
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }, [prayers, user, activeTab, filterState, search, isAdmin]);
+  }, [prayers, user, activeTab, appliedFilter, search, isAdmin]);
 
   const hidePastorShareTypeOption = useMemo(() => {
     if (filterMode !== 'member') return false;
@@ -222,6 +239,91 @@ export default function PrayerPage() {
   }, [filterMode, activeTab, prayers, user]);
 
   const showShareTypeOnTab = activeTab === 'shared' || activeTab === 'admin_shared';
+  const showOrgTreeOnFilter =
+    activeTab === 'organization' ||
+    (showShareTypeOnTab && draftFilter.shareType === 'organization_share');
+  const orgTreeMode = useMemo(() => resolveOrgTreeMode(user), [user]);
+
+  const shareTypeFilterOptions = useMemo(
+    () => getSharedContentShareTypeFilterOptions(user, 'prayer', {
+      includePastorShare: !hidePastorShareTypeOption,
+    }),
+    [user, hidePastorShareTypeOption],
+  );
+
+  const openFilter = () => {
+    setDraftFilter({ ...appliedFilter });
+    setFilterView('filter');
+  };
+
+  const applyFilter = () => {
+    setAppliedFilter({ ...draftFilter });
+    setFilterView('list');
+  };
+
+  const resetAppliedFilters = () => {
+    setAppliedFilter(EMPTY_PRAYER_FILTER);
+    setDraftFilter(EMPTY_PRAYER_FILTER);
+  };
+
+  const activeFilterChips = useMemo((): SharedContentFilterChip[] => {
+    const chips: SharedContentFilterChip[] = [];
+    if (appliedFilter.prayerStatus && appliedFilter.prayerStatus !== 'all') {
+      chips.push({
+        key: 'prayerStatus',
+        label: appliedFilter.prayerStatus === 'answered' ? '응답받음' : '기도 중',
+        onClear: () => setAppliedFilter(f => ({ ...f, prayerStatus: 'all' })),
+      });
+    }
+    if (showShareTypeOnTab && appliedFilter.shareType && appliedFilter.shareType !== 'all') {
+      chips.push({
+        key: 'shareType',
+        label: getSharedContentShareTypeFilterLabel(
+          user,
+          'prayer',
+          appliedFilter.shareType,
+          'chip',
+          !hidePastorShareTypeOption,
+        ),
+        onClear: () => setAppliedFilter(f => ({
+          ...f,
+          shareType: 'all',
+          organizationIds: [],
+        })),
+      });
+    }
+    for (const id of appliedFilter.organizationIds ?? []) {
+      chips.push({
+        key: `org:${id}`,
+        label: getOrganizationPathLabel(id),
+        onClear: () => setAppliedFilter(f => ({
+          ...f,
+          organizationIds: (f.organizationIds ?? []).filter(x => x !== id),
+        })),
+      });
+    }
+    if (appliedFilter.authorRole && appliedFilter.authorRole !== 'all') {
+      const roleLabel =
+        appliedFilter.authorRole === 'member'
+          ? '성도'
+          : appliedFilter.authorRole === 'pastor'
+            ? '교역자'
+            : '최고관리자';
+      chips.push({
+        key: 'authorRole',
+        label: roleLabel,
+        onClear: () => setAppliedFilter(f => ({ ...f, authorRole: 'all' })),
+      });
+    }
+    if (appliedFilter.authorQuery?.trim()) {
+      chips.push({
+        key: 'authorQuery',
+        label: `작성자: ${appliedFilter.authorQuery.trim()}`,
+        onClear: () => setAppliedFilter(f => ({ ...f, authorQuery: undefined })),
+      });
+    }
+    return chips;
+  }, [appliedFilter, showShareTypeOnTab, user, hidePastorShareTypeOption]);
 
   if (loading) {
     return (
@@ -246,7 +348,8 @@ export default function PrayerPage() {
           }
           if (id === 'answered') {
             setActiveTab('mine');
-            setFilterState(f => ({ ...f, prayerStatus: 'answered' }));
+            setAppliedFilter(f => ({ ...f, prayerStatus: 'answered' }));
+            setDraftFilter(f => ({ ...f, prayerStatus: 'answered' }));
             setHubView(false);
             toast.info('나의 기도에서 응답된 기도를 확인할 수 있습니다.');
             return;
@@ -267,6 +370,60 @@ export default function PrayerPage() {
           setHubView(false);
         }}
       />
+    );
+  }
+
+  if (filterView === 'filter') {
+    return (
+      <SharedContentDetailSettingsPage
+        onBack={() => setFilterView('list')}
+        onReset={() => setDraftFilter(EMPTY_PRAYER_FILTER)}
+        onApply={applyFilter}
+        description="조건에 맞는 기도제목을 찾아보세요."
+      >
+        <SharedContentPrayerStatusFilterSection
+          value={draftFilter.prayerStatus ?? 'all'}
+          onChange={status => setDraftFilter(f => ({ ...f, prayerStatus: status }))}
+        />
+
+        {showShareTypeOnTab && (
+          <SharedContentShareTypeFilterSection
+            options={shareTypeFilterOptions}
+            value={draftFilter.shareType ?? 'all'}
+            onChange={shareType => setDraftFilter(f => ({
+              ...f,
+              shareType,
+              organizationIds: shareType === 'organization_share' ? f.organizationIds ?? [] : [],
+            }))}
+          />
+        )}
+
+        {(showOrgTreeOnFilter || activeTab === 'organization') && user && (
+          <UserOrganizationTreeSelector
+            user={user}
+            mode={orgTreeMode}
+            selectedOrganizationIds={draftFilter.organizationIds ?? []}
+            onChange={ids => setDraftFilter(f => ({ ...f, organizationIds: ids }))}
+            allowFullOrgTree={isAdmin}
+            defaultScope={isAdmin ? 'all' : 'mine'}
+            sectionTitle="공유 조직"
+          />
+        )}
+
+        {(filterMode === 'pastor' || filterMode === 'admin') && (
+          <>
+            <SharedContentAuthorRoleFilterSection
+              value={draftFilter.authorRole ?? 'all'}
+              onChange={role => setDraftFilter(f => ({ ...f, authorRole: role }))}
+              includeSuperAdmin={filterMode === 'admin'}
+            />
+            <SharedContentAuthorQueryField
+              value={draftFilter.authorQuery ?? ''}
+              onChange={q => setDraftFilter(f => ({ ...f, authorQuery: q }))}
+            />
+          </>
+        )}
+      </SharedContentDetailSettingsPage>
     );
   }
 
@@ -297,17 +454,14 @@ export default function PrayerPage() {
         className="mb-3"
       />
 
-      <SharedContentSearchFilter
-        value={filterState}
-        onChange={setFilterState}
+      <SharedContentListToolbar
         search={search}
         onSearchChange={setSearch}
-        mode={filterMode}
-        user={user}
-        showPrayerStatus
-        showShareTypeFilter={showShareTypeOnTab}
-        hidePastorShareTypeOption={hidePastorShareTypeOption}
-        forceShowOrganizationFilter={activeTab === 'organization'}
+        searchPlaceholder="제목, 내용, 작성자 검색"
+        onOpenDetailSettings={openFilter}
+        activeFilterCount={activeFilterChips.length}
+        chips={activeFilterChips}
+        onResetFilters={resetAppliedFilters}
         className="mb-4"
       />
 
