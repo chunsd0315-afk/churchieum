@@ -39,9 +39,10 @@ function excerpt(text: string, max = 60) {
   return t.slice(0, max) + '…';
 }
 
-export default function GraceNotesPage({ onExit }: { onExit?: () => void }) {
+export default function GraceNotesPage() {
   const [view, setView] = useState<SubView>('all-list');
   const [, setRefresh] = useState(0);
+  const [listMineReset, setListMineReset] = useState(0);
 
   useEffect(() => {
     ensureGraceNoteDemoData();
@@ -140,7 +141,14 @@ export default function GraceNotesPage({ onExit }: { onExit?: () => void }) {
   if (view === 'write') {
     return (
       <GraceNoteEditor
-        onSave={id => navToDetail(id, backView === 'detail' ? 'all-list' : backView)}
+        onSave={() => {
+          setEditId(undefined);
+          setReadingCtx(null);
+          setSermonCtx(null);
+          setWriteType(undefined);
+          setView('all-list');
+          setListMineReset(n => n + 1);
+        }}
         onBack={() => {
           setEditId(undefined);
           setReadingCtx(null);
@@ -170,7 +178,9 @@ export default function GraceNotesPage({ onExit }: { onExit?: () => void }) {
             aria-hidden={view === 'detail'}
           >
             <GraceNoteListView
-              onBack={() => onExit?.()}
+              hideBack
+              onBack={() => {}}
+              resetToMineSignal={listMineReset}
               onWrite={() => openWrite({ from: 'all-list' })}
               onDetail={id => navToDetail(id, 'all-list')}
               onEdit={note => navToEdit(note, 'all-list')}

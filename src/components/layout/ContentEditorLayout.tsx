@@ -7,6 +7,8 @@ export type ContentEditorLayoutProps = {
   title: string;
   description?: string;
   onBack: () => void;
+  /** true면 루트 화면 등 — 뒤로가기 버튼 숨김 (좌측 여백만 유지) */
+  hideBack?: boolean;
   children: ReactNode;
   saveButton?: ReactNode;
   /**
@@ -40,6 +42,7 @@ export default function ContentEditorLayout({
   title,
   description,
   onBack,
+  hideBack = false,
   children,
   saveButton,
   mobileHeaderVariant = 'editor',
@@ -57,7 +60,9 @@ export default function ContentEditorLayout({
     };
   }, [isPc]);
 
-  const backButton = (
+  const backButton = hideBack ? (
+    <div className="w-12 shrink-0" aria-hidden />
+  ) : (
     <button
       type="button"
       onClick={onBack}

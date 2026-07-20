@@ -178,16 +178,20 @@ function deriveGraceListShowFlags(
   };
 }
 
-export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPlanId, initialType }: {
+export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPlanId, initialType, hideBack, resetToMineSignal }: {
   onBack: () => void;
   onWrite?: () => void;
   onDetail: (id: string) => void;
   onEdit: (note: GraceNote) => void;
   initialPlanId?: string;
   initialType?: GraceNoteType;
+  /** 은혜기록 메뉴 루트 화면 — 뒤로가기 숨김 */
+  hideBack?: boolean;
+  /** 작성 완료 등 — 내 기록 화면으로 복귀 */
+  resetToMineSignal?: number;
 }) {
   const { user } = useAuth();
-  const [tab, setTab] = useState<GraceCollectTab>('shared');
+  const [tab, setTab] = useState<GraceCollectTab>('mine');
   const [collectionView, setCollectionView] = useState<'list' | 'filter'>('list');
   const [applied, setApplied] = useState<GraceListFilterState>({
     ...EMPTY_FILTER,
@@ -492,8 +496,15 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
   const tabs = GRACE_COLLECTION_UI_TABS;
 
   useEffect(() => {
-    if (!tabs.some(t => t.id === tab)) setTab('shared');
+    if (!tabs.some(t => t.id === tab)) setTab('mine');
   }, [tabs, tab]);
+
+  useEffect(() => {
+    if (resetToMineSignal !== undefined && resetToMineSignal > 0) {
+      setTab('mine');
+      setNotes(getAllGraceNotes());
+    }
+  }, [resetToMineSignal]);
 
   const emptyState = useMemo((): { title: string; desc: string } => {
     if (tab === 'mine') {
@@ -755,32 +766,21 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
       )}
 
       <MobileFullScreenPage
-        title="은혜기록 모아보기"
+        title="은혜기록"
         description={
           isMineMode
             ? '내가 작성한 은혜기록을 확인합니다.'
             : '공유받은 은혜기록을 함께 확인하세요.'
         }
         onBack={onBack}
+        hideBack={hideBack}
         saveButton={
-          <div className="flex items-center gap-2 shrink-0">
-            {onWrite && (
-              <button
-                type="button"
-                onClick={onWrite}
-                className="hidden md:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold bg-primary-600 text-white touch-target hover:bg-primary-700"
-              >
-                <PenLine className="w-4 h-4" />
-                은혜기록 작성
-              </button>
-            )}
-            <span className="text-xs text-gray-400 font-medium px-2 shrink-0">
-              {filtered.length}개
-            </span>
-          </div>
+          <span className="text-xs text-gray-400 font-medium px-2 shrink-0">
+            {filtered.length}개
+          </span>
         }
       >
-        <div className="space-y-3">
+        <div className={`space-y-3 ${onWrite ? 'pb-24 md:pb-0' : ''}`}>
           <div className="flex flex-col sm:flex-row gap-2">
             <div className="flex-1 relative min-w-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -791,24 +791,13 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
                 className="w-full pl-9 pr-3 py-3 text-sm border border-gray-200 rounded-2xl focus:outline-none focus:border-primary-300 bg-white"
               />
             </div>
-            <div className="flex gap-2 shrink-0">
+            <div className="flex flex-wrap gap-2 shrink-0">
               <button
                 type="button"
                 onClick={toggleCollectionMode}
-                className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-3 rounded-2xl text-sm font-semibold touch-target min-w-[120px] ${
-                  isMineMode
-                    ? 'bg-primary-600 text-white shadow-sm'
-                    : 'bg-gray-100 text-gray-700'
-                }`}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-3 rounded-2xl text-sm font-semibold touch-target min-w-[120px] bg-gray-100 text-gray-700"
               >
-                {isMineMode ? (
-                  <>
-                    <CheckCircle className="w-4 h-4" />
-                    전체 기록 보기
-                  </>
-                ) : (
-                  '내 기록 보기'
-                )}
+                {isMineMode ? '공유받은 기록 보기' : '내 기록 보기'}
               </button>
               <button
                 type="button"
@@ -823,6 +812,16 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
                   <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded-full">{activeChips.length}</span>
                 )}
               </button>
+              {onWrite && user && (
+                <button
+                  type="button"
+                  onClick={onWrite}
+                  className="hidden md:inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-2xl text-sm font-semibold touch-target bg-primary-600 text-white hover:bg-primary-700"
+                >
+                  <PenLine className="w-4 h-4" />
+                  은혜기록 작성
+                </button>
+              )}
             </div>
           </div>
 
@@ -933,7 +932,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
           )}
         </div>
       </MobileFullScreenPage>
-      {onWrite && (
+      {onWrite && user && (
         <MobileFab label="은혜기록 작성" onClick={onWrite} />
       )}
     </>
