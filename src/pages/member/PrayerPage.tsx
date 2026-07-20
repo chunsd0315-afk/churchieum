@@ -8,126 +8,170 @@ import {
   toAuthorRole,
   defaultOrganizationScope,
 } from '../../services/prayerStorage';
-import type { Prayer, PrayerAttachment } from '../../types/prayer';
-import { CHURCH_WIDE_SCOPE, ATTACHMENT_TYPE_LABELS } from '../../types/prayer';
-import type { VisibilityType } from '../../types/sharedContent';
-import { migrateVisibility } from '../../types/sharedContent';
+import type { Prayer } from '../../types/prayer';
+import { CHURCH_WIDE_SCOPE } from '../../types/prayer';
+import type { ShareTypeFilter } from '../../types/sharedContent';
 import {
   filterSharedContentByTab,
-  getShareablePastorsForWriter,
-  getShareableOrganizationsForWriter,
   matchesSharedContentSearch,
   matchesShareTypeFilter,
   matchesOrganizationFilterForRecord,
-  PRAYER_LIST_TAB_LABELS,
-  type SharedListTab,
 } from '../../services/sharedContentAccess';
 import {
-  VisibilitySelector,
-  PastorShareSelector,
-  OrganizationShareSelector,
-  VisibilityBadge,
-  SharedTargetSummary,
-  PrayerStatusBadge,
   SharedContentListToolbar,
   SharedContentDetailSettingsPage,
   SharedContentShareTypeFilterSection,
   SharedContentAuthorRoleFilterSection,
-  SharedContentAuthorQueryField,
   SharedContentPrayerStatusFilterSection,
+  SharedContentCollectionTabs,
+  SharedContentAuthorSelector,
+  VisibilityBadge,
+  SharedTargetSummary,
+  PrayerStatusBadge,
   UserOrganizationTreeSelector,
-  type SharedContentFilterState,
+  PastorOrgFilterSelector,
   type SharedContentFilterChip,
+  type SharedContentAuthorOption,
 } from '../../components/common/shared-content';
 import {
   getSharedContentShareTypeFilterLabel,
   getSharedContentShareTypeFilterOptions,
 } from '../../services/sharedContentShareTypeFilterLabels';
-import { resolveOrgTreeMode } from '../../services/userOrganizationTree';
-import { getOrganizationPathLabel } from '../../services/userOrganizationTree';
-import { useAuth } from '../../contexts/AuthContext';
-import PrayerAttachmentPicker from '../../components/layout/PrayerAttachmentPicker';
-import PrayerDetailSheet from '../../components/layout/PrayerDetailSheet';
-import { getCommentCount } from '../../services/prayerCommentStorage';
 import {
-  Heart, Plus, Check, Star, Paperclip, MessageCircle, Loader,
-} from 'lucide-react';
-import { TabBar, MobileEditorModal, MobileFab, useToast } from '../../components/common/ui';
-import EmptyState from '../../components/layout/EmptyState';
-import { FeatureHubPage, HubBackBar } from '../../components/common/feature-hub';
-import { PRAYER_HUB } from '../../config/featureHub/memberHubs';
+  getFilterPastorsForUser,
+  matchesSharedPastorFilter,
+  pastorLabel,
+} from '../../services/graceShareFilterHelpers';
+import { resolveOrgTreeMode, getOrganizationPathLabel } from '../../services/userOrganizationTree';
+import { isSuperAdmin } from '../../services/permissions';
+import { useAuth } from '../../contexts/AuthContext';
+import PrayerDetailSheet from '../../components/layout/PrayerDetailSheet';
+import { PrayerWriteForm } from '../../components/member/PrayerWriteForm';
+import { getCommentCount } from '../../services/prayerCommentStorage';
+import { Heart, Plus, Check, Star, MessageCircle, Loader } from 'lucide-react';
+import { MobileFab, PageHeaderBar, useToast } from '../../components/common/ui';
+import { sermonPrimaryBtnClass } from '../../components/common/sermon/sermonDesign';
 
-const MEMBER_TABS: SharedListTab[] = ['mine', 'shared'];
-const PASTOR_TABS: SharedListTab[] = ['mine', 'pastor_members', 'organization'];
-const ADMIN_TABS: SharedListTab[] = ['mine', 'admin_shared', 'admin_audit'];
+type PrayerCollectTab = 'mine' | 'shared';
+type PrayerPageView = 'collection' | 'filter' | 'write' | 'detail';
+
+type PrayerCollectionFilterState = {
+  shareType: ShareTypeFilter;
+  organizationIds: string[];
+  selectedPastorIds: string[];
+  authorRole: 'all' | 'member' | 'pastor';
+  selectedAuthorIds: string[];
+  prayerStatus: 'all' | 'praying' | 'answered';
+};
+
+const EMPTY_PRAYER_FILTER: PrayerCollectionFilterState = {
+  shareType: 'all',
+  organizationIds: [],
+  selectedPastorIds: [],
+  authorRole: 'all',
+  selectedAuthorIds: [],
+  prayerStatus: 'all',
+};
 
 function formatDate(iso: string) {
   const d = new Date(iso);
   return isNaN(d.getTime()) ? iso.slice(0, 10) : d.toLocaleDateString('ko-KR');
 }
 
-const EMPTY_PRAYER_FILTER: SharedContentFilterState = {
-  visibility: 'all',
-  shareType: 'all',
-  organizationIds: [],
-  prayerStatus: 'all',
-  authorRole: 'all',
-};
+function activePrayers(prayers: Prayer[]): Prayer[] {
+  return prayers.filter(p => !p.deleted);
+}
+
+function getPrayersForCollectTab(
+  prayers: Prayer[],
+  user: ReturnType<typeof useAuth>['user'],
+  tab: PrayerCollectTab,
+): Prayer[] {
+  return filterSharedContentByTab(activePrayers(prayers), user, tab);
+}
+
+function matchesPrayerSearch(prayer: Prayer, query: string): boolean {
+  if (!query.trim()) return true;
+  if (matchesSharedContentSearch(prayer, query)) return true;
+  const q = query.trim().toLowerCase();
+  const roleHay = prayer.authorRole === 'pastor' ? '교역자' : prayer.authorRole === 'admin' ? '목사' : '성도';
+  return roleHay.includes(q);
+}
+
+function isPastoralPrayerAuthor(role: Prayer['authorRole']): boolean {
+  return role === 'pastor' || role === 'admin';
+}
+
+function derivePrayerFilterFlags(
+  f: PrayerCollectionFilterState,
+  tab: PrayerCollectTab,
+  isAdminUser: boolean,
+) {
+  const showSharedOrgTree = tab === 'shared' && f.shareType === 'organization_share';
+  const showPastorPicker = tab === 'shared' && isAdminUser && f.shareType === 'pastor_share';
+  const orgTreeDefaultScope = isAdminUser && showSharedOrgTree ? 'all' as const : 'mine' as const;
+  return { showSharedOrgTree, showPastorPicker, orgTreeDefaultScope };
+}
+
+function buildAuthorPool(prayers: Prayer[], user: ReturnType<typeof useAuth>['user']): SharedContentAuthorOption[] {
+  const bucket = getPrayersForCollectTab(prayers, user, 'shared');
+  const map = new Map<string, SharedContentAuthorOption>();
+  for (const p of bucket) {
+    if (map.has(p.authorId)) continue;
+    map.set(p.authorId, {
+      id: p.authorId,
+      name: p.authorName,
+      role: p.authorRole,
+    });
+  }
+  return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+}
 
 export default function PrayerPage() {
   const { user, isPastor, isAdmin } = useAuth();
   const toast = useToast();
-  const [hubView, setHubView] = useState(true);
+  const [view, setView] = useState<PrayerPageView>('collection');
   const [prayers, setPrayers] = useState<Prayer[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const tabs = isAdmin ? ADMIN_TABS : isPastor ? PASTOR_TABS : MEMBER_TABS;
-  const [activeTab, setActiveTab] = useState<SharedListTab>('mine');
-
-  const [showForm, setShowForm] = useState(false);
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [visibility, setVisibility] = useState<VisibilityType>('private');
-  const [sharedPastorIds, setSharedPastorIds] = useState<string[]>([]);
-  const [sharedOrganizationIds, setSharedOrganizationIds] = useState<string[]>([]);
-  const [attachments, setAttachments] = useState<PrayerAttachment[]>([]);
+  const [tab, setTab] = useState<PrayerCollectTab>('mine');
+  const [search, setSearch] = useState('');
+  const [applied, setApplied] = useState<PrayerCollectionFilterState>(EMPTY_PRAYER_FILTER);
+  const [draft, setDraft] = useState<PrayerCollectionFilterState>(EMPTY_PRAYER_FILTER);
   const [selectedPrayer, setSelectedPrayer] = useState<Prayer | null>(null);
   const [commentTick, setCommentTick] = useState(0);
   const [saving, setSaving] = useState(false);
 
-  const [search, setSearch] = useState('');
-  const [filterView, setFilterView] = useState<'list' | 'filter'>('list');
-  const [appliedFilter, setAppliedFilter] = useState<SharedContentFilterState>(EMPTY_PRAYER_FILTER);
-  const [draftFilter, setDraftFilter] = useState<SharedContentFilterState>(EMPTY_PRAYER_FILTER);
+  const isAdminUser = isSuperAdmin(user);
+  const isPastorUser = user?.role === 'pastor' && !isAdminUser;
+  const isMemberUser = !isAdminUser && !isPastorUser;
 
-  const filterMode = isAdmin ? 'admin' : isPastor ? 'pastor' : 'member';
-  const selectorVariant = isAdmin || isPastor ? 'pastor' : 'member';
+  const orgTreeMode = useMemo(() => resolveOrgTreeMode(user), [user]);
+  const authorPool = useMemo(() => buildAuthorPool(prayers, user), [prayers, user]);
 
-  const shareablePastors = useMemo(() => getShareablePastorsForWriter(user), [user]);
-  const shareableOrganizations = useMemo(() => getShareableOrganizationsForWriter(user), [user]);
+  const hidePastorShareTypeOption = isMemberUser;
 
-  const openForm = () => {
-    setVisibility('private');
-    setSharedPastorIds([]);
-    setSharedOrganizationIds([]);
-    setAttachments([]);
-    setShowForm(true);
-  };
+  const shareTypeFilterOptions = useMemo(
+    () => getSharedContentShareTypeFilterOptions(user, 'prayer', {
+      includePastorShare: !hidePastorShareTypeOption,
+    }),
+    [user, hidePastorShareTypeOption],
+  );
 
-  const closeForm = () => {
-    attachments.forEach(a => {
-      if (a.url.startsWith('blob:')) {
-        try { URL.revokeObjectURL(a.url); } catch { /* ignore */ }
-      }
-    });
-    setShowForm(false);
-    setTitle('');
-    setContent('');
-    setVisibility('private');
-    setSharedPastorIds([]);
-    setSharedOrganizationIds([]);
-    setAttachments([]);
-  };
+  const draftFlags = derivePrayerFilterFlags(draft, tab, isAdminUser);
+  const appliedFlags = derivePrayerFilterFlags(applied, tab, isAdminUser);
+
+  const draftPastorFilterData = useMemo(
+    () => getFilterPastorsForUser(
+      user,
+      tab === 'shared' && draft.shareType === 'pastor_share' ? [] : draft.organizationIds,
+    ),
+    [user, draft.organizationIds, draft.shareType, tab],
+  );
+
+  const appliedPastorLookup = useMemo(() => {
+    const data = getFilterPastorsForUser(user, applied.organizationIds);
+    return new Map(data.flat.map(p => [p.id, p]));
+  }, [user, applied.organizationIds]);
 
   const refreshPrayers = useCallback(() => {
     setPrayers(getAllPrayers());
@@ -138,46 +182,234 @@ export default function PrayerPage() {
     setLoading(false);
   }, [refreshPrayers]);
 
-  const canSubmit =
-    title.trim().length > 0 &&
-    content.trim().length > 0 &&
-    (visibility !== 'pastor_share' || sharedPastorIds.length > 0) &&
-    (visibility !== 'organization_share' || sharedOrganizationIds.length > 0);
+  const switchTab = (next: PrayerCollectTab) => {
+    if (next === tab) return;
+    setTab(next);
+    if (next === 'mine') {
+      setApplied(prev => ({
+        ...prev,
+        shareType: 'all',
+        organizationIds: [],
+        selectedPastorIds: [],
+        authorRole: 'all',
+        selectedAuthorIds: [],
+      }));
+    } else {
+      setApplied(prev => ({ ...prev, prayerStatus: 'all' }));
+    }
+    setSearch('');
+  };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user || !canSubmit) return;
+  const openFilter = () => {
+    setDraft({ ...applied });
+    setView('filter');
+  };
+
+  const applyFilter = () => {
+    setApplied({ ...draft });
+    setView('collection');
+  };
+
+  const resetAppliedFilters = () => {
+    setApplied(EMPTY_PRAYER_FILTER);
+    setDraft(EMPTY_PRAYER_FILTER);
+  };
+
+  const handleDraftShareTypeChange = (next: ShareTypeFilter) => {
+    setDraft(prev => ({
+      ...prev,
+      shareType: next,
+      organizationIds: [],
+      selectedPastorIds: [],
+      ...(next !== 'pastor_share' ? { authorRole: 'all' as const, selectedAuthorIds: [] } : {}),
+    }));
+  };
+
+  const filtered = useMemo(() => {
+    const bucket = getPrayersForCollectTab(prayers, user, tab);
+    const { showSharedOrgTree, showPastorPicker } = appliedFlags;
+
+    return bucket
+      .filter(p => {
+        if (tab === 'shared') {
+          if (!matchesShareTypeFilter(p, applied.shareType)) return false;
+          if (showSharedOrgTree && applied.organizationIds.length > 0) {
+            if (!matchesOrganizationFilterForRecord(p, applied.organizationIds)) return false;
+          }
+          if (showPastorPicker && applied.selectedPastorIds.length > 0) {
+            if (!matchesSharedPastorFilter(p, applied.selectedPastorIds)) return false;
+          }
+          if (applied.authorRole === 'member' && isPastoralPrayerAuthor(p.authorRole)) return false;
+          if (applied.authorRole === 'pastor' && !isPastoralPrayerAuthor(p.authorRole)) return false;
+          if (applied.selectedAuthorIds.length > 0 && !applied.selectedAuthorIds.includes(p.authorId)) {
+            return false;
+          }
+        }
+
+        if (tab === 'mine' && applied.prayerStatus !== 'all') {
+          if (p.status !== applied.prayerStatus) return false;
+        }
+
+        if (!matchesPrayerSearch(p, search)) return false;
+        return true;
+      })
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }, [prayers, user, tab, applied, appliedFlags, search]);
+
+  const mineCount = useMemo(
+    () => getPrayersForCollectTab(prayers, user, 'mine').length,
+    [prayers, user],
+  );
+  const sharedCount = useMemo(
+    () => getPrayersForCollectTab(prayers, user, 'shared').length,
+    [prayers, user],
+  );
+
+  const activeChips = useMemo((): SharedContentFilterChip[] => {
+    const chips: SharedContentFilterChip[] = [];
+
+    if (tab === 'mine' && applied.prayerStatus !== 'all') {
+      chips.push({
+        key: 'prayerStatus',
+        label: applied.prayerStatus === 'answered' ? '응답받음' : '기도 중',
+        onClear: () => setApplied(prev => ({ ...prev, prayerStatus: 'all' })),
+      });
+    }
+
+    if (tab === 'shared' && applied.shareType !== 'all') {
+      chips.push({
+        key: 'shareType',
+        label: getSharedContentShareTypeFilterLabel(
+          user,
+          'prayer',
+          applied.shareType,
+          'chip',
+          !hidePastorShareTypeOption,
+        ),
+        onClear: () => setApplied(prev => ({
+          ...prev,
+          shareType: 'all',
+          organizationIds: [],
+          selectedPastorIds: [],
+        })),
+      });
+    }
+
+    if (appliedFlags.showSharedOrgTree) {
+      for (const id of applied.organizationIds) {
+        chips.push({
+          key: `org:${id}`,
+          label: getOrganizationPathLabel(id),
+          onClear: () => setApplied(prev => ({
+            ...prev,
+            organizationIds: prev.organizationIds.filter(x => x !== id),
+          })),
+        });
+      }
+    }
+
+    for (const id of applied.selectedPastorIds) {
+      const p = appliedPastorLookup.get(id);
+      chips.push({
+        key: `pastor:${id}`,
+        label: p ? pastorLabel(p) : id,
+        onClear: () => setApplied(prev => ({
+          ...prev,
+          selectedPastorIds: prev.selectedPastorIds.filter(x => x !== id),
+        })),
+      });
+    }
+
+    if (tab === 'shared' && applied.authorRole !== 'all') {
+      chips.push({
+        key: 'authorRole',
+        label: applied.authorRole === 'member' ? '성도' : '교역자',
+        onClear: () => setApplied(prev => ({ ...prev, authorRole: 'all', selectedAuthorIds: [] })),
+      });
+    }
+
+    for (const id of applied.selectedAuthorIds) {
+      const author = authorPool.find(a => a.id === id);
+      chips.push({
+        key: `author:${id}`,
+        label: author ? `${author.name} ${author.role === 'member' ? '성도' : '교역자'}` : id,
+        onClear: () => setApplied(prev => ({
+          ...prev,
+          selectedAuthorIds: prev.selectedAuthorIds.filter(x => x !== id),
+        })),
+      });
+    }
+
+    return chips;
+  }, [tab, applied, appliedFlags, user, hidePastorShareTypeOption, appliedPastorLookup, authorPool]);
+
+  const hasAppliedFilters = activeChips.length > 0 || search.trim() !== '';
+
+  const emptyState = useMemo(() => {
+    if (tab === 'mine') {
+      if (hasAppliedFilters) {
+        return { title: '조건에 맞는 내 기도가 없습니다.', desc: '검색어나 상세설정을 바꿔 보세요.' };
+      }
+      return { title: '작성한 기도가 없습니다.', desc: '기도작성 버튼으로 첫 기도를 남겨 보세요.' };
+    }
+    if (hasAppliedFilters) {
+      return { title: '선택한 상세설정에 맞는 기도가 없습니다.', desc: '상세설정 조건을 바꾸거나 초기화해 보세요.' };
+    }
+    if (isMemberUser) {
+      return { title: '내 교구·부서에 공유된 기도가 없습니다.', desc: '교구·부서에 공유된 기도가 이곳에 나타납니다.' };
+    }
+    if (isPastorUser) {
+      return { title: '나에게 또는 담당 교구·부서에 공유된 기도가 없습니다.', desc: '공유된 기도가 이곳에 나타납니다.' };
+    }
+    return { title: '조회 가능한 공동체 기도가 없습니다.', desc: '공유된 기도가 이곳에 나타납니다.' };
+  }, [tab, hasAppliedFilters, isMemberUser, isPastorUser]);
+
+  const pageDescription = tab === 'mine'
+    ? '내가 작성한 기도제목을 확인합니다.'
+    : '나에게 또는 내 교구·부서에 공유된 기도제목을 확인합니다.';
+
+  const handleSavePrayer = async (payload: {
+    title: string;
+    content: string;
+    visibility: Prayer['visibility'];
+    sharedPastorIds: string[];
+    sharedOrganizationIds: string[];
+  }) => {
+    if (!user) return;
     setSaving(true);
 
-    const payload = {
+    const body = {
       churchId: 'demo',
       authorId: user.id,
       authorName: user.name,
       authorRole: toAuthorRole(user.role),
-      title,
-      content,
-      visibility,
+      title: payload.title,
+      content: payload.content,
+      visibility: payload.visibility,
       status: 'praying' as const,
-      organizationScope: visibility === 'private' ? CHURCH_WIDE_SCOPE : defaultOrganizationScope(user),
-      sharedPastorIds: visibility === 'pastor_share' ? sharedPastorIds : [],
-      sharedOrganizationIds: visibility === 'organization_share' ? sharedOrganizationIds : [],
-      attachments,
+      organizationScope: payload.visibility === 'private' ? CHURCH_WIDE_SCOPE : defaultOrganizationScope(user),
+      sharedPastorIds: payload.sharedPastorIds,
+      sharedOrganizationIds: payload.sharedOrganizationIds,
+      attachments: [],
     };
 
     try {
       await supabase.from('prayers').insert({
-        title,
-        content,
-        is_private: visibility === 'private',
+        title: payload.title,
+        content: payload.content,
+        is_private: payload.visibility === 'private',
         is_answered: false,
-        category: visibility === 'organization_share' ? 'intercession' : 'personal',
+        category: payload.visibility === 'organization_share' ? 'intercession' : 'personal',
       });
     } catch { /* demo fallback */ }
 
-    addPrayer(payload);
+    addPrayer(body);
     refreshPrayers();
-    closeForm();
     setSaving(false);
+    setView('collection');
+    setTab('mine');
+    setSearch('');
+    toast.success('기도가 저장되었습니다.');
   };
 
   const handleAnswer = (id: string) => {
@@ -191,140 +423,6 @@ export default function PrayerPage() {
     refreshPrayers();
   };
 
-  const tabPrayers = useMemo(() => {
-    const showShareType = activeTab === 'shared' || activeTab === 'admin_shared';
-    const applyOrgFilter =
-      activeTab === 'organization' ||
-      (showShareType && appliedFilter.shareType === 'organization_share');
-    const bucket = filterSharedContentByTab(prayers, user, activeTab, {
-      canAuditPrivate: isAdmin,
-    });
-    return bucket
-      .filter(p => {
-        if (showShareType && !matchesShareTypeFilter(p, appliedFilter.shareType ?? 'all')) {
-          return false;
-        }
-        if (
-          applyOrgFilter &&
-          !matchesOrganizationFilterForRecord(p, appliedFilter.organizationIds ?? [])
-        ) {
-          return false;
-        }
-        if (appliedFilter.visibility && appliedFilter.visibility !== 'all') {
-          if (migrateVisibility(p.visibility) !== appliedFilter.visibility) return false;
-        }
-        if (appliedFilter.prayerStatus && appliedFilter.prayerStatus !== 'all') {
-          if (p.status !== appliedFilter.prayerStatus) return false;
-        }
-        if (appliedFilter.authorRole && appliedFilter.authorRole !== 'all') {
-          const wanted = appliedFilter.authorRole === 'super_admin' ? 'admin' : appliedFilter.authorRole;
-          if (p.authorRole !== wanted) return false;
-        }
-        if (appliedFilter.authorQuery) {
-          if (!p.authorName.toLowerCase().includes(appliedFilter.authorQuery.toLowerCase())) return false;
-        }
-        if (appliedFilter.dateFrom && p.createdAt.slice(0, 10) < appliedFilter.dateFrom) return false;
-        if (appliedFilter.dateTo && p.createdAt.slice(0, 10) > appliedFilter.dateTo) return false;
-        if (search.trim() && !matchesSharedContentSearch(p, search)) return false;
-        return true;
-      })
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }, [prayers, user, activeTab, appliedFilter, search, isAdmin]);
-
-  const hidePastorShareTypeOption = useMemo(() => {
-    if (filterMode !== 'member') return false;
-    if (activeTab !== 'shared') return false;
-    const bucket = filterSharedContentByTab(prayers, user, 'shared');
-    return !bucket.some(p => migrateVisibility(p.visibility) === 'pastor_share');
-  }, [filterMode, activeTab, prayers, user]);
-
-  const showShareTypeOnTab = activeTab === 'shared' || activeTab === 'admin_shared';
-  const showOrgTreeOnFilter =
-    activeTab === 'organization' ||
-    (showShareTypeOnTab && draftFilter.shareType === 'organization_share');
-  const orgTreeMode = useMemo(() => resolveOrgTreeMode(user), [user]);
-
-  const shareTypeFilterOptions = useMemo(
-    () => getSharedContentShareTypeFilterOptions(user, 'prayer', {
-      includePastorShare: !hidePastorShareTypeOption,
-    }),
-    [user, hidePastorShareTypeOption],
-  );
-
-  const openFilter = () => {
-    setDraftFilter({ ...appliedFilter });
-    setFilterView('filter');
-  };
-
-  const applyFilter = () => {
-    setAppliedFilter({ ...draftFilter });
-    setFilterView('list');
-  };
-
-  const resetAppliedFilters = () => {
-    setAppliedFilter(EMPTY_PRAYER_FILTER);
-    setDraftFilter(EMPTY_PRAYER_FILTER);
-  };
-
-  const activeFilterChips = useMemo((): SharedContentFilterChip[] => {
-    const chips: SharedContentFilterChip[] = [];
-    if (appliedFilter.prayerStatus && appliedFilter.prayerStatus !== 'all') {
-      chips.push({
-        key: 'prayerStatus',
-        label: appliedFilter.prayerStatus === 'answered' ? '응답받음' : '기도 중',
-        onClear: () => setAppliedFilter(f => ({ ...f, prayerStatus: 'all' })),
-      });
-    }
-    if (showShareTypeOnTab && appliedFilter.shareType && appliedFilter.shareType !== 'all') {
-      chips.push({
-        key: 'shareType',
-        label: getSharedContentShareTypeFilterLabel(
-          user,
-          'prayer',
-          appliedFilter.shareType,
-          'chip',
-          !hidePastorShareTypeOption,
-        ),
-        onClear: () => setAppliedFilter(f => ({
-          ...f,
-          shareType: 'all',
-          organizationIds: [],
-        })),
-      });
-    }
-    for (const id of appliedFilter.organizationIds ?? []) {
-      chips.push({
-        key: `org:${id}`,
-        label: getOrganizationPathLabel(id),
-        onClear: () => setAppliedFilter(f => ({
-          ...f,
-          organizationIds: (f.organizationIds ?? []).filter(x => x !== id),
-        })),
-      });
-    }
-    if (appliedFilter.authorRole && appliedFilter.authorRole !== 'all') {
-      const roleLabel =
-        appliedFilter.authorRole === 'member'
-          ? '성도'
-          : appliedFilter.authorRole === 'pastor'
-            ? '교역자'
-            : '최고관리자';
-      chips.push({
-        key: 'authorRole',
-        label: roleLabel,
-        onClear: () => setAppliedFilter(f => ({ ...f, authorRole: 'all' })),
-      });
-    }
-    if (appliedFilter.authorQuery?.trim()) {
-      chips.push({
-        key: 'authorQuery',
-        label: `작성자: ${appliedFilter.authorQuery.trim()}`,
-        onClear: () => setAppliedFilter(f => ({ ...f, authorQuery: undefined })),
-      });
-    }
-    return chips;
-  }, [appliedFilter, showShareTypeOnTab, user, hidePastorShareTypeOption]);
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-48">
@@ -333,93 +431,74 @@ export default function PrayerPage() {
     );
   }
 
-  if (hubView) {
+  if (view === 'write') {
     return (
-      <FeatureHubPage
-        title={PRAYER_HUB.title}
-        description={PRAYER_HUB.description}
-        features={PRAYER_HUB.features}
-        viewer={{ isPastor, isAdmin, role: user?.role }}
-        onSelect={id => {
-          if (id === 'create') {
-            setHubView(false);
-            openForm();
-            return;
-          }
-          if (id === 'answered') {
-            setActiveTab('mine');
-            setAppliedFilter(f => ({ ...f, prayerStatus: 'answered' }));
-            setDraftFilter(f => ({ ...f, prayerStatus: 'answered' }));
-            setHubView(false);
-            toast.info('나의 기도에서 응답된 기도를 확인할 수 있습니다.');
-            return;
-          }
-          if (id === 'pastor-inbox') {
-            setActiveTab(isAdmin ? 'admin_shared' : 'pastor_members');
-            setHubView(false);
-            return;
-          }
-          if (id === 'church') {
-            setActiveTab(tabs[1] ?? 'mine');
-            setHubView(false);
-            return;
-          }
-          if (id === 'my') {
-            setActiveTab('mine');
-          }
-          setHubView(false);
-        }}
+      <PrayerWriteForm
+        onBack={() => setView('collection')}
+        onSave={handleSavePrayer}
+        saving={saving}
       />
     );
   }
 
-  if (filterView === 'filter') {
+  if (view === 'filter') {
     return (
       <SharedContentDetailSettingsPage
-        onBack={() => setFilterView('list')}
-        onReset={() => setDraftFilter(EMPTY_PRAYER_FILTER)}
+        onBack={() => setView('collection')}
+        onReset={() => setDraft(EMPTY_PRAYER_FILTER)}
         onApply={applyFilter}
-        description="조건에 맞는 기도제목을 찾아보세요."
+        description="조건에 맞는 기도를 찾아보세요."
       >
-        <SharedContentPrayerStatusFilterSection
-          value={draftFilter.prayerStatus ?? 'all'}
-          onChange={status => setDraftFilter(f => ({ ...f, prayerStatus: status }))}
-        />
-
-        {showShareTypeOnTab && (
-          <SharedContentShareTypeFilterSection
-            options={shareTypeFilterOptions}
-            value={draftFilter.shareType ?? 'all'}
-            onChange={shareType => setDraftFilter(f => ({
-              ...f,
-              shareType,
-              organizationIds: shareType === 'organization_share' ? f.organizationIds ?? [] : [],
-            }))}
+        {tab === 'mine' && (
+          <SharedContentPrayerStatusFilterSection
+            value={draft.prayerStatus}
+            onChange={status => setDraft(prev => ({ ...prev, prayerStatus: status }))}
           />
         )}
 
-        {(showOrgTreeOnFilter || activeTab === 'organization') && user && (
-          <UserOrganizationTreeSelector
-            user={user}
-            mode={orgTreeMode}
-            selectedOrganizationIds={draftFilter.organizationIds ?? []}
-            onChange={ids => setDraftFilter(f => ({ ...f, organizationIds: ids }))}
-            allowFullOrgTree={isAdmin}
-            defaultScope={isAdmin ? 'all' : 'mine'}
-            sectionTitle="공유 조직"
-          />
-        )}
-
-        {(filterMode === 'pastor' || filterMode === 'admin') && (
+        {tab === 'shared' && (
           <>
-            <SharedContentAuthorRoleFilterSection
-              value={draftFilter.authorRole ?? 'all'}
-              onChange={role => setDraftFilter(f => ({ ...f, authorRole: role }))}
-              includeSuperAdmin={filterMode === 'admin'}
+            <SharedContentShareTypeFilterSection
+              options={shareTypeFilterOptions}
+              value={draft.shareType}
+              onChange={handleDraftShareTypeChange}
             />
-            <SharedContentAuthorQueryField
-              value={draftFilter.authorQuery ?? ''}
-              onChange={q => setDraftFilter(f => ({ ...f, authorQuery: q }))}
+
+            {draftFlags.showSharedOrgTree && user && (
+              <UserOrganizationTreeSelector
+                user={user}
+                mode={orgTreeMode}
+                selectedOrganizationIds={draft.organizationIds}
+                onChange={ids => setDraft(prev => ({ ...prev, organizationIds: ids }))}
+                defaultScope={draftFlags.orgTreeDefaultScope}
+                allowFullOrgTree={isAdminUser}
+                sectionTitle="공유 조직"
+              />
+            )}
+
+            {draftFlags.showPastorPicker && (
+              <PastorOrgFilterSelector
+                groups={draftPastorFilterData.groups}
+                selectedPastorIds={draft.selectedPastorIds}
+                onChange={ids => setDraft(prev => ({ ...prev, selectedPastorIds: ids }))}
+                sectionTitle="공유받은 교역자"
+              />
+            )}
+
+            <SharedContentAuthorRoleFilterSection
+              value={draft.authorRole}
+              onChange={role => setDraft(prev => ({
+                ...prev,
+                authorRole: role === 'super_admin' ? 'all' : role,
+                selectedAuthorIds: [],
+              }))}
+            />
+
+            <SharedContentAuthorSelector
+              authors={authorPool}
+              selectedIds={draft.selectedAuthorIds}
+              onChange={ids => setDraft(prev => ({ ...prev, selectedAuthorIds: ids }))}
+              roleFilter={draft.authorRole}
             />
           </>
         )}
@@ -427,56 +506,64 @@ export default function PrayerPage() {
     );
   }
 
-  return (
-    <div className="pb-8">
-      <HubBackBar
-        title="기도"
-        description="기도제목을 나누고 함께 기도하세요."
-        onBack={() => setHubView(true)}
-      />
-      <div className="hidden md:flex justify-end mb-4">
-        <button
-          onClick={openForm}
-          className="flex items-center gap-1.5 bg-primary-500 text-white px-4 py-2.5 rounded-xl font-medium text-sm shadow-sm hover:bg-primary-600 transition-colors"
-        >
-          <Plus className="w-4 h-4" /> 기도제목
-        </button>
-      </div>
+  const writeBtn = user ? (
+    <button type="button" onClick={() => setView('write')} className={sermonPrimaryBtnClass}>
+      <Plus className="w-5 h-5" /> 기도작성
+    </button>
+  ) : undefined;
 
-      <TabBar
-        tabs={tabs.map(t => ({
-          id: t,
-          label: PRAYER_LIST_TAB_LABELS[t],
-        }))}
-        activeTab={activeTab}
-        onChange={id => setActiveTab(id as SharedListTab)}
-        variant="segment"
-        className="mb-3"
+  const listBody = (
+    <div
+      id={`prayer-collection-panel-${tab}`}
+      role="tabpanel"
+      className="space-y-3 pb-24 md:pb-0"
+    >
+      <SharedContentCollectionTabs
+        ariaLabel="기도 보기"
+        activeTab={tab}
+        onChange={id => switchTab(id as PrayerCollectTab)}
+        tabs={[
+          { id: 'mine', label: '내 기도', shortLabel: '내 기도', count: mineCount },
+          { id: 'shared', label: '공동체 기도', shortLabel: '공동체 기도', count: sharedCount },
+        ]}
       />
 
       <SharedContentListToolbar
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder="제목, 내용, 작성자 검색"
+        searchPlaceholder="제목, 내용, 작성자를 검색하세요."
         onOpenDetailSettings={openFilter}
-        activeFilterCount={activeFilterChips.length}
-        chips={activeFilterChips}
+        activeFilterCount={activeChips.length}
+        chips={activeChips}
         onResetFilters={resetAppliedFilters}
-        className="mb-4"
       />
 
-      <MobileFab label="기도 작성" onClick={openForm} />
-
-      {tabPrayers.length > 0 ? (
+      {filtered.length === 0 ? (
+        <div className="bg-white rounded-2xl p-10 text-center border border-gray-100">
+          <Heart className="w-12 h-12 text-rose-200 mx-auto mb-3" />
+          <p className="font-semibold text-gray-600 text-sm">{emptyState.title}</p>
+          <p className="text-xs text-gray-400 mt-1 leading-relaxed">{emptyState.desc}</p>
+          {tab === 'mine' && !hasAppliedFilters && user && (
+            <button
+              type="button"
+              onClick={() => setView('write')}
+              className="mt-4 px-5 py-2.5 bg-primary-500 text-white rounded-full text-sm font-semibold touch-target"
+            >
+              기도작성
+            </button>
+          )}
+        </div>
+      ) : (
         <div className="church-list">
-          {tabPrayers.map(p => (
+          {filtered.map(p => (
             <PrayerCard
               key={`${p.id}-${commentTick}`}
               prayer={p}
               isOwn={p.authorId === user?.id}
+              showAuthor={tab === 'shared'}
               commentCount={getCommentCount(p.id)}
               onAnswer={
-                activeTab === 'mine' && p.authorId === user?.id && p.status === 'praying'
+                tab === 'mine' && p.authorId === user?.id && p.status === 'praying'
                   ? () => handleAnswer(p.id)
                   : undefined
               }
@@ -484,100 +571,25 @@ export default function PrayerPage() {
             />
           ))}
         </div>
-      ) : (
-        <EmptyState
-          icon={Heart}
-          title={activeTab === 'mine' ? '기도제목을 등록해보세요' : '표시할 기도제목이 없습니다'}
-          description={
-            activeTab === 'mine'
-              ? '나의 기도제목을 기록하고 응답을 기다려요.'
-              : '조건에 맞는 기도제목이 아직 없습니다.'
-          }
-          action={
-            activeTab === 'mine' ? (
-              <button
-                onClick={openForm}
-                className="px-5 py-2 bg-primary-500 text-white rounded-full text-sm font-semibold hover:bg-primary-600 transition-colors"
-              >
-                기도제목 추가하기
-              </button>
-            ) : undefined
-          }
-        />
       )}
+    </div>
+  );
 
-      {showForm && (
-        <MobileEditorModal title="기도 작성" onClose={closeForm}>
-          <form onSubmit={handleSubmit} className="p-4 md:p-5 space-y-4">
-            <input
-              type="text"
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              placeholder="기도 제목"
-              required
-              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-primary-500 focus:ring-0 text-sm"
-            />
-            <textarea
-              value={content}
-              onChange={e => setContent(e.target.value)}
-              placeholder="기도 내용을 입력하세요"
-              required
-              rows={4}
-              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-primary-500 focus:ring-0 text-sm resize-none"
-            />
-            <div>
-              <p className="text-xs font-semibold text-gray-500 mb-2">공개 범위</p>
-              <div className="rounded-2xl border border-gray-200 overflow-hidden">
-                <VisibilitySelector
-                  value={visibility}
-                  onChange={v => {
-                    setVisibility(v);
-                    if (v !== 'pastor_share') setSharedPastorIds([]);
-                    if (v !== 'organization_share') setSharedOrganizationIds([]);
-                  }}
-                  variant={selectorVariant}
-                />
-              </div>
-            </div>
-
-            {visibility === 'pastor_share' && (
-              <PastorShareSelector
-                pastors={shareablePastors}
-                selectedIds={sharedPastorIds}
-                onChange={setSharedPastorIds}
-                searchable={isAdmin}
-              />
-            )}
-
-            {visibility === 'organization_share' && (
-              <OrganizationShareSelector
-                organizations={shareableOrganizations}
-                selectedIds={sharedOrganizationIds}
-                onChange={setSharedOrganizationIds}
-                searchable={isAdmin}
-              />
-            )}
-
-            <PrayerAttachmentPicker
-              value={attachments}
-              onChange={setAttachments}
-            />
-            <button
-              type="submit"
-              disabled={saving || !user || !canSubmit}
-              className="w-full py-3.5 bg-primary-500 text-white font-semibold rounded-xl hover:bg-primary-600 transition-colors disabled:opacity-50"
-            >
-              {saving ? '저장 중...' : '등록하기'}
-            </button>
-          </form>
-        </MobileEditorModal>
-      )}
+  return (
+    <>
+      <PageHeaderBar
+        title="기도"
+        description={pageDescription}
+        action={writeBtn}
+      />
+      <div className="pt-4">{listBody}</div>
+      {user && <MobileFab label="기도작성" onClick={() => setView('write')} />}
 
       {selectedPrayer && (
         <PrayerDetailSheet
           prayer={selectedPrayer}
           user={user}
-          auditMode={isAdmin && activeTab === 'admin_audit'}
+          auditMode={false}
           onClose={() => setSelectedPrayer(null)}
           onCommentAdded={() => setCommentTick(t => t + 1)}
           onPrayerUpdated={() => {
@@ -587,19 +599,21 @@ export default function PrayerPage() {
           }}
         />
       )}
-    </div>
+    </>
   );
 }
 
 function PrayerCard({
   prayer,
   isOwn,
+  showAuthor,
   onAnswer,
   onOpen,
   commentCount = 0,
 }: {
   prayer: Prayer;
   isOwn?: boolean;
+  showAuthor?: boolean;
   onAnswer?: () => void;
   onOpen?: () => void;
   commentCount?: number;
@@ -622,8 +636,9 @@ function PrayerCard({
           <button
             type="button"
             onClick={e => { e.stopPropagation(); onAnswer(); }}
-            className="p-1.5 hover:bg-success-100 rounded-lg text-success-500 flex-shrink-0 transition-colors"
-            title="응답받은 기도로 표시"
+            className="p-1.5 hover:bg-success-100 rounded-lg text-success-500 flex-shrink-0 transition-colors touch-target"
+            title="응답받음"
+            aria-label="응답받음"
           >
             <Check className="w-4 h-4" />
           </button>
@@ -633,7 +648,7 @@ function PrayerCard({
       <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
         <VisibilityBadge visibility={prayer.visibility} />
         <PrayerStatusBadge status={prayer.status} />
-        {!isOwn && <SharedTargetSummary content={prayer} />}
+        {!isOwn && showAuthor && <SharedTargetSummary content={prayer} />}
       </div>
 
       <p className="text-sm text-gray-600 leading-relaxed line-clamp-3">{prayer.content}</p>
@@ -645,18 +660,10 @@ function PrayerCard({
       <div className="flex items-center justify-between mt-2">
         <div className="flex items-center gap-2 text-[10px] text-gray-400">
           <span>{formatDate(prayer.createdAt)}</span>
-          <span>· {prayer.authorName}</span>
+          {(showAuthor || !isOwn) && <span>· {prayer.authorName}</span>}
           {commentCount > 0 && (
             <span className="flex items-center gap-0.5 text-primary-500">
               <MessageCircle className="w-3 h-3" /> {commentCount}
-            </span>
-          )}
-          {prayer.attachments.length > 0 && (
-            <span
-              className="flex items-center gap-0.5"
-              title={prayer.attachments.map(a => ATTACHMENT_TYPE_LABELS[a.type]).join(', ')}
-            >
-              <Paperclip className="w-3 h-3" /> {prayer.attachments.length}
             </span>
           )}
         </div>

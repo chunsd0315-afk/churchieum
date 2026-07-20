@@ -30,6 +30,8 @@ export type SharedContentFilterState = {
   graceType?: string;
   /** 공유받은 기록 — 교역자 세부 선택 */
   selectedPastorIds?: string[];
+  /** 공유받은 기록 — 작성자 다중 선택 */
+  selectedAuthorIds?: string[];
 };
 
 export type SharedContentFilterProps = {

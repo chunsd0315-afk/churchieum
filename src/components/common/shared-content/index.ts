@@ -28,3 +28,7 @@ export {
   SharedContentAuthorQueryField,
   SharedContentPrayerStatusFilterSection,
 } from './SharedContentDetailSettingsFields';
+export { SharedContentCollectionTabs } from './SharedContentCollectionTabs';
+export type { SharedContentCollectionTab } from './SharedContentCollectionTabs';
+export { SharedContentAuthorSelector } from './SharedContentAuthorSelector';
+export type { SharedContentAuthorOption } from './SharedContentAuthorSelector';

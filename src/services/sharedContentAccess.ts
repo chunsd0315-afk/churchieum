@@ -236,7 +236,7 @@ export const SHARED_LIST_TAB_LABELS: Record<SharedListTab, string> = {
 
 export const PRAYER_LIST_TAB_LABELS: Record<SharedListTab, string> = {
   mine: '내 기도',
-  shared: '함께 기도',
+  shared: '공동체 기도',
   pastor_members: '담당 성도',
   organization: '교구·부서',
   admin_shared: '공유 기도',

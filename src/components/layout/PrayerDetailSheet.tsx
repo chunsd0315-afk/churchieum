@@ -1,7 +1,6 @@
 ﻿import { useState, useEffect } from 'react';
-import { X, Send, MessageCircle, Paperclip } from 'lucide-react';
+import { X, Send, MessageCircle } from 'lucide-react';
 import type { Prayer, PrayerComment } from '../../types/prayer';
-import { ATTACHMENT_TYPE_LABELS } from '../../types/prayer';
 import {
   getCommentsForPrayer,
   addPrayerComment,
@@ -9,7 +8,6 @@ import {
 import { getHistoryForPrayer } from '../../services/prayerHistoryStorage';
 import { resolvePrayerAccess, ACCESS_DENY_MESSAGES } from '../../services/prayerHelpers';
 import { submitGratitudeTestimony } from '../../services/prayerStorage';
-import { formatAttachmentSize } from '../../services/prayerAttachmentHelpers';
 import PrayerJourney from './PrayerJourney';
 import type { AppUser } from '../../services/permissions';
 
@@ -142,31 +140,7 @@ export default function PrayerDetailSheet({
             </form>
           )}
 
-          {prayer.attachments.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-xs font-semibold text-gray-500 flex items-center gap-1">
-                <Paperclip className="w-3.5 h-3.5" /> 첨부
-              </p>
-              {prayer.attachments.map(att => (
-                <a
-                  key={att.id}
-                  href={att.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-xl text-sm text-gray-700 hover:bg-gray-100"
-                >
-                  {att.type === 'image' ? (
-                    <img src={att.url} alt="" className="w-10 h-10 rounded-lg object-cover" />
-                  ) : (
-                    <span className="text-xs text-gray-500">
-                      {ATTACHMENT_TYPE_LABELS[att.type]} · {formatAttachmentSize(att.size)}
-                    </span>
-                  )}
-                  <span className="truncate font-medium">{att.name}</span>
-                </a>
-              ))}
-            </div>
-          )}
+          {/* 첨부 UI 숨김 — 기존 데이터는 유지 */}
 
           <div>
             <p className="text-xs font-semibold text-gray-500 flex items-center gap-1 mb-3">
