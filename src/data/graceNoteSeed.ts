@@ -663,10 +663,16 @@ export function resetGraceNoteDemoData(): void {
 export function formatSharedPastorLabel(note: GraceNote): string {
   if (migrateVisibility(note.visibility) !== 'pastor_share') return '';
   if (note.sharedPastorAll) return '담당 교역자 전체';
-  const names = (note.sharedPastorIds ?? [])
-    .map(id => getAllClergy().find(c => c.id === id))
-    .filter(Boolean)
-    .map(c => `${c!.name} ${positionLabel(c!)}`);
+  const ids = Array.isArray(note.sharedPastorIds) ? note.sharedPastorIds : [];
+  const names = ids.map(id => {
+    const snap = note.sharedPastorSnapshots?.find(s => s.pastorId === id);
+    if (snap) {
+      return `${snap.name}${snap.position ? ` ${snap.position}` : ''}`.trim();
+    }
+    const c = getAllClergy().find(cl => cl.id === id);
+    if (c) return `${c.name} ${positionLabel(c)}`.trim();
+    return '알 수 없는 교역자';
+  });
   return names.length > 0 ? names.join(', ') : '담당 교역자';
 }
 

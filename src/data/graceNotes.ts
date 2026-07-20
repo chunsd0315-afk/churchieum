@@ -29,6 +29,14 @@ export type GraceNoteComment = {
   createdAt: string;
 };
 
+/** 공유 당시 교역자 스냅샷 (퇴사·조직 이동 후에도 표시용) */
+export type SharedPastorSnapshot = {
+  pastorId: string;
+  name: string;
+  position?: string;
+  organizationName?: string;
+};
+
 export type GraceNote = {
   id: string;
   userId?: string;
@@ -40,6 +48,8 @@ export type GraceNote = {
   sharedPastorAll?: boolean;
   /** 담당 교역자 공유 — 선택 ID (clergy id) */
   sharedPastorIds?: string[];
+  /** 공유 당시 교역자 이름·직분·조직 스냅샷 */
+  sharedPastorSnapshots?: SharedPastorSnapshot[];
   /** 조직/부서 공유 — 전체 선택 (레거시) */
   sharedGroupAll?: boolean;
   /** 조직/부서 공유 — 통합 ID (상위·하위·부서, 레거시 호환) */
@@ -107,7 +117,8 @@ function normalizeNote(n: GraceNote): GraceNote {
   return {
     ...n,
     visibility,
-    sharedPastorIds: n.sharedPastorIds ?? [],
+    sharedPastorIds: Array.isArray(n.sharedPastorIds) ? n.sharedPastorIds : [],
+    sharedPastorSnapshots: Array.isArray(n.sharedPastorSnapshots) ? n.sharedPastorSnapshots : [],
     sharedPastorAll: n.sharedPastorAll ?? false,
     sharedGroupAll,
     sharedUpperOrganizationIds: split.upper,
@@ -276,6 +287,7 @@ export function updateGraceNote(id: string, updates: Partial<Omit<GraceNote, 'id
     updates.visibility !== undefined ||
     updates.sharedPastorAll !== undefined ||
     updates.sharedPastorIds !== undefined ||
+    updates.sharedPastorSnapshots !== undefined ||
     updates.sharedGroupAll !== undefined ||
     updates.sharedGroupIds !== undefined ||
     updates.sharedUpperOrganizationIds !== undefined ||

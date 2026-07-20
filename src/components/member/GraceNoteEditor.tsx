@@ -18,6 +18,10 @@ import { GraceNoteShareSelector, defaultShareState, shareStateToInput, type Grac
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../common/ui';
 import ContentEditorLayout, { ContentFormCard } from '../layout/ContentEditorLayout';
+import { getEligiblePastorsForUser } from '../../services/graceNoteShareScope';
+import { buildSharedPastorSnapshots } from '../../services/graceShareFilterHelpers';
+import type { AppUser } from '../../services/permissions';
+import type { SharedPastorSnapshot } from '../../data/graceNotes';
 
 export type ReadingEditorCtx = {
   progressId: string;
@@ -74,6 +78,25 @@ function persistGraceNote(input: GraceNoteInput, editId: string | undefined, use
     return editId;
   }
   return createGraceNote(payload, userId).id;
+}
+
+function shareInputWithSnapshots(
+  share: GraceNoteShareState,
+  user: AppUser | null | undefined,
+  existingSnapshots?: SharedPastorSnapshot[],
+) {
+  const base = shareStateToInput(share);
+  const isPastorShare = base.visibility === 'pastor_share' && !base.sharedPastorAll;
+  return {
+    ...base,
+    sharedPastorSnapshots: isPastorShare
+      ? buildSharedPastorSnapshots(
+          base.sharedPastorIds ?? [],
+          getEligiblePastorsForUser(user ?? null),
+          existingSnapshots,
+        )
+      : [],
+  };
 }
 
 function FieldBlock({
@@ -216,6 +239,7 @@ export function GraceNoteEditor({
     }
 
     let input: GraceNoteInput;
+    const shareFields = shareInputWithSnapshots(share, user, existing?.sharedPastorSnapshots);
 
     if (noteType === 'reading') {
       const planColor = readingCtx?.planColor
@@ -224,7 +248,7 @@ export function GraceNoteEditor({
       input = {
         type: 'reading',
         authorName: existing?.authorName ?? user?.name,
-        ...shareStateToInput(share),
+        ...shareFields,
         sourceId: readingCtx?.progressId ?? existing?.sourceId,
         sourceTitle: readingCtx?.planName ?? existing?.planName,
         planId: readingCtx?.planId ?? existing?.planId,
@@ -247,7 +271,7 @@ export function GraceNoteEditor({
       input = {
         type: 'sermon',
         authorName: existing?.authorName ?? user?.name,
-        ...shareStateToInput(share),
+        ...shareFields,
         sourceId: sermonCtx?.sermonId ?? existing?.sourceId,
         sourceTitle: finalTitle,
         sermonTitle: finalTitle,
@@ -268,7 +292,7 @@ export function GraceNoteEditor({
       input = {
         type: 'personal',
         authorName: existing?.authorName ?? user?.name,
-        ...shareStateToInput(share),
+        ...shareFields,
         graceTitle: graceTitle.trim() || undefined,
         memorableVerse, // 감사 제목
         graceContent,

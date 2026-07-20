@@ -9,6 +9,7 @@ import {
   getAllActiveAssignments,
   getAllClergy,
   getClergyByEmail,
+  getClergyById,
   positionLabel,
   type ClergyMember,
 } from './clergyData';
@@ -23,9 +24,10 @@ import {
   getUserVisibleOrganizationIds,
   resolveOrgTreeMode,
 } from './userOrganizationTree';
-import { uniqueIds } from '../types/sharedContent';
+import { uniqueIds, migrateVisibility } from '../types/sharedContent';
 import type { SharedContentLike } from './sharedContentAccess';
 import { resolveSharedOrganizationIds } from './sharedContentAccess';
+import type { GraceNote, SharedPastorSnapshot } from '../data/graceNotes';
 
 const PASTORAL_POSITIONS = new Set([
   '담임목사', '부목사', '목사', '전도사', '교육전도사', '선교사', '간사',
@@ -142,6 +144,194 @@ export type AvailablePastor = {
   organizationIds: string[];
   organizationNames: string[];
 };
+
+export type PastorFilterGroup = 'current' | 'historical';
+
+export type AvailablePastorForFilter = AvailablePastor & {
+  group: PastorFilterGroup;
+  /** 과거 교역자 필터 — "이전 담당 · 퇴사" 등 */
+  statusLabel?: string;
+  /** 공유 당시 조직 (스냅샷) */
+  shareOrganizationName?: string;
+};
+
+export type PastorFilterGroups = {
+  current: AvailablePastorForFilter[];
+  historical: AvailablePastorForFilter[];
+};
+
+export type SharedPastorDetailEntry = {
+  pastorId: string;
+  displayName: string;
+  shareOrganizationName?: string;
+  currentOrganizationLabel?: string;
+  statusBadge?: string;
+};
+
+function getCurrentOrgLabelsForClergy(clergyId: string): string[] {
+  const labels = new Set<string>();
+  for (const a of getAllActiveAssignments()) {
+    if (!a.isActive || a.pastorId !== clergyId) continue;
+    const label = a.districtName || a.zoneName || a.departmentName;
+    if (label) labels.add(label);
+  }
+  for (const a of getAllAssignees()) {
+    if (!a.isActive || a.assigneeType !== 'pastor' || a.userId !== clergyId) continue;
+    labels.add(orgDisplayName(a.organizationId));
+  }
+  return [...labels];
+}
+
+function resolveSnapshotFromNotes(
+  pastorId: string,
+  notes: GraceNote[],
+): SharedPastorSnapshot | undefined {
+  for (const note of notes) {
+    const snap = note.sharedPastorSnapshots?.find(s => s.pastorId === pastorId);
+    if (snap) return snap;
+  }
+  return undefined;
+}
+
+function resolveHistoricalStatusLabel(clergy: ClergyMember | null | undefined): string {
+  if (!clergy) return '이전 공유 대상';
+  if (clergy.status === 'resigned' || clergy.status !== 'active') return '이전 담당 · 퇴사';
+  return '이전 담당 · 소속 변경';
+}
+
+function buildHistoricalPastorFilterEntry(
+  pastorId: string,
+  notes: GraceNote[],
+): AvailablePastorForFilter {
+  const snapshot = resolveSnapshotFromNotes(pastorId, notes);
+  const clergy = getClergyById(pastorId);
+  const name = snapshot?.name ?? clergy?.name ?? '알 수 없는 교역자';
+  const position = snapshot?.position ?? (clergy ? positionLabel(clergy) : undefined);
+  const shareOrganizationName = snapshot?.organizationName;
+  const currentOrgNames =
+    clergy?.status === 'active' ? getCurrentOrgLabelsForClergy(pastorId) : [];
+
+  return {
+    id: pastorId,
+    name,
+    position,
+    organizationIds: [],
+    organizationNames: currentOrgNames,
+    shareOrganizationName,
+    group: 'historical',
+    statusLabel: resolveHistoricalStatusLabel(clergy),
+  };
+}
+
+/**
+ * 내 기록 · 담당 교역자 공유 필터 — 활성 교역자 + 과거 공유 대상
+ */
+export function getPastorFilterGroupsForMine(
+  user: AppUser | null,
+  userPastorShareNotes: GraceNote[],
+): PastorFilterGroups {
+  const currentBase = getAvailablePastorsForUser(user);
+  const currentIds = new Set(currentBase.map(p => p.id));
+
+  const current: AvailablePastorForFilter[] = currentBase.map(p => ({
+    ...p,
+    group: 'current',
+  }));
+
+  const historicalIds = new Set<string>();
+  for (const note of userPastorShareNotes) {
+    if (migrateVisibility(note.visibility) !== 'pastor_share') continue;
+    for (const id of uniqueIds(note.sharedPastorIds)) {
+      if (!currentIds.has(id)) historicalIds.add(id);
+    }
+  }
+
+  const historical = [...historicalIds]
+    .map(id => buildHistoricalPastorFilterEntry(id, userPastorShareNotes))
+    .sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+
+  return { current, historical };
+}
+
+/** 저장 시 선택 교역자 스냅샷 생성 (기존 스냅샷 유지) */
+export function buildSharedPastorSnapshots(
+  pastorIds: string[],
+  eligiblePastors: EligiblePastor[],
+  existingSnapshots: SharedPastorSnapshot[] = [],
+): SharedPastorSnapshot[] {
+  const ids = uniqueIds(pastorIds);
+  const eligibleMap = new Map(eligiblePastors.map(p => [p.id, p]));
+  const existingMap = new Map(existingSnapshots.map(s => [s.pastorId, s]));
+
+  return ids.map(id => {
+    const prev = existingMap.get(id);
+    if (prev) return prev;
+
+    const eligible = eligibleMap.get(id);
+    if (eligible) {
+      return {
+        pastorId: id,
+        name: eligible.name,
+        position: eligible.position,
+        organizationName: eligible.orgLabels?.length
+          ? eligible.orgLabels.join(' · ')
+          : undefined,
+      };
+    }
+
+    const clergy = getClergyById(id);
+    if (clergy) {
+      const orgLabels = getCurrentOrgLabelsForClergy(id);
+      return {
+        pastorId: id,
+        name: clergy.name,
+        position: positionLabel(clergy),
+        organizationName: orgLabels.length ? orgLabels.join(' · ') : undefined,
+      };
+    }
+
+    return { pastorId: id, name: '알 수 없는 교역자' };
+  });
+}
+
+/** 상세 화면 — 공유 교역자별 당시/현재 조직 표시 */
+export function getSharedPastorDetailEntries(note: GraceNote): SharedPastorDetailEntry[] {
+  if (migrateVisibility(note.visibility) !== 'pastor_share' || note.sharedPastorAll) return [];
+
+  const ids = uniqueIds(note.sharedPastorIds);
+  return ids.map(pastorId => {
+    const snapshot = note.sharedPastorSnapshots?.find(s => s.pastorId === pastorId);
+    const clergy = getClergyById(pastorId);
+    const name = snapshot?.name ?? clergy?.name ?? '알 수 없는 교역자';
+    const position = snapshot?.position ?? (clergy ? positionLabel(clergy) : '');
+    const displayName = `${name}${position ? ` ${position}` : ''}`.trim();
+    const shareOrganizationName = snapshot?.organizationName;
+    const currentLabels = clergy?.status === 'active' ? getCurrentOrgLabelsForClergy(pastorId) : [];
+    const currentOrganizationLabel =
+      currentLabels.length > 0 ? currentLabels.join(' · ') : undefined;
+
+    let statusBadge: string | undefined;
+    if (!clergy) {
+      statusBadge = '이전 공유 대상';
+    } else if (clergy.status === 'resigned' || clergy.status !== 'active') {
+      statusBadge = '퇴사';
+    } else if (
+      shareOrganizationName &&
+      currentOrganizationLabel &&
+      !currentLabels.some(l => shareOrganizationName.includes(l))
+    ) {
+      statusBadge = '이전 담당';
+    }
+
+    return {
+      pastorId,
+      displayName,
+      shareOrganizationName,
+      currentOrganizationLabel,
+      statusBadge,
+    };
+  });
+}
 
 /** 내 기록 · 담당 교역자 공유 필터 — 사용자 소속 조직 기준 교역자 (조직 UI 없음) */
 export function getAvailablePastorsForUser(user: AppUser | null): AvailablePastor[] {

@@ -54,8 +54,9 @@ import {
 } from '../../services/userOrganizationTree';
 import { isSuperAdmin } from '../../services/permissions';
 import {
-  getAvailablePastorsForUser,
+  getPastorFilterGroupsForMine,
   getFilterPastorsForUser,
+  getSharedPastorDetailEntries,
   matchesSharedPastorFilter,
   pastorLabel,
 } from '../../services/graceShareFilterHelpers';
@@ -223,9 +224,18 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
   const coreOrgIds = useMemo(() => getUserCoreOrganizationIds(user), [user]);
   const orgTreeMode = useMemo(() => resolveOrgTreeMode(user), [user]);
 
-  const availablePastorsForMine = useMemo(
-    () => getAvailablePastorsForUser(user),
-    [user],
+  const minePastorShareNotes = useMemo(() => {
+    if (!user?.id) return [];
+    return notes.filter(
+      n =>
+        n.userId === user.id &&
+        migrateVisibility(n.visibility) === 'pastor_share',
+    );
+  }, [notes, user?.id]);
+
+  const pastorFilterGroups = useMemo(
+    () => getPastorFilterGroupsForMine(user, minePastorShareNotes),
+    [user, minePastorShareNotes],
   );
 
   const draftPastorFilterData = useMemo(
@@ -239,14 +249,14 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
 
   const pastorLookupFlat = useMemo(() => {
     const map = new Map<string, { id: string; name: string; position: string }>();
-    for (const p of availablePastorsForMine) {
+    for (const p of [...pastorFilterGroups.current, ...pastorFilterGroups.historical]) {
       map.set(p.id, { id: p.id, name: p.name, position: p.position ?? '' });
     }
     for (const p of appliedPastorFilterData.flat) {
       map.set(p.id, p);
     }
     return map;
-  }, [availablePastorsForMine, appliedPastorFilterData.flat]);
+  }, [pastorFilterGroups, appliedPastorFilterData.flat]);
 
   /** 성도: 담당 교역자 공유 필터 숨김 */
   const hidePastorShareTypeOption = isMemberUser;
@@ -671,7 +681,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
 
               {tab === 'mine' && draft.visibilityFilter === 'pastor_share' && (
                 <PastorFlatFilterSelector
-                  pastors={availablePastorsForMine}
+                  pastorGroups={pastorFilterGroups}
                   selectedPastorIds={draft.selectedPastorIds}
                   onChange={ids => setDraft(prev => ({ ...prev, selectedPastorIds: ids }))}
                 />
@@ -1063,6 +1073,11 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
     }
   }, [noteId]);
 
+  const sharedPastorDetails = useMemo(
+    () => (note ? getSharedPastorDetailEntries(note) : []),
+    [note],
+  );
+
   const header = note
     ? DETAIL_HEADERS[note.type]
     : { title: '은혜기록 상세', description: '기록한 은혜를 확인합니다.' };
@@ -1355,6 +1370,37 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
                   </span>
                 )}
               </div>
+              {sharedPastorDetails.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {sharedPastorDetails.map(entry => (
+                    <div
+                      key={entry.pastorId}
+                      className="rounded-xl bg-gray-50 border border-gray-100 px-3 py-2.5"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-[13px] font-semibold text-gray-800">
+                          {entry.displayName}
+                        </span>
+                        {entry.statusBadge && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-amber-50 text-amber-700">
+                            {entry.statusBadge}
+                          </span>
+                        )}
+                      </div>
+                      {entry.shareOrganizationName && (
+                        <p className="text-[11px] text-gray-500 mt-1">
+                          공유 당시: {entry.shareOrganizationName}
+                        </p>
+                      )}
+                      {entry.currentOrganizationLabel && (
+                        <p className="text-[11px] text-gray-500 mt-0.5">
+                          현재: {entry.currentOrganizationLabel}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
 
             {isPublic && (!isMobile || showComments) && (
