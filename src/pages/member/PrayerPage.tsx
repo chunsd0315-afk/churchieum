@@ -10,7 +10,8 @@ import {
 } from '../../services/prayerStorage';
 import type { Prayer } from '../../types/prayer';
 import { CHURCH_WIDE_SCOPE } from '../../types/prayer';
-import type { ShareTypeFilter } from '../../types/sharedContent';
+import type { ShareTypeFilter, VisibilityFilter } from '../../types/sharedContent';
+import { migrateVisibility, VISIBILITY_LABELS } from '../../types/sharedContent';
 import {
   filterSharedContentByTab,
   matchesSharedContentSearch,
@@ -21,8 +22,8 @@ import {
   SharedContentListToolbar,
   SharedContentDetailSettingsPage,
   SharedContentShareTypeFilterSection,
+  SharedContentVisibilityFilterSection,
   SharedContentAuthorRoleFilterSection,
-  SharedContentPrayerStatusFilterSection,
   SharedContentCollectionTabs,
   SharedContentAuthorSelector,
   VisibilityBadge,
@@ -30,6 +31,7 @@ import {
   PrayerStatusBadge,
   UserOrganizationTreeSelector,
   PastorOrgFilterSelector,
+  PastorFlatFilterSelector,
   type SharedContentFilterChip,
   type SharedContentAuthorOption,
 } from '../../components/common/shared-content';
@@ -39,9 +41,11 @@ import {
 } from '../../services/sharedContentShareTypeFilterLabels';
 import {
   getFilterPastorsForUser,
+  getPastorFilterGroupsForMine,
   matchesSharedPastorFilter,
   pastorLabel,
 } from '../../services/graceShareFilterHelpers';
+import type { GraceNote } from '../../data/graceNotes';
 import { resolveOrgTreeMode, getOrganizationPathLabel } from '../../services/userOrganizationTree';
 import { isSuperAdmin } from '../../services/permissions';
 import { useAuth } from '../../contexts/AuthContext';
@@ -56,21 +60,21 @@ type PrayerCollectTab = 'mine' | 'shared';
 type PrayerPageView = 'collection' | 'filter' | 'write' | 'detail';
 
 type PrayerCollectionFilterState = {
+  visibilityFilter: VisibilityFilter;
   shareType: ShareTypeFilter;
   organizationIds: string[];
   selectedPastorIds: string[];
   authorRole: 'all' | 'member' | 'pastor';
   selectedAuthorIds: string[];
-  prayerStatus: 'all' | 'praying' | 'answered';
 };
 
 const EMPTY_PRAYER_FILTER: PrayerCollectionFilterState = {
+  visibilityFilter: 'all',
   shareType: 'all',
   organizationIds: [],
   selectedPastorIds: [],
   authorRole: 'all',
   selectedAuthorIds: [],
-  prayerStatus: 'all',
 };
 
 function formatDate(iso: string) {
@@ -107,10 +111,31 @@ function derivePrayerFilterFlags(
   tab: PrayerCollectTab,
   isAdminUser: boolean,
 ) {
+  const showMineOrgTree = tab === 'mine' && f.visibilityFilter === 'organization_share';
   const showSharedOrgTree = tab === 'shared' && f.shareType === 'organization_share';
-  const showPastorPicker = tab === 'shared' && isAdminUser && f.shareType === 'pastor_share';
-  const orgTreeDefaultScope = isAdminUser && showSharedOrgTree ? 'all' as const : 'mine' as const;
-  return { showSharedOrgTree, showPastorPicker, orgTreeDefaultScope };
+  const showPastorPickerMine = tab === 'mine' && f.visibilityFilter === 'pastor_share';
+  const showPastorPickerShared = tab === 'shared' && isAdminUser && f.shareType === 'pastor_share';
+  const orgTreeDefaultScope =
+    isAdminUser &&
+    ((tab === 'mine' && f.visibilityFilter === 'organization_share') ||
+      (tab === 'shared' && f.shareType === 'organization_share'))
+      ? 'all' as const
+      : 'mine' as const;
+  const orgTreeSectionTitle =
+    tab === 'mine'
+      ? '공유 조직'
+      : f.shareType === 'pastor_share'
+        ? '작성자 소속 조직'
+        : '공유 조직';
+
+  return {
+    showMineOrgTree,
+    showSharedOrgTree,
+    showPastorPickerMine,
+    showPastorPickerShared,
+    orgTreeDefaultScope,
+    orgTreeSectionTitle,
+  };
 }
 
 function buildAuthorPool(prayers: Prayer[], user: ReturnType<typeof useAuth>['user']): SharedContentAuthorOption[] {
@@ -160,6 +185,31 @@ export default function PrayerPage() {
   const draftFlags = derivePrayerFilterFlags(draft, tab, isAdminUser);
   const appliedFlags = derivePrayerFilterFlags(applied, tab, isAdminUser);
 
+  const minePastorSharePrayers = useMemo(() => {
+    if (!user?.id) return [];
+    return activePrayers(prayers).filter(
+      p =>
+        p.authorId === user.id &&
+        migrateVisibility(p.visibility) === 'pastor_share',
+    );
+  }, [prayers, user?.id]);
+
+  const pastorFilterGroups = useMemo(
+    () => getPastorFilterGroupsForMine(user, minePastorSharePrayers as unknown as GraceNote[]),
+    [user, minePastorSharePrayers],
+  );
+
+  const pastorLookupFlat = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; position: string }>();
+    for (const p of [...pastorFilterGroups.current, ...pastorFilterGroups.historical]) {
+      map.set(p.id, { id: p.id, name: p.name, position: p.position ?? '' });
+    }
+    for (const p of getFilterPastorsForUser(user, applied.organizationIds).flat) {
+      map.set(p.id, p);
+    }
+    return map;
+  }, [pastorFilterGroups, user, applied.organizationIds]);
+
   const draftPastorFilterData = useMemo(
     () => getFilterPastorsForUser(
       user,
@@ -167,11 +217,6 @@ export default function PrayerPage() {
     ),
     [user, draft.organizationIds, draft.shareType, tab],
   );
-
-  const appliedPastorLookup = useMemo(() => {
-    const data = getFilterPastorsForUser(user, applied.organizationIds);
-    return new Map(data.flat.map(p => [p.id, p]));
-  }, [user, applied.organizationIds]);
 
   const refreshPrayers = useCallback(() => {
     setPrayers(getAllPrayers());
@@ -195,7 +240,12 @@ export default function PrayerPage() {
         selectedAuthorIds: [],
       }));
     } else {
-      setApplied(prev => ({ ...prev, prayerStatus: 'all' }));
+      setApplied(prev => ({
+        ...prev,
+        visibilityFilter: 'all',
+        organizationIds: [],
+        selectedPastorIds: [],
+      }));
     }
     setSearch('');
   };
@@ -215,6 +265,15 @@ export default function PrayerPage() {
     setDraft(EMPTY_PRAYER_FILTER);
   };
 
+  const handleDraftVisibilityChange = (next: VisibilityFilter) => {
+    setDraft(prev => ({
+      ...prev,
+      visibilityFilter: next,
+      organizationIds: [],
+      selectedPastorIds: [],
+    }));
+  };
+
   const handleDraftShareTypeChange = (next: ShareTypeFilter) => {
     setDraft(prev => ({
       ...prev,
@@ -227,16 +286,34 @@ export default function PrayerPage() {
 
   const filtered = useMemo(() => {
     const bucket = getPrayersForCollectTab(prayers, user, tab);
-    const { showSharedOrgTree, showPastorPicker } = appliedFlags;
+    const { showSharedOrgTree, showPastorPickerShared } = appliedFlags;
 
     return bucket
       .filter(p => {
+        if (tab === 'mine') {
+          if (
+            applied.visibilityFilter !== 'all' &&
+            migrateVisibility(p.visibility) !== applied.visibilityFilter
+          ) {
+            return false;
+          }
+          if (applied.visibilityFilter === 'pastor_share' && applied.selectedPastorIds.length > 0) {
+            if (!matchesSharedPastorFilter(p, applied.selectedPastorIds)) return false;
+          }
+          if (
+            applied.visibilityFilter === 'organization_share' &&
+            applied.organizationIds.length > 0
+          ) {
+            if (!matchesOrganizationFilterForRecord(p, applied.organizationIds)) return false;
+          }
+        }
+
         if (tab === 'shared') {
           if (!matchesShareTypeFilter(p, applied.shareType)) return false;
           if (showSharedOrgTree && applied.organizationIds.length > 0) {
             if (!matchesOrganizationFilterForRecord(p, applied.organizationIds)) return false;
           }
-          if (showPastorPicker && applied.selectedPastorIds.length > 0) {
+          if (showPastorPickerShared && applied.selectedPastorIds.length > 0) {
             if (!matchesSharedPastorFilter(p, applied.selectedPastorIds)) return false;
           }
           if (applied.authorRole === 'member' && isPastoralPrayerAuthor(p.authorRole)) return false;
@@ -244,10 +321,6 @@ export default function PrayerPage() {
           if (applied.selectedAuthorIds.length > 0 && !applied.selectedAuthorIds.includes(p.authorId)) {
             return false;
           }
-        }
-
-        if (tab === 'mine' && applied.prayerStatus !== 'all') {
-          if (p.status !== applied.prayerStatus) return false;
         }
 
         if (!matchesPrayerSearch(p, search)) return false;
@@ -268,11 +341,16 @@ export default function PrayerPage() {
   const activeChips = useMemo((): SharedContentFilterChip[] => {
     const chips: SharedContentFilterChip[] = [];
 
-    if (tab === 'mine' && applied.prayerStatus !== 'all') {
+    if (tab === 'mine' && applied.visibilityFilter !== 'all') {
       chips.push({
-        key: 'prayerStatus',
-        label: applied.prayerStatus === 'answered' ? '응답받음' : '기도 중',
-        onClear: () => setApplied(prev => ({ ...prev, prayerStatus: 'all' })),
+        key: 'visibility',
+        label: VISIBILITY_LABELS[applied.visibilityFilter],
+        onClear: () => setApplied(prev => ({
+          ...prev,
+          visibilityFilter: 'all',
+          organizationIds: [],
+          selectedPastorIds: [],
+        })),
       });
     }
 
@@ -295,7 +373,7 @@ export default function PrayerPage() {
       });
     }
 
-    if (appliedFlags.showSharedOrgTree) {
+    if (appliedFlags.showMineOrgTree || appliedFlags.showSharedOrgTree) {
       for (const id of applied.organizationIds) {
         chips.push({
           key: `org:${id}`,
@@ -309,7 +387,7 @@ export default function PrayerPage() {
     }
 
     for (const id of applied.selectedPastorIds) {
-      const p = appliedPastorLookup.get(id);
+      const p = pastorLookupFlat.get(id);
       chips.push({
         key: `pastor:${id}`,
         label: p ? pastorLabel(p) : id,
@@ -341,7 +419,7 @@ export default function PrayerPage() {
     }
 
     return chips;
-  }, [tab, applied, appliedFlags, user, hidePastorShareTypeOption, appliedPastorLookup, authorPool]);
+  }, [tab, applied, appliedFlags, user, hidePastorShareTypeOption, pastorLookupFlat, authorPool]);
 
   const hasAppliedFilters = activeChips.length > 0 || search.trim() !== '';
 
@@ -450,10 +528,31 @@ export default function PrayerPage() {
         description="조건에 맞는 기도를 찾아보세요."
       >
         {tab === 'mine' && (
-          <SharedContentPrayerStatusFilterSection
-            value={draft.prayerStatus}
-            onChange={status => setDraft(prev => ({ ...prev, prayerStatus: status }))}
-          />
+          <>
+            <SharedContentVisibilityFilterSection
+              value={draft.visibilityFilter}
+              onChange={handleDraftVisibilityChange}
+            />
+
+            {draftFlags.showMineOrgTree && user && (
+              <UserOrganizationTreeSelector
+                user={user}
+                mode={orgTreeMode}
+                selectedOrganizationIds={draft.organizationIds}
+                onChange={ids => setDraft(prev => ({ ...prev, organizationIds: ids }))}
+                defaultScope={draftFlags.orgTreeDefaultScope}
+                sectionTitle={draftFlags.orgTreeSectionTitle}
+              />
+            )}
+
+            {draftFlags.showPastorPickerMine && (
+              <PastorFlatFilterSelector
+                pastorGroups={pastorFilterGroups}
+                selectedPastorIds={draft.selectedPastorIds}
+                onChange={ids => setDraft(prev => ({ ...prev, selectedPastorIds: ids }))}
+              />
+            )}
+          </>
         )}
 
         {tab === 'shared' && (
@@ -476,7 +575,7 @@ export default function PrayerPage() {
               />
             )}
 
-            {draftFlags.showPastorPicker && (
+            {draftFlags.showPastorPickerShared && (
               <PastorOrgFilterSelector
                 groups={draftPastorFilterData.groups}
                 selectedPastorIds={draft.selectedPastorIds}
