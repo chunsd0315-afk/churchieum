@@ -23,6 +23,12 @@ import {
 import type { GraceNoteVisibility } from '../data/graceNotes';
 import { readOrgSettings } from '../contexts/OrgSettingsContext';
 import { migrateVisibility, isLegacyPublic } from '../types/sharedContent';
+import { getAllOrganizations } from './organizationStorage';
+import {
+  flattenOrgFilterTree,
+  getUserOrganizationTree,
+  resolveOrgTreeMode,
+} from './userOrganizationTree';
 
 const PASTORAL_POSITIONS = new Set([
   '담임목사', '부목사', '목사', '전도사', '교육전도사', '선교사', '간사',
@@ -192,6 +198,69 @@ export function splitOrganizationShareIds(input: {
     lower: uniqueIds(lower),
     departments: uniqueIds(departments),
   };
+}
+
+/** 조직 트리 다중 선택 → 상위·하위·부서 ID 분류 */
+export function organizationIdsToShareSplit(selectedIds: string[]): {
+  upper: string[];
+  lower: string[];
+  departments: string[];
+} {
+  const orgById = new Map(getAllOrganizations().map(o => [o.id, o]));
+  const upper: string[] = [];
+  const lower: string[] = [];
+  const departments: string[] = [];
+  const unknown: string[] = [];
+
+  for (const id of uniqueIds(selectedIds)) {
+    const o = orgById.get(id);
+    if (o?.legacyKind === 'district') upper.push(id);
+    else if (o?.legacyKind === 'zone') lower.push(id);
+    else if (o?.legacyKind === 'department') departments.push(id);
+    else unknown.push(id);
+  }
+
+  if (unknown.length > 0) {
+    const leg = splitOrganizationShareIds({ sharedGroupIds: unknown });
+    upper.push(...leg.upper);
+    lower.push(...leg.lower);
+    departments.push(...leg.departments);
+  }
+
+  const l = uniqueIds(lower);
+  const u = ensureParentUpperIds(l, uniqueIds(upper));
+  return { upper: u, lower: l, departments: uniqueIds(departments) };
+}
+
+/** 작성·공유 — 사용자가 선택 가능한 조직 ID (트리 기준) */
+export function getShareSelectableOrgClassification(user: AppUser | null): {
+  upper: Set<string>;
+  lower: Set<string>;
+  departments: Set<string>;
+  all: Set<string>;
+} {
+  const upper = new Set<string>();
+  const lower = new Set<string>();
+  const departments = new Set<string>();
+  const all = new Set<string>();
+
+  if (!user) return { upper, lower, departments, all };
+
+  const mode = resolveOrgTreeMode(user);
+  const scopes = isSuperAdmin(user) ? (['mine', 'all'] as const) : (['mine'] as const);
+
+  for (const scope of scopes) {
+    const tree = getUserOrganizationTree({ user, mode, scope });
+    for (const node of flattenOrgFilterTree(tree)) {
+      if (!node.selectable) continue;
+      all.add(node.id);
+      if (node.legacyKind === 'district') upper.add(node.id);
+      else if (node.legacyKind === 'zone') lower.add(node.id);
+      else if (node.legacyKind === 'department') departments.add(node.id);
+    }
+  }
+
+  return { upper, lower, departments, all };
 }
 
 /** 하위조직의 부모 상위조직 ID를 보완 */
@@ -452,7 +521,8 @@ export function validateGraceNoteShare(
   }
 
   if (visibility === 'organization_share') {
-    if (eligibleGroupIds.size === 0) {
+    const selectable = getShareSelectableOrgClassification(user);
+    if (selectable.all.size === 0) {
       return {
         ok: false,
         error: `현재 소속된 ${labels.upper} 또는 ${labels.department}가 없습니다.`,
@@ -466,35 +536,34 @@ export function validateGraceNoteShare(
     let departments = split.departments;
 
     if (sharedGroupAll) {
-      upper = eligible.districts.map(d => d.id);
-      lower = eligible.zones.map(z => z.id);
-      departments = eligible.departments.map(d => d.id);
+      upper = [...selectable.upper];
+      lower = [...selectable.lower];
+      departments = [...selectable.departments];
     }
 
-    // 하위조직이 있으면 부모 상위조직 자동 보완
     upper = ensureParentUpperIds(lower, upper);
 
-    const invalidUpper = upper.filter(id => !eligibleUpperIds.has(id));
-    const invalidLower = lower.filter(id => !eligibleLowerIds.has(id));
-    const invalidDept = departments.filter(id => !eligibleDeptIds.has(id));
-    if (invalidUpper.length || invalidLower.length || invalidDept.length) {
-      return { ok: false, error: `선택할 수 없는 ${labels.upper}·${labels.lower}·${labels.department}가 포함되어 있습니다.` };
+    const sharedGroupIds = composeSharedGroupIds(upper, lower, departments);
+    const invalid = sharedGroupIds.filter(id => !selectable.all.has(id));
+    if (invalid.length > 0) {
+      return {
+        ok: false,
+        error: `선택할 수 없는 ${labels.upper}·${labels.lower}·${labels.department}가 포함되어 있습니다.`,
+      };
     }
 
-    // 부모에 속하지 않는 하위조직 거부 (자동 보완 후에도 소속 밖이면 실패)
     for (const lid of lower) {
-      const zone = eligible.zones.find(z => z.id === lid);
-      const parentId = zone?.parentId;
+      const zone = getAllZones().find(z => z.id === lid);
+      const parentId = zone?.district_id;
       if (parentId && !upper.includes(parentId)) {
         return { ok: false, error: `${labels.lower} 선택 시 부모 ${labels.upper}이(가) 필요합니다.` };
       }
     }
 
-    const sharedGroupIds = composeSharedGroupIds(upper, lower, departments);
     if (sharedGroupIds.length === 0) {
       return {
         ok: false,
-        error: `공유할 ${labels.upper} 또는 ${labels.department}를 선택해주세요.`,
+        error: '공유할 교구·부서를 선택해 주세요.',
       };
     }
 
@@ -565,24 +634,36 @@ export function filterShareStateToMembership(
   }
 
   if (visibility === 'organization_share') {
-    if (eligibleGroupIds.size === 0) {
+    const selectable = getShareSelectableOrgClassification(user);
+    if (selectable.all.size === 0) {
       return emptyShareFields('private');
     }
     if (state.sharedGroupAll || isLegacyPublic(state.visibility)) {
-      return { ...emptyShareFields('organization_share'), sharedGroupAll: true };
+      return {
+        ...emptyShareFields('organization_share'),
+        sharedGroupAll: true,
+        sharedUpperOrganizationIds: [...selectable.upper],
+        sharedLowerOrganizationIds: [...selectable.lower],
+        sharedDepartmentIds: [...selectable.departments],
+        sharedGroupIds: composeSharedGroupIds(
+          [...selectable.upper],
+          [...selectable.lower],
+          [...selectable.departments],
+        ),
+      };
     }
-    let upper = uniqueIds(state.sharedUpperOrganizationIds).filter(id => eligibleUpperIds.has(id));
-    let lower = uniqueIds(state.sharedLowerOrganizationIds).filter(id => eligibleLowerIds.has(id));
-    let departments = uniqueIds(state.sharedDepartmentIds).filter(id => eligibleDeptIds.has(id));
+    let upper = uniqueIds(state.sharedUpperOrganizationIds).filter(id => selectable.all.has(id));
+    let lower = uniqueIds(state.sharedLowerOrganizationIds).filter(id => selectable.all.has(id));
+    let departments = uniqueIds(state.sharedDepartmentIds).filter(id => selectable.all.has(id));
 
     if (!upper.length && !lower.length && !departments.length) {
       const split = splitOrganizationShareIds(state);
-      upper = split.upper.filter(id => eligibleUpperIds.has(id));
-      lower = split.lower.filter(id => eligibleLowerIds.has(id));
-      departments = split.departments.filter(id => eligibleDeptIds.has(id));
+      upper = split.upper.filter(id => selectable.all.has(id));
+      lower = split.lower.filter(id => selectable.all.has(id));
+      departments = split.departments.filter(id => selectable.all.has(id));
     }
 
-    upper = ensureParentUpperIds(lower, upper).filter(id => eligibleUpperIds.has(id));
+    upper = ensureParentUpperIds(lower, upper).filter(id => selectable.all.has(id));
     const sharedGroupIds = composeSharedGroupIds(upper, lower, departments);
 
     return {

@@ -3,7 +3,7 @@
  * 조직명은 조직관리(OrgSettings) 설정을 동적으로 반영한다.
  */
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Lock, Users, UserRound, Check, X } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrgSettings } from '../../contexts/OrgSettingsContext';
@@ -16,21 +16,24 @@ import {
 } from '../../types/sharedContent';
 import {
   getEligiblePastorsForUser,
-  getEligibleGroupsForUser,
   uniqueIds,
   filterShareStateToMembership,
   composeSharedGroupIds,
   splitOrganizationShareIds,
-  ensureParentUpperIds,
+  organizationIdsToShareSplit,
   formatGroupShareOptionLabel,
   formatGroupShareOptionDesc,
   getOrganizationLabels,
-  formatLowerWithUpperLabel,
-  getLowerOrganizationDisplayLabel,
   type EligiblePastor,
   type GraceShareFields,
 } from '../../services/graceNoteShareScope';
-import { ChurchConfirmDialog } from '../common/ui/ChurchConfirmDialog';
+import { UserOrganizationTreeSelector } from '../common/shared-content/UserOrganizationTreeSelector';
+import {
+  flattenOrgFilterTree,
+  getOrganizationPathLabel,
+  getUserOrganizationTree,
+  resolveOrgTreeMode,
+} from '../../services/userOrganizationTree';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
 
 export type UpperOrgSelectionFlag = {
@@ -47,39 +50,9 @@ export type GraceNoteShareState = {
   sharedUpperOrganizationIds: string[];
   sharedLowerOrganizationIds: string[];
   sharedDepartmentIds: string[];
-  /** UI용 — 상위조직 직접/자식선택 구분 */
+  /** UI용 — 상위조직 직접/자식선택 구분 (레거시 호환) */
   upperSelectionFlags: Record<string, UpperOrgSelectionFlag>;
 };
-
-function buildUpperFlags(
-  upperIds: string[],
-  lowerIds: string[],
-  zones: { id: string; parentId?: string }[],
-  existing?: Record<string, UpperOrgSelectionFlag>,
-): Record<string, UpperOrgSelectionFlag> {
-  const flags: Record<string, UpperOrgSelectionFlag> = { ...(existing ?? {}) };
-  const lowerByParent = new Map<string, string[]>();
-  for (const z of zones) {
-    if (!z.parentId) continue;
-    if (!lowerByParent.has(z.parentId)) lowerByParent.set(z.parentId, []);
-    if (lowerIds.includes(z.id)) lowerByParent.get(z.parentId)!.push(z.id);
-  }
-
-  for (const id of upperIds) {
-    const selectedByChildren = (lowerByParent.get(id)?.length ?? 0) > 0;
-    const prev = flags[id];
-    const selectedDirectly = prev ? prev.selectedDirectly : !selectedByChildren;
-    flags[id] = {
-      selectedDirectly: selectedDirectly || (!selectedByChildren),
-      selectedByChildren,
-    };
-  }
-
-  for (const key of Object.keys(flags)) {
-    if (!upperIds.includes(key)) delete flags[key];
-  }
-  return flags;
-}
 
 function toShareFields(state: GraceNoteShareState): GraceShareFields {
   const upper = uniqueIds(state.sharedUpperOrganizationIds);
@@ -117,8 +90,7 @@ export function defaultShareState(existing?: Partial<GraceNoteShareState> | Part
     sharedDepartmentIds: departments,
     sharedGroupIds: composeSharedGroupIds(upper, lower, departments),
     upperSelectionFlags:
-      (existing as GraceNoteShareState | undefined)?.upperSelectionFlags ??
-      buildUpperFlags(upper, lower, [], {}),
+      (existing as GraceNoteShareState | undefined)?.upperSelectionFlags ?? {},
   };
 }
 
@@ -186,18 +158,27 @@ export function GraceNoteShareSelector({ value, onChange }: {
   const visibilityLabels = isPastoralViewer ? VISIBILITY_LABELS_PASTOR : VISIBILITY_LABELS;
   const visibilityDescriptions = isPastoralViewer ? VISIBILITY_DESCRIPTIONS_PASTOR : VISIBILITY_DESCRIPTIONS;
 
-  const [orgPanelOpen, setOrgPanelOpen] = useState(true);
-  const [confirmUpperClear, setConfirmUpperClear] = useState<string | null>(null);
+  const orgTreeMode = useMemo(() => resolveOrgTreeMode(user), [user]);
+  const orgTreeDefaultScope = isAdmin ? 'all' : 'mine';
+
+  const orgTree = useMemo(
+    () =>
+      getUserOrganizationTree({
+        user,
+        mode: orgTreeMode,
+        scope: orgTreeDefaultScope,
+      }),
+    [user, orgTreeMode, orgTreeDefaultScope],
+  );
+
+  const hasOrgTree = useMemo(
+    () => flattenOrgFilterTree(orgTree).some(n => n.selectable),
+    [orgTree],
+  );
 
   const eligiblePastors = useMemo(() => getEligiblePastorsForUser(user), [user]);
-  const eligibleGroups = useMemo(() => getEligibleGroupsForUser(user), [user]);
 
   const hasPastors = eligiblePastors.length > 0;
-  const hasGroups =
-    eligibleGroups.districts.length +
-      eligibleGroups.zones.length +
-      eligibleGroups.departments.length >
-    0;
 
   const visibilityOptions = useMemo(() => [
     {
@@ -220,43 +201,24 @@ export function GraceNoteShareSelector({ value, onChange }: {
     },
   ], [labels, visibilityLabels, visibilityDescriptions]);
 
-  const childZonesOf = (districtId: string) =>
-    eligibleGroups.zones.filter(z => z.parentId === districtId);
-
-  const orphanZones = useMemo(
-    () =>
-      eligibleGroups.zones.filter(
-        z => !z.parentId || !eligibleGroups.districts.some(d => d.id === z.parentId),
-      ),
-    [eligibleGroups],
-  );
-
   const pastorChipList: EligiblePastor[] = useMemo(() => {
     if (value.sharedPastorAll) return eligiblePastors;
     return eligiblePastors.filter(p => value.sharedPastorIds.includes(p.id));
   }, [value.sharedPastorAll, value.sharedPastorIds, eligiblePastors]);
 
-  const emitOrgState = (
-    next: {
-      upper: string[];
-      lower: string[];
-      departments: string[];
-      flags: Record<string, UpperOrgSelectionFlag>;
-    },
-  ) => {
-    const upper = uniqueIds(next.upper);
-    const lower = uniqueIds(next.lower);
-    const departments = uniqueIds(next.departments);
-    onChange({
-      ...value,
-      sharedGroupAll: false,
-      sharedUpperOrganizationIds: upper,
-      sharedLowerOrganizationIds: lower,
-      sharedDepartmentIds: departments,
-      sharedGroupIds: composeSharedGroupIds(upper, lower, departments),
-      upperSelectionFlags: buildUpperFlags(upper, lower, eligibleGroups.zones, next.flags),
-    });
-  };
+  const selectedOrgIds = useMemo(
+    () =>
+      composeSharedGroupIds(
+        value.sharedUpperOrganizationIds,
+        value.sharedLowerOrganizationIds,
+        value.sharedDepartmentIds,
+      ),
+    [
+      value.sharedUpperOrganizationIds,
+      value.sharedLowerOrganizationIds,
+      value.sharedDepartmentIds,
+    ],
+  );
 
   const allPastorsSelected =
     value.sharedPastorAll ||
@@ -265,7 +227,7 @@ export function GraceNoteShareSelector({ value, onChange }: {
 
   const setVisibility = (visibility: GraceNoteVisibility) => {
     if (visibility === 'pastor_share' && !hasPastors) return;
-    if (visibility === 'organization_share' && !hasGroups) return;
+    if (visibility === 'organization_share' && !hasOrgTree) return;
     const cleared = defaultShareState({ visibility });
     const filtered = filterShareStateToMembership(toShareFields(cleared), user);
     onChange({
@@ -273,7 +235,6 @@ export function GraceNoteShareSelector({ value, onChange }: {
       ...filtered,
       upperSelectionFlags: {},
     });
-    if (visibility === 'organization_share') setOrgPanelOpen(true);
   };
 
   const togglePastorAll = () => {
@@ -302,256 +263,24 @@ export function GraceNoteShareSelector({ value, onChange }: {
     });
   };
 
-  const isUpperOn = (id: string) => value.sharedUpperOrganizationIds.includes(id);
-  const isLowerOn = (id: string) => value.sharedLowerOrganizationIds.includes(id);
-  const isDeptOn = (id: string) => value.sharedDepartmentIds.includes(id);
-
-  const selectUpperDirect = (id: string) => {
-    const flags = { ...value.upperSelectionFlags };
-    flags[id] = { selectedDirectly: true, selectedByChildren: flags[id]?.selectedByChildren ?? false };
-    emitOrgState({
-      upper: uniqueIds([...value.sharedUpperOrganizationIds, id]),
-      lower: value.sharedLowerOrganizationIds,
-      departments: value.sharedDepartmentIds,
-      flags,
+  const handleOrgTreeChange = (ids: string[]) => {
+    const split = organizationIdsToShareSplit(ids);
+    onChange({
+      ...value,
+      sharedGroupAll: false,
+      sharedUpperOrganizationIds: split.upper,
+      sharedLowerOrganizationIds: split.lower,
+      sharedDepartmentIds: split.departments,
+      sharedGroupIds: composeSharedGroupIds(split.upper, split.lower, split.departments),
+      upperSelectionFlags: {},
     });
-  };
-
-  const clearUpperWithChildren = (id: string) => {
-    const childIds = new Set(childZonesOf(id).map(z => z.id));
-    const flags = { ...value.upperSelectionFlags };
-    delete flags[id];
-    emitOrgState({
-      upper: value.sharedUpperOrganizationIds.filter(x => x !== id),
-      lower: value.sharedLowerOrganizationIds.filter(x => !childIds.has(x)),
-      departments: value.sharedDepartmentIds,
-      flags,
-    });
-  };
-
-  const requestToggleUpper = (id: string) => {
-    if (isUpperOn(id)) {
-      const hasSelectedChildren = childZonesOf(id).some(z => isLowerOn(z.id));
-      if (hasSelectedChildren) {
-        setConfirmUpperClear(id);
-        return;
-      }
-      const flags = { ...value.upperSelectionFlags };
-      delete flags[id];
-      emitOrgState({
-        upper: value.sharedUpperOrganizationIds.filter(x => x !== id),
-        lower: value.sharedLowerOrganizationIds,
-        departments: value.sharedDepartmentIds,
-        flags,
-      });
-      return;
-    }
-    selectUpperDirect(id);
-  };
-
-  const toggleLower = (zoneId: string, parentId?: string) => {
-    const turningOff = isLowerOn(zoneId);
-    let lower = turningOff
-      ? value.sharedLowerOrganizationIds.filter(x => x !== zoneId)
-      : uniqueIds([...value.sharedLowerOrganizationIds, zoneId]);
-
-    let upper = [...value.sharedUpperOrganizationIds];
-    const flags = { ...value.upperSelectionFlags };
-
-    if (!turningOff && parentId) {
-      upper = uniqueIds([...upper, parentId]);
-      const prev = flags[parentId];
-      flags[parentId] = {
-        selectedDirectly: prev?.selectedDirectly ?? false,
-        selectedByChildren: true,
-      };
-      if (!prev?.selectedDirectly && !prev?.selectedByChildren) {
-        // 자식으로만 자동 선택된 경우
-        flags[parentId].selectedDirectly = false;
-        flags[parentId].selectedByChildren = true;
-      } else if (prev?.selectedDirectly) {
-        flags[parentId] = { selectedDirectly: true, selectedByChildren: true };
-      }
-    }
-
-    if (turningOff && parentId) {
-      const stillHasChild = childZonesOf(parentId).some(
-        z => z.id !== zoneId && lower.includes(z.id),
-      );
-      const flag = flags[parentId];
-      if (stillHasChild) {
-        flags[parentId] = {
-          selectedDirectly: flag?.selectedDirectly ?? false,
-          selectedByChildren: true,
-        };
-      } else if (flag?.selectedDirectly) {
-        flags[parentId] = { selectedDirectly: true, selectedByChildren: false };
-        // 상위조직 유지
-      } else {
-        // 자식으로만 선택됐던 경우 상위도 해제
-        upper = upper.filter(x => x !== parentId);
-        delete flags[parentId];
-      }
-    }
-
-    upper = ensureParentUpperIds(lower, upper);
-    emitOrgState({
-      upper,
-      lower,
-      departments: value.sharedDepartmentIds,
-      flags,
-    });
-  };
-
-  const toggleDept = (id: string) => {
-    const departments = isDeptOn(id)
-      ? value.sharedDepartmentIds.filter(x => x !== id)
-      : uniqueIds([...value.sharedDepartmentIds, id]);
-    emitOrgState({
-      upper: value.sharedUpperOrganizationIds,
-      lower: value.sharedLowerOrganizationIds,
-      departments,
-      flags: value.upperSelectionFlags,
-    });
-  };
-
-  const removeChip = (kind: 'upper' | 'lower' | 'dept', id: string) => {
-    if (kind === 'upper') {
-      requestToggleUpper(id);
-      return;
-    }
-    if (kind === 'lower') {
-      const zone = eligibleGroups.zones.find(z => z.id === id);
-      toggleLower(id, zone?.parentId);
-      return;
-    }
-    toggleDept(id);
   };
 
   const isOptionDisabled = (v: GraceNoteVisibility) => {
     if (v === 'pastor_share') return !hasPastors;
-    if (v === 'organization_share') return !hasGroups;
+    if (v === 'organization_share') return !hasOrgTree;
     return false;
   };
-
-  const chipItems = useMemo(() => {
-    const items: { key: string; label: string; kind: 'upper' | 'lower' | 'dept'; id: string }[] = [];
-    for (const d of eligibleGroups.districts) {
-      if (!value.sharedUpperOrganizationIds.includes(d.id)) continue;
-      const hasSelectedChild = childZonesOf(d.id).some(z =>
-        value.sharedLowerOrganizationIds.includes(z.id),
-      );
-      // 하위가 있으면 상위 단독 칩 숨김 (데이터상 상위 ID는 유지, selectedDirectly로 복원)
-      if (!hasSelectedChild) {
-        items.push({ key: `u-${d.id}`, label: d.name, kind: 'upper', id: d.id });
-      }
-    }
-    for (const z of eligibleGroups.zones) {
-      if (!value.sharedLowerOrganizationIds.includes(z.id)) continue;
-      items.push({
-        key: `l-${z.id}`,
-        label: getLowerOrganizationDisplayLabel(z.id),
-        kind: 'lower',
-        id: z.id,
-      });
-    }
-    for (const d of eligibleGroups.departments) {
-      if (value.sharedDepartmentIds.includes(d.id)) {
-        items.push({ key: `d-${d.id}`, label: d.name, kind: 'dept', id: d.id });
-      }
-    }
-    return items;
-  }, [
-    eligibleGroups,
-    value.sharedUpperOrganizationIds,
-    value.sharedLowerOrganizationIds,
-    value.sharedDepartmentIds,
-  ]);
-
-  const orgSelectionPanel = (
-    <div className="space-y-3">
-      {chipItems.length > 0 && (
-        <div>
-          <p className="text-[11px] font-bold text-gray-400 mb-2">선택된 대상</p>
-          <div className="flex flex-wrap gap-2">
-            {chipItems.map(c => (
-              <Chip key={c.key} label={c.label} onRemove={() => removeChip(c.kind, c.id)} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {eligibleGroups.districts.length > 0 && (
-        <div className="space-y-1">
-          <p className="text-[12px] font-bold text-gray-600 pt-1">{labels.upper}</p>
-          {eligibleGroups.districts.map(d => {
-            const children = childZonesOf(d.id);
-            const on = isUpperOn(d.id);
-            return (
-              <div key={d.id} className="space-y-0.5">
-                <CheckboxRow
-                  checked={on}
-                  onChange={() => requestToggleUpper(d.id)}
-                  label={d.name}
-                />
-                {on && children.length > 0 && (
-                  <div className="ml-4 pl-3 border-l-2 border-primary-100 space-y-0.5">
-                    <p className="text-[11px] font-bold text-gray-400 pt-1">{labels.lower}</p>
-                    {children.map(z => (
-                      <CheckboxRow
-                        key={z.id}
-                        checked={isLowerOn(z.id)}
-                        onChange={() => toggleLower(z.id, d.id)}
-                        label={formatLowerWithUpperLabel(d.name, z.name)}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {orphanZones.length > 0 && (
-        <div className="space-y-0.5">
-          <p className="text-[12px] font-bold text-gray-600 pt-1">{labels.lower}</p>
-          {orphanZones.map(z => (
-            <CheckboxRow
-              key={z.id}
-              checked={isLowerOn(z.id)}
-              onChange={() => toggleLower(z.id, z.parentId)}
-              label={getLowerOrganizationDisplayLabel(z.id)}
-            />
-          ))}
-        </div>
-      )}
-
-      {eligibleGroups.departments.length > 0 && (
-        <div className="space-y-0.5">
-          <p className="text-[12px] font-bold text-gray-600 pt-1">{labels.department}</p>
-          {eligibleGroups.departments.map(d => (
-            <CheckboxRow
-              key={d.id}
-              checked={isDeptOn(d.id)}
-              onChange={() => toggleDept(d.id)}
-              label={d.name}
-            />
-          ))}
-        </div>
-      )}
-
-      {isMobile && (
-        <button
-          type="button"
-          onClick={() => setOrgPanelOpen(false)}
-          className="w-full mt-2 h-12 rounded-[14px] bg-primary-500 text-white text-sm font-bold touch-target"
-        >
-          선택 완료
-        </button>
-      )}
-    </div>
-  );
 
   return (
     <div className="space-y-4 pb-6 md:pb-2">
@@ -567,13 +296,7 @@ export function GraceNoteShareSelector({ value, onChange }: {
                 key={opt.value}
                 type="button"
                 disabled={disabled}
-                onClick={() => {
-                  if (opt.value === 'organization_share' && value.visibility === 'organization_share') {
-                    setOrgPanelOpen(true);
-                    return;
-                  }
-                  setVisibility(opt.value);
-                }}
+                onClick={() => setVisibility(opt.value)}
                 aria-pressed={selected}
                 className={`relative w-full flex items-start gap-3 p-4 rounded-[18px] border-2 text-left transition-all touch-target min-h-[72px] ${
                   disabled
@@ -625,17 +348,13 @@ export function GraceNoteShareSelector({ value, onChange }: {
 
       {value.visibility === 'pastor_share' && (
         <div className="rounded-[18px] border border-gray-200 bg-white p-4 md:p-5 space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-bold text-gray-800">담당 교역자 선택</p>
-            <span className="text-[11px] text-gray-400">{pastorChipList.length}명</span>
-          </div>
-
+          <p className="text-sm font-bold text-gray-800">담당 교역자 선택</p>
           {!hasPastors ? (
-            <p className="text-sm text-gray-500 py-2">현재 연결된 담당 교역자가 없습니다.</p>
+            <p className="text-sm text-gray-500 py-2">선택할 수 있는 교역자가 없습니다.</p>
           ) : (
             <>
               {pastorChipList.length > 0 && (
-                <div className="flex flex-wrap gap-2 pb-1">
+                <div className="flex flex-wrap gap-2">
                   {pastorChipList.map(p => (
                     <Chip
                       key={p.id}
@@ -645,8 +364,7 @@ export function GraceNoteShareSelector({ value, onChange }: {
                   ))}
                 </div>
               )}
-
-              <div className="border-t border-gray-100 pt-2 space-y-0.5 max-h-56 md:max-h-72 overflow-y-auto">
+              <div className="border-t border-gray-100 pt-2 max-h-[min(50vh,360px)] overflow-y-auto">
                 <CheckboxRow
                   checked={allPastorsSelected}
                   onChange={togglePastorAll}
@@ -676,56 +394,53 @@ export function GraceNoteShareSelector({ value, onChange }: {
             <p className="text-sm font-bold text-gray-800">
               {labels.upper} · {labels.department} 선택
             </p>
-            <span className="text-[11px] text-gray-400">{chipItems.length}개</span>
+            {selectedOrgIds.length > 0 && (
+              <span className="text-[11px] font-semibold text-primary-600 shrink-0">
+                {selectedOrgIds.length}개 선택
+              </span>
+            )}
           </div>
 
-          {!hasGroups ? (
+          {!hasOrgTree ? (
             <p className="text-sm text-gray-500 py-2">
               현재 소속된 {labels.upper} 또는 {labels.department}가 없습니다.
             </p>
           ) : (
             <>
-              {isMobile && !orgPanelOpen && (
-                <div className="space-y-3">
-                  {chipItems.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {chipItems.map(c => (
-                        <Chip key={c.key} label={c.label} onRemove={() => removeChip(c.kind, c.id)} />
-                      ))}
-                    </div>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setOrgPanelOpen(true)}
-                    className="w-full h-12 rounded-[14px] border-2 border-primary-200 text-primary-700 text-sm font-bold touch-target"
-                  >
-                    {labels.upper} · {labels.department} 다시 선택
-                  </button>
+              <UserOrganizationTreeSelector
+                user={user}
+                selectedOrganizationIds={selectedOrgIds}
+                onChange={handleOrgTreeChange}
+                mode={orgTreeMode}
+                defaultScope={orgTreeDefaultScope}
+                emptyMeansAll={false}
+                showSelectAll
+                sectionTitle="공유 조직"
+                searchPlaceholder="조직 검색"
+                treeScrollClassName={isMobile ? 'max-h-none' : 'max-h-64'}
+              />
+
+              {selectedOrgIds.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100">
+                  {selectedOrgIds.map(id => (
+                    <Chip
+                      key={id}
+                      label={getOrganizationPathLabel(id)}
+                      onRemove={() => handleOrgTreeChange(selectedOrgIds.filter(x => x !== id))}
+                    />
+                  ))}
                 </div>
               )}
-              {(!isMobile || orgPanelOpen) && (
-                <div className="border-t border-gray-100 pt-3 max-h-[min(60vh,420px)] overflow-y-auto">
-                  {orgSelectionPanel}
-                </div>
+
+              {selectedOrgIds.length === 0 && (
+                <p className="text-[12px] text-amber-700 bg-amber-50 rounded-xl px-3 py-2">
+                  공유할 {labels.upper}·{labels.department}를 하나 이상 선택해 주세요.
+                </p>
               )}
             </>
           )}
         </div>
       )}
-
-      <ChurchConfirmDialog
-        open={!!confirmUpperClear}
-        title={`${labels.upper} 선택 해제`}
-        message={`${labels.upper} 선택을 해제하면 선택한 ${labels.lower}도 함께 해제됩니다.`}
-        confirmText="해제"
-        cancelText="취소"
-        danger
-        onCancel={() => setConfirmUpperClear(null)}
-        onConfirm={() => {
-          if (confirmUpperClear) clearUpperWithChildren(confirmUpperClear);
-          setConfirmUpperClear(null);
-        }}
-      />
     </div>
   );
 }

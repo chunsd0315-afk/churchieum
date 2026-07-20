@@ -7,6 +7,7 @@ import {
   type UserOrgTreeScope,
   countOrgFilterNodes,
   filterOrgTreeByQuery,
+  flattenOrgFilterTree,
   getTreeNodeCheckState,
   getUserOrganizationTree,
   resolveOrgTreeMode,
@@ -23,8 +24,14 @@ export type UserOrganizationTreeSelectorProps = {
   allowMultiple?: boolean;
   showOnlyActive?: boolean;
   className?: string;
-  /** 빈 선택 = 전체 (권장 true) */
+  /** 빈 선택 = 전체 (필터용 true, 작성 화면 false) */
   emptyMeansAll?: boolean;
+  /** 작성 화면 — 전체 조직 일괄 선택 (emptyMeansAll=false 일 때) */
+  showSelectAll?: boolean;
+  /** 조직 검색 placeholder */
+  searchPlaceholder?: string;
+  /** 트리 스크롤 영역 class (모바일 작성: max-h-none 등) */
+  treeScrollClassName?: string;
   /** 기본 스코프 (관리자: 전체 조직 등) */
   defaultScope?: UserOrgTreeScope;
   /** 섹션 제목 */
@@ -134,6 +141,9 @@ export function UserOrganizationTreeSelector({
   allowFullOrgTree = false,
   className = '',
   emptyMeansAll = true,
+  showSelectAll = false,
+  searchPlaceholder = '내 조직에서 검색',
+  treeScrollClassName = 'max-h-64',
   defaultScope = 'mine',
   sectionTitle = '공유 조직',
 }: UserOrganizationTreeSelectorProps) {
@@ -162,6 +172,27 @@ export function UserOrganizationTreeSelector({
   const showSearch = nodeCount >= 8;
   const isAll = emptyMeansAll && selectedOrganizationIds.length === 0;
 
+  const allSelectableIds = useMemo(
+    () => flattenOrgFilterTree(tree).filter(n => n.selectable).map(n => n.id),
+    [tree],
+  );
+
+  const isAllExplicitSelected =
+    allSelectableIds.length > 0 &&
+    allSelectableIds.every(id => selectedOrganizationIds.includes(id));
+
+  const isAllExplicitIndeterminate =
+    !isAllExplicitSelected &&
+    selectedOrganizationIds.length > 0 &&
+    allSelectableIds.some(id => selectedOrganizationIds.includes(id));
+
+  const selectAllRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (selectAllRef.current && !emptyMeansAll) {
+      selectAllRef.current.indeterminate = isAllExplicitIndeterminate;
+    }
+  }, [emptyMeansAll, isAllExplicitIndeterminate]);
+
   // 기본 펼침: 루트 전부
   useEffect(() => {
     setExpanded(new Set(tree.map(n => n.id)));
@@ -177,12 +208,21 @@ export function UserOrganizationTreeSelector({
   };
 
   const handleToggle = (id: string) => {
-    // 전체 상태에서 개별 선택 시작
     const base = isAll ? [] : selectedOrganizationIds;
     onChange(toggleOrganizationTreeSelection(tree, id, base));
   };
 
   const selectAll = () => onChange([]);
+
+  const toggleSelectAllExplicit = () => {
+    if (isAllExplicitSelected) {
+      onChange([]);
+    } else {
+      onChange([...allSelectableIds]);
+    }
+  };
+
+  const showSelectAllRow = emptyMeansAll || showSelectAll;
 
   if (!user) {
     return (
@@ -210,7 +250,7 @@ export function UserOrganizationTreeSelector({
     <div className={className}>
       <div className="flex items-center justify-between mb-2 gap-2">
         <p className="text-xs font-bold text-gray-500">{sectionTitle}</p>
-        {!isAll && (
+        {!isAll && selectedOrganizationIds.length > 0 && (
           <span className="text-[11px] font-semibold text-primary-600">
             {selectedOrganizationIds.length}개 선택
           </span>
@@ -248,7 +288,7 @@ export function UserOrganizationTreeSelector({
           <input
             value={q}
             onChange={e => setQ(e.target.value)}
-            placeholder="내 조직에서 검색"
+            placeholder={searchPlaceholder}
             className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white focus:border-primary-400 focus:outline-none"
           />
         </div>
@@ -258,13 +298,14 @@ export function UserOrganizationTreeSelector({
         {scope === 'all' && showScopeToggle ? '전체 조직' : '내 조직'}
       </p>
 
-      <div className="bg-white border border-gray-200 overflow-hidden rounded-card max-h-64 overflow-y-auto">
-        {emptyMeansAll && (
+      <div className={`bg-white border border-gray-200 overflow-hidden rounded-card overflow-y-auto ${treeScrollClassName}`}>
+        {showSelectAllRow && (
           <label className="flex items-center gap-3 px-4 py-3 min-h-[48px] touch-target cursor-pointer hover:bg-gray-50 border-b border-gray-100">
             <input
+              ref={emptyMeansAll ? undefined : selectAllRef}
               type="checkbox"
-              checked={isAll}
-              onChange={selectAll}
+              checked={emptyMeansAll ? isAll : isAllExplicitSelected}
+              onChange={emptyMeansAll ? selectAll : toggleSelectAllExplicit}
               className="w-5 h-5 rounded border-gray-300 text-primary-600 shrink-0"
             />
             <span className="text-[14px] font-semibold text-gray-800">전체 조직</span>
