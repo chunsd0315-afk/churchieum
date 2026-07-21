@@ -87,6 +87,15 @@ export function resolveClergyProfileImage(clergy: {
   });
 }
 
+export function inferProfileRoleFromAuthorRole(authorRole?: string): ProfileImageRole {
+  const r = authorRole?.trim();
+  if (!r) return 'member';
+  if (r.includes('관리') || r === '담임목사') return 'admin';
+  if (r.includes('목사') || r.includes('전도') || r.includes('간사')) return 'pastor';
+  return 'member';
+}
+
+
 /** 성도 후보 — 역할 member 기본 */
 export function resolveMemberProfileImage(
   userId?: string | null,

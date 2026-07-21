@@ -26,7 +26,6 @@ import { readOrgSettings } from '../../contexts/OrgSettingsContext';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
 import { MobileFab, PageHeaderBar } from '../common/ui';
 import { sermonPrimaryBtnClass } from '../common/sermon/sermonDesign';
-import { ChurchDropdownMenu } from '../common/ui/ChurchDropdownMenu';
 import { MobileFullScreenPage } from '../layout/ContentEditorLayout';
 import {
   getGraceNoteViewInfo,
@@ -64,6 +63,8 @@ import {
   resolveOrgTreeMode,
 } from '../../services/userOrganizationTree';
 import { isSuperAdmin } from '../../services/permissions';
+import { resolveGraceNoteAuthorDisplay } from '../../services/graceNoteAuthorDisplay';
+import { GraceNoteListRow } from './GraceNoteListRow';
 import {
   getPastorFilterGroupsForMine,
   getFilterPastorsForUser,
@@ -413,7 +414,8 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
         }
 
         if ((isPastorUser || isAdminUser) && authorQuery.trim()) {
-          if (!n.authorName?.toLowerCase().includes(authorQuery.trim().toLowerCase())) {
+          const authorLabel = resolveGraceNoteAuthorDisplay(n).label.toLowerCase();
+          if (!authorLabel.includes(authorQuery.trim().toLowerCase())) {
             return false;
           }
         }
@@ -423,8 +425,9 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
 
       if (search.trim()) {
         const q = search.toLowerCase();
+        const authorLabel = resolveGraceNoteAuthorDisplay(n).label;
         const searchable = [
-          n.authorName, n.authorRole, n.graceTitle, n.planName, n.sermonTitle,
+          authorLabel, n.graceTitle, n.planName, n.sermonTitle,
           n.sermonPreacher, n.bibleReference, n.graceContent, n.memorableVerse,
         ].filter(Boolean).join(' ').toLowerCase();
         if (!searchable.includes(q)) return false;
@@ -566,19 +569,6 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
     deleteGraceNote(id);
     setNotes(getAllGraceNotes());
     setDeleteId(null);
-  };
-
-  const typeLabel = (type: GraceNoteType) => graceRecordTypeLabel(type);
-  const typeBadgeClass = (type: GraceNoteType) =>
-    type === 'reading' ? 'bg-green-50 text-green-700'
-      : type === 'sermon' ? 'bg-blue-50 text-blue-700'
-        : 'bg-amber-50 text-amber-700';
-
-  const shareBadgeClass = (label: string) => {
-    if (label.includes('나만')) return 'bg-gray-100 text-gray-600';
-    if (label.includes('전체 공개')) return 'bg-violet-50 text-violet-700';
-    if (label.includes('교역자')) return 'bg-blue-50 text-blue-700';
-    return 'bg-emerald-50 text-emerald-700';
   };
 
   const tabs = GRACE_COLLECTION_UI_TABS;
@@ -842,74 +832,26 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
         <div className="church-list">
           {filtered.map(note => {
             const badge = getGraceListBadge(note, user, tab);
-            const title =
-              note.graceTitle
-              || (note.type === 'sermon' ? note.sermonTitle : null)
-              || (note.type === 'reading' ? note.bibleReference : null)
-              || note.graceContent.slice(0, 28);
-            const linked =
-              note.type === 'sermon'
-                ? [note.sermonTitle && note.graceTitle ? note.sermonTitle : null, note.sermonPreacher, note.bibleReference]
-                    .filter(Boolean).join(' · ')
-                : note.type === 'reading'
-                  ? [note.planName, note.bibleReference && note.graceTitle ? note.bibleReference : null]
-                      .filter(Boolean).join(' · ')
-                  : '';
-            const authorLine = [
-              note.authorName ? `${note.authorName}${note.authorRole ? ` ${note.authorRole}` : ''}` : null,
-              note.createdAt.slice(0, 10).replace(/-/g, '.'),
-            ].filter(Boolean).join(' · ');
-
             return (
-              <div
+              <GraceNoteListRow
                 key={note.id}
-                role="button"
-                tabIndex={0}
+                note={note}
+                shareBadge={badge}
                 onClick={() => onDetail(note.id)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    onDetail(note.id);
-                  }
-                }}
-                className="church-list-row cursor-pointer"
-              >
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <div className="flex items-center gap-2 flex-wrap min-w-0">
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${typeBadgeClass(note.type)}`}>
-                      {typeLabel(note.type)}
-                    </span>
-                    {badge && (
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${shareBadgeClass(badge)}`}>
-                        {badge}
-                      </span>
-                    )}
-                  </div>
-                  {isOwn(note) && (
-                    <ChurchDropdownMenu
-                      items={[
-                        {
-                          label: '수정',
-                          icon: <Edit3 style={{ width: '15px', height: '15px' }} />,
-                          onClick: () => onEdit(note),
-                        },
-                        {
-                          label: '삭제',
-                          icon: <Trash2 style={{ width: '15px', height: '15px' }} />,
-                          danger: true,
-                          onClick: () => setDeleteId(note.id),
-                        },
-                      ]}
-                    />
-                  )}
-                </div>
-                <p className="text-[15px] font-bold text-gray-900 line-clamp-1 mb-1">{title}</p>
-                <p className="text-sm text-gray-600 leading-relaxed line-clamp-2 mb-2">{note.graceContent}</p>
-                <p className="text-[11px] text-gray-400 mb-1">{authorLine}</p>
-                {linked && (
-                  <p className="text-[12px] text-gray-500 line-clamp-1">{linked}</p>
-                )}
-              </div>
+                menuItems={isOwn(note) ? [
+                  {
+                    label: '수정',
+                    icon: <Edit3 style={{ width: '15px', height: '15px' }} />,
+                    onClick: () => onEdit(note),
+                  },
+                  {
+                    label: '삭제',
+                    icon: <Trash2 style={{ width: '15px', height: '15px' }} />,
+                    danger: true,
+                    onClick: () => setDeleteId(note.id),
+                  },
+                ] : undefined}
+              />
             );
           })}
         </div>
@@ -1466,14 +1408,12 @@ export function PlanGraceNotesSummary({ progressId, planName: _planName, planCol
           ) : (
             <div className="mt-3 space-y-2">
               {notes.map(note => (
-                <button key={note.id} onClick={() => onViewNote(note.id)}
-                  className="w-full text-left bg-gray-50 rounded-xl p-3 hover:bg-gray-100 transition-colors">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-semibold text-gray-600">{note.day}일차</span>
-                    <span className="text-[10px] text-gray-400">{note.createdAt.slice(0, 10).replace(/-/g, '.')}</span>
-                  </div>
-                  <p className="text-xs text-gray-700 line-clamp-2">{note.graceContent}</p>
-                </button>
+                <GraceNoteListRow
+                  key={note.id}
+                  note={note}
+                  compact
+                  onClick={() => onViewNote(note.id)}
+                />
               ))}
               <button onClick={onViewAll} className="w-full py-2 text-xs text-primary-600 font-semibold hover:text-primary-700">
                 전체 기록 보기 →
