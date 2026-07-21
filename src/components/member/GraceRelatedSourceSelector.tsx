@@ -1,4 +1,4 @@
-import { ChevronRight, BookOpen, Mic, PenLine } from 'lucide-react';
+import { ChevronRight, BookOpen, Mic } from 'lucide-react';
 import type { GraceNote, GraceNoteType } from '../../data/graceNotes';
 import type { ReadingEditorCtx, SermonEditorCtx } from './GraceNoteEditor';
 
@@ -169,12 +169,5 @@ export function GraceRelatedSourceSelector({
     );
   }
 
-  return (
-    <RelatedCard label="관련 기록">
-      <p className="text-sm text-gray-600 leading-relaxed flex items-start gap-2">
-        <PenLine className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-        연결된 성경통독이나 설교 없이 자유롭게 작성합니다.
-      </p>
-    </RelatedCard>
-  );
+  return null;
 }

@@ -19,6 +19,7 @@ import {
   titleFromContent,
   titlesForType,
 } from '../data/graceNoteSeedTemplates';
+import { EMPTY_GRACE_LEGACY_FIELDS } from './graceNoteRelatedDisplay';
 
 export type GraceSeedValidationReport = {
   total: number;
@@ -244,9 +245,7 @@ export function normalizeSeedGraceRecord(note: GraceNote, index = 0): GraceNote 
     visibility: migrateVisibility(visibility),
     graceTitle,
     graceContent,
-    memorableVerse: note.memorableVerse?.trim() || graceContent.slice(0, 40),
-    application: note.application?.trim() || '오늘 받은 은혜를 작은 순종으로 이어가겠습니다.',
-    prayer: note.prayer?.trim() || '주님, 오늘 받은 은혜를 삶으로 이어가게 도와주세요.',
+    ...EMPTY_GRACE_LEGACY_FIELDS,
     isFavorite,
     ...share,
     sourceId: type === 'reading'

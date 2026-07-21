@@ -2,7 +2,7 @@
  * seed 은혜기록 — 제목·내용만 갱신 (ID·작성자·날짜·공개범위 등 유지)
  */
 
-import type { GraceNote, GraceNoteType } from '../data/graceNotes';
+import type { GraceNote, GraceNoteType, GraceNoteVisibility } from '../data/graceNotes';
 import {
   getAllGraceNotes,
   getGraceSeedCopyVersion,
@@ -17,6 +17,11 @@ import {
   countUniqueTitles,
   countUniqueContentPairs,
 } from '../data/graceNoteSeedCopyPools';
+import {
+  EMPTY_GRACE_LEGACY_FIELDS,
+  syncSeedReadingLinkFields,
+  syncSeedSermonLinkFields,
+} from './graceNoteRelatedDisplay';
 
 export type GraceSeedCopyRefreshReport = {
   updatedCount: number;
@@ -35,11 +40,27 @@ function hashString(s: string): number {
   return h >>> 0;
 }
 
-/** 단일 seed 기록 — title·content만 교체 */
+/** 단일 seed 기록 — 제목·내용 갱신 + 레거시 필드 제거 + 연결 정보 동기화 */
+export function refreshSeedGraceNoteFields(note: GraceNote): Partial<GraceNote> {
+  const copy = buildGraceCopyForSeedNote(note.type, note.id, hashString(note.id));
+  return {
+    graceTitle: copy.graceTitle,
+    graceContent: copy.graceContent,
+    ...EMPTY_GRACE_LEGACY_FIELDS,
+    ...syncSeedSermonLinkFields(note),
+    ...syncSeedReadingLinkFields(note),
+  };
+}
+
+/** @deprecated refreshSeedGraceNoteFields 사용 */
 export function refreshSeedGraceNoteCopy(
   note: GraceNote,
 ): Pick<GraceNote, 'graceTitle' | 'graceContent'> {
-  return buildGraceCopyForSeedNote(note.type, note.id, hashString(note.id));
+  const copy = refreshSeedGraceNoteFields(note);
+  return {
+    graceTitle: copy.graceTitle!,
+    graceContent: copy.graceContent!,
+  };
 }
 
 /** localStorage seed 기록 제목·내용 일괄 갱신 */
@@ -51,15 +72,11 @@ export function refreshSeedGraceNoteCopyInPlace(): GraceSeedCopyRefreshReport {
   const contents = new Set<string>();
 
   const refreshed = seed.map(note => {
-    const copy = refreshSeedGraceNoteCopy(note);
+    const updates = refreshSeedGraceNoteFields(note);
     byType[note.type] = (byType[note.type] ?? 0) + 1;
-    titles.add(copy.graceTitle);
-    contents.add(copy.graceContent);
-    return {
-      ...note,
-      graceTitle: copy.graceTitle,
-      graceContent: copy.graceContent,
-    };
+    titles.add(updates.graceTitle!);
+    contents.add(updates.graceContent!);
+    return { ...note, ...updates };
   });
 
   replaceSeedGraceNotes(refreshed);

@@ -32,7 +32,6 @@ export function getGraceNoteListTitle(note: GraceNote): string {
   if (title) return title;
   if (note.type === 'sermon' && note.sermonTitle?.trim()) return note.sermonTitle.trim();
   if (note.type === 'reading' && note.bibleReference?.trim()) return note.bibleReference.trim();
-  if (note.memorableVerse?.trim() && note.type === 'personal') return note.memorableVerse.trim();
   if (note.graceContent?.trim()) return note.graceContent.trim().slice(0, 28);
   return GRACE_LIST_TITLE_FALLBACK;
 }

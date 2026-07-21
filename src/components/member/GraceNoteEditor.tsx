@@ -164,9 +164,7 @@ export function GraceNoteEditor({
 
   const buildInput = (): GraceNoteInput => {
     const shareFields = shareInputWithSnapshots(share, user, existing?.sharedPastorSnapshots);
-    const legacyMemorable = existing?.memorableVerse ?? '';
-    const legacyApplication = existing?.application ?? '';
-    const legacyPrayer = existing?.prayer ?? '';
+    const legacyEmpty = { memorableVerse: '', application: '', prayer: '' };
 
     if (noteType === 'reading') {
       const planColor = readingCtx?.planColor
@@ -186,9 +184,7 @@ export function GraceNoteEditor({
         bibleReference: readingRef.trim() || existing?.bibleReference,
         graceTitle: graceTitle.trim(),
         graceContent: graceContent.trim(),
-        memorableVerse: legacyMemorable,
-        application: legacyApplication,
-        prayer: legacyPrayer,
+        ...legacyEmpty,
         isFavorite,
       };
     }
@@ -214,9 +210,7 @@ export function GraceNoteEditor({
         videoUrl: sermonCtx?.videoUrl ?? existing?.videoUrl,
         graceTitle: graceTitle.trim(),
         graceContent: graceContent.trim(),
-        memorableVerse: linked ? legacyMemorable : legacyMemorable,
-        application: linked ? legacyApplication : legacyApplication,
-        prayer: linked ? legacyPrayer : legacyPrayer,
+        ...legacyEmpty,
         isFavorite,
       };
     }
@@ -228,9 +222,7 @@ export function GraceNoteEditor({
       ...shareFields,
       graceTitle: graceTitle.trim(),
       graceContent: graceContent.trim(),
-      memorableVerse: legacyMemorable,
-      application: '',
-      prayer: legacyPrayer,
+      ...legacyEmpty,
       isFavorite,
     };
   };
@@ -348,8 +340,9 @@ export function GraceNoteEditor({
           </p>
         </div>
 
-        {/* 4. 관련 기록 */}
-        <GraceRelatedSourceSelector
+        {/* 4. 관련 기록 (자유 유형은 표시하지 않음) */}
+        {noteType !== 'personal' && (
+          <GraceRelatedSourceSelector
           noteType={noteType}
           existing={existing}
           readingCtx={readingCtx}
@@ -366,7 +359,8 @@ export function GraceNoteEditor({
           onEditPreacher={setEditPreacher}
           onEditSermonDate={setEditSermonDate}
           onEditBibleRef={setEditBibleRef}
-        />
+          />
+        )}
 
         {/* 5. 공개범위 */}
         <GraceNoteShareSelector value={share} onChange={setShare} />

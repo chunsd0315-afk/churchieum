@@ -10,14 +10,14 @@
 import { useState, useMemo, useEffect } from 'react';
 import {
   Heart, BookOpen, Edit3, Trash2, Copy,
-  CheckCircle, ChevronDown, BookMarked,
-  Sparkles, Mic, Lock, Users, Eye, MessageCircle, HandHeart, Plus,
+  ChevronDown, Sparkles,
+  Mic, Lock, Users, Eye, MessageCircle, HandHeart, Plus,
 } from 'lucide-react';
 import {
   getAllGraceNotes, getGraceNote, getGraceNotesByProgress,
   deleteGraceNote,
   toggleGraceNoteLike, addGraceNotePrayer, addGraceNoteAmen, addGraceNoteComment,
-  isGraceNoteLikedByMe, formatReadingLabel,
+  isGraceNoteLikedByMe,
   type GraceNote, type GraceNoteType, type GraceNoteVisibility,
 } from '../../data/graceNotes';
 import { formatSharedPastorLabel, formatSharedGroupLabel } from '../../data/graceNoteSeed';
@@ -66,7 +66,6 @@ import { isSuperAdmin } from '../../services/permissions';
 import { resolveGraceNoteAuthorDisplay } from '../../services/graceNoteAuthorDisplay';
 import {
   getGraceNoteListTitle,
-  getGraceNoteRelatedLine,
   graceRecordTypeLabel,
   graceShareBadgeClass,
   graceTypeBadgeClass,
@@ -79,6 +78,7 @@ import {
   pastorLabel,
 } from '../../services/graceShareFilterHelpers';
 import { GraceNoteListRow } from './GraceNoteListRow';
+import { GraceRelatedSourceDetail } from './GraceRelatedSourceDetail';
 
 export {
   GraceNoteEditor,
@@ -994,7 +994,6 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
   const typeBadgeClass = graceTypeBadgeClass(note.type);
   const authorDisplay = resolveGraceNoteAuthorDisplay(note);
   const listTitle = getGraceNoteListTitle(note);
-  const relatedLine = getGraceNoteRelatedLine(note);
 
   const refreshNote = () => {
     const fresh = getGraceNote(noteId);
@@ -1002,19 +1001,11 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
   };
 
   const handleCopy = () => {
-    const typeStr = note.type === 'reading'
-      ? formatReadingLabel(note)
-      : note.type === 'personal'
-        ? '[자유 은혜기록]'
-        : `[설교] ${note.sermonTitle ?? ''} · ${note.sermonPreacher ?? ''} (${note.bibleReference ?? ''})`;
     const text = [
-      typeStr,
+      listTitle,
       note.createdAt.slice(0, 10),
       '',
-      '받은 은혜', note.graceContent,
-      note.memorableVerse ? `\n마음에 남은 말씀\n${note.memorableVerse}` : '',
-      note.application ? `\n적용할 점\n${note.application}` : '',
-      note.prayer ? `\n기도문\n${note.prayer}` : '',
+      note.graceContent,
     ].filter(Boolean).join('\n');
     navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
   };
@@ -1170,49 +1161,7 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
               <p className="text-[15px] text-gray-800 leading-relaxed whitespace-pre-wrap">{note.graceContent}</p>
             </section>
 
-            <div className="rounded-2xl bg-slate-50 border border-slate-100 px-4 py-3">
-              <p className="text-xs font-bold text-gray-500 mb-1">관련 기록</p>
-              <p className="text-sm text-gray-700">{relatedLine}</p>
-              {note.type === 'sermon' && note.sermonPreacher && (
-                <p className="text-xs text-gray-500 mt-1">{note.sermonPreacher}</p>
-              )}
-              {note.type === 'reading' && note.planName && note.day && (
-                <p className="text-xs text-gray-500 mt-1">{note.planName} · {note.day}일차</p>
-              )}
-            </div>
-
-            {note.memorableVerse && (
-              <section>
-                <h3 className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5">
-                  <BookMarked className="w-3.5 h-3.5 text-primary-500" />
-                  {note.type === 'personal' ? '감사 제목' : '마음에 남은 말씀'}
-                </h3>
-                <div className="bg-primary-50 rounded-xl px-4 py-3 border-l-4 border-primary-400">
-                  <p className="text-sm text-primary-800 leading-relaxed italic whitespace-pre-wrap">{note.memorableVerse}</p>
-                </div>
-              </section>
-            )}
-
-            {note.application && note.type !== 'personal' && (
-              <section>
-                <h3 className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5">
-                  <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
-                  {note.type === 'sermon' ? '결단 / 적용' : '적용할 점'}
-                </h3>
-                <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{note.application}</p>
-              </section>
-            )}
-
-            {note.prayer && (
-              <section>
-                <h3 className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-violet-500" /> 기도문
-                </h3>
-                <div className="bg-violet-50 rounded-xl px-4 py-3 border-l-4 border-violet-400">
-                  <p className="text-sm text-violet-800 leading-relaxed whitespace-pre-wrap">{note.prayer}</p>
-                </div>
-              </section>
-            )}
+            <GraceRelatedSourceDetail note={note} />
 
             <section className="pt-2 border-t border-gray-100">
               <h3 className="text-xs font-bold text-gray-500 mb-2">공개범위</h3>

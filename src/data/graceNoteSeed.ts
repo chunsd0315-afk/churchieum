@@ -27,6 +27,7 @@ import {
 import type { AppUser } from '../services/permissions';
 import { getAllSermons } from '../services/sermonStorage';
 import { buildGraceCopyForSeedNote } from './graceNoteSeedCopyPools';
+import { EMPTY_GRACE_LEGACY_FIELDS } from '../services/graceNoteRelatedDisplay';
 import {
   isGraceSeedFormatCurrent,
   migrateDemoGraceRecordsToUnifiedFormat,
@@ -80,21 +81,6 @@ const COMMENT_SAMPLES = [
   '가정과 직장을 위해 기도합니다.',
   '봉사하시는 모습에 힘이 됩니다.',
   '성령의 인도하심이 함께하시길.',
-];
-
-const APPLICATIONS = [
-  '이번 주 하루 10분이라도 조용히 기도하는 시간을 지키겠습니다.',
-  '가족에게 먼저 사과하고 따뜻한 말을 전하겠습니다.',
-  '직장 동료를 위해 매일 한 사람을 정해 기도하겠습니다.',
-  '받은 말씀을 노트에 적어 두고 아침에 다시 읽겠습니다.',
-  '봉사 시간을 점검하고 빠지지 않도록 달력에 표시하겠습니다.',
-];
-
-const PRAYERS = [
-  '주님, 오늘 받은 은혜를 삶으로 이어가게 도와주세요.',
-  '하나님, 순종할 용기를 주시고 말씀대로 살아가게 해주세요.',
-  '성령님, 제 마음을 만져 주시고 가정과 직장을 지켜 주세요.',
-  '예수님, 십자가의 사랑을 잊지 않게 하시고 이웃을 섬기게 해주세요.',
 ];
 
 function pick<T>(arr: T[]): T {
@@ -415,9 +401,7 @@ function generateSermonNotes(count: number, authors: SeedAuthor[], names: string
       sermonPreacher: preacher ? `${preacher.name} ${positionLabel(preacher)}` : '정재명 목사',
       sermonDate: sermon?.sermonDate ?? createdAt.slice(0, 10),
       bibleReference: sermon?.scripture ?? `${pick(['요한복음', '로마서', '시편'])} ${randInt(1, 12)}:${randInt(1, 28)}`,
-      memorableVerse: graceContent.slice(0, 40),
-      application: pick(APPLICATIONS),
-      prayer: pick(PRAYERS),
+      ...EMPTY_GRACE_LEGACY_FIELDS,
       ...eng,
       ...seedMeta(i),
       createdAt,
@@ -458,9 +442,7 @@ function generateReadingNotes(count: number, authors: SeedAuthor[], names: strin
       planColor: plan.color,
       day: (i % Math.min(plan.durationDays, 120)) + 1,
       bibleReference: passage,
-      memorableVerse: `${passage}에서 마음에 남은 구절`,
-      application: pick(APPLICATIONS),
-      prayer: pick(PRAYERS),
+      ...EMPTY_GRACE_LEGACY_FIELDS,
       ...eng,
       ...seedMeta(i + 20),
       createdAt,
@@ -491,9 +473,7 @@ function generatePersonalNotes(count: number, authors: SeedAuthor[], names: stri
       ...share,
       graceTitle: copy.graceTitle,
       graceContent: copy.graceContent,
-      memorableVerse: '',
-      application: pick(APPLICATIONS),
-      prayer: pick(PRAYERS),
+      ...EMPTY_GRACE_LEGACY_FIELDS,
       ...eng,
       ...seedMeta(i + 40),
       createdAt,
@@ -591,9 +571,7 @@ export function generateGraceNoteDemoData(): GraceNote[] {
       type,
       graceTitle: copy.graceTitle,
       graceContent: copy.graceContent,
-      memorableVerse: copy.graceContent.slice(0, 40),
-      application: pick(APPLICATIONS),
-      prayer: pick(PRAYERS),
+      ...EMPTY_GRACE_LEGACY_FIELDS,
       ...shareOverride,
       ...eng,
       ...seedMeta(index),

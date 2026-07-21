@@ -9,7 +9,7 @@ const LS_GRACE_SEED_COPY = 'churchieum_grace_seed_copy_version';
 const LS_LIKES = 'graceNotes_likes_by_me';
 export const DEMO_SEED_VERSION = 'v5';
 export const GRACE_SEED_FORMAT_VERSION = '5';
-export const GRACE_SEED_COPY_VERSION = '1';
+export const GRACE_SEED_COPY_VERSION = '2';
 
 export type GraceNoteType = 'reading' | 'sermon' | 'personal';
 
