@@ -4,9 +4,10 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { ArrowLeft, Heart } from 'lucide-react';
+import { ArrowLeft, Heart, Edit3, Trash2 } from 'lucide-react';
 import {
   getAllGraceNotes,
+  deleteGraceNote,
   type GraceNote, type GraceNoteType,
 } from '../../data/graceNotes';
 import { ensureGraceNoteDemoData } from '../../data/graceNoteSeed';
@@ -16,8 +17,11 @@ import {
   GraceNoteListView, GraceNoteDetailView,
   type ReadingEditorCtx, type SermonEditorCtx,
 } from '../../components/member/GraceNotesView';
+import { GraceNoteListRow } from '../../components/member/GraceNoteListRow';
 import { ReadingProgressPicker, buildReadingFormCtx } from '../../components/member/ReadingProgressPicker';
 import { getAllProgresses } from '../../data/readingPlans';
+import { useAuth } from '../../contexts/AuthContext';
+import { getGraceListBadge } from '../../services/graceNoteShareScope';
 
 type SubView =
   | 'today'
@@ -34,13 +38,8 @@ function formatDate(iso: string) {
   return iso.slice(0, 10).replace(/-/g, '.');
 }
 
-function excerpt(text: string, max = 60) {
-  const t = text.trim();
-  if (t.length <= max) return t;
-  return t.slice(0, max) + '…';
-}
-
 export default function GraceNotesPage() {
+  const { user } = useAuth();
   const [view, setView] = useState<SubView>('all-list');
   const [, setRefresh] = useState(0);
   const [listMineReset, setListMineReset] = useState(0);
@@ -229,19 +228,33 @@ export default function GraceNotesPage() {
             </div>
           ) : (
             <div className="church-list">
-              {todayNotes.map(note => (
-                <button
-                  key={note.id}
-                  type="button"
-                  onClick={() => navToDetail(note.id, 'today')}
-                  className="church-list-row"
-                >
-                  <p className="text-base text-gray-800 leading-relaxed line-clamp-4">
-                    &ldquo;{excerpt(note.graceContent, 120)}&rdquo;
-                  </p>
-                  <p className="text-xs text-gray-400 mt-3">{formatDate(note.createdAt)}</p>
-                </button>
-              ))}
+              {todayNotes.map(note => {
+                const isOwn = Boolean(user?.id && note.userId === user.id);
+                return (
+                  <GraceNoteListRow
+                    key={note.id}
+                    note={note}
+                    shareBadge={getGraceListBadge(note, user, isOwn ? 'mine' : 'shared')}
+                    onClick={() => navToDetail(note.id, 'today')}
+                    menuItems={isOwn ? [
+                      {
+                        label: '수정',
+                        icon: <Edit3 style={{ width: '15px', height: '15px' }} />,
+                        onClick: () => navToEdit(note, 'today'),
+                      },
+                      {
+                        label: '삭제',
+                        icon: <Trash2 style={{ width: '15px', height: '15px' }} />,
+                        danger: true,
+                        onClick: () => {
+                          deleteGraceNote(note.id);
+                          setRefresh(n => n + 1);
+                        },
+                      },
+                    ] : undefined}
+                  />
+                );
+              })}
             </div>
           )}
         </div>

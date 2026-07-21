@@ -1,15 +1,12 @@
 import { Star } from 'lucide-react';
 import type { GraceNote } from '../../data/graceNotes';
-import {
-  formatGraceNoteListDate,
-  resolveGraceNoteAuthorDisplay,
-} from '../../services/graceNoteAuthorDisplay';
+import { formatGraceNoteAuthorLine } from '../../services/graceNoteAuthorDisplay';
 import {
   getGraceNoteListTitle,
-  getGraceNoteRelatedLine,
   graceRecordTypeLabel,
   graceShareBadgeClass,
   graceTypeBadgeClass,
+  GRACE_BADGE_BASE,
 } from '../../services/graceNoteDisplay';
 import { ChurchDropdownMenu } from '../common/ui/ChurchDropdownMenu';
 
@@ -28,7 +25,10 @@ type Props = {
   compact?: boolean;
 };
 
-/** 은혜기록 목록 공통 행 — 배지 → 제목 → 내용 → 작성자 → 관련정보 */
+/**
+ * 은혜기록 목록 공통 행
+ * 배지 → 제목 → 내용 미리보기 → 작성자·작성일 → (우측) 즐겨찾기·더보기
+ */
 export function GraceNoteListRow({
   note,
   shareBadge,
@@ -37,9 +37,8 @@ export function GraceNoteListRow({
   compact = false,
 }: Props) {
   const title = getGraceNoteListTitle(note);
-  const author = resolveGraceNoteAuthorDisplay(note);
-  const dateText = formatGraceNoteListDate(note.createdAt);
-  const relatedLine = getGraceNoteRelatedLine(note);
+  const authorLine = formatGraceNoteAuthorLine(note);
+  const contentPreview = note.graceContent?.trim() ?? '';
 
   return (
     <div
@@ -52,45 +51,59 @@ export function GraceNoteListRow({
           onClick();
         }
       }}
-      className="church-list-row cursor-pointer flex flex-col min-h-[168px]"
+      className="church-list-row cursor-pointer min-h-[132px]"
     >
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <div className="flex items-center gap-1.5 flex-wrap min-w-0 flex-1">
-          <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${graceTypeBadgeClass(note.type)}`}>
-            {graceRecordTypeLabel(note.type)}
-          </span>
-          {shareBadge && (
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${graceShareBadgeClass(shareBadge)}`}>
-              {shareBadge}
+      <div className="flex gap-3 items-start">
+        <div className="flex-1 min-w-0 flex flex-col">
+          <div className="flex flex-wrap items-center gap-1.5 mb-2">
+            <span className={`${GRACE_BADGE_BASE} ${graceTypeBadgeClass(note.type)}`}>
+              {graceRecordTypeLabel(note.type)}
             </span>
+            {shareBadge && (
+              <span className={`${GRACE_BADGE_BASE} ${graceShareBadgeClass(shareBadge)}`}>
+                {shareBadge}
+              </span>
+            )}
+          </div>
+
+          <p className="text-[15px] font-bold text-gray-900 line-clamp-2 mb-1.5 leading-snug">
+            {title}
+          </p>
+
+          {!compact && (
+            <p className="text-sm text-gray-600 leading-relaxed line-clamp-2 min-h-[2.5rem] mb-2">
+              {contentPreview || '\u00A0'}
+            </p>
           )}
-          {note.isFavorite && (
-            <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-400 shrink-0" aria-label="즐겨찾기" />
+
+          <p className="text-[13px] font-medium text-gray-500 truncate mt-auto">
+            {authorLine}
+          </p>
+        </div>
+
+        <div
+          className="flex flex-col items-center gap-1 shrink-0 pt-0.5"
+          onClick={e => e.stopPropagation()}
+          onKeyDown={e => e.stopPropagation()}
+        >
+          <span
+            className={`touch-target flex items-center justify-center w-10 h-10 ${
+              note.isFavorite ? 'text-amber-500' : 'text-gray-300'
+            }`}
+            aria-label={note.isFavorite ? '즐겨찾기 선택됨' : '즐겨찾기'}
+          >
+            <Star
+              className={`w-5 h-5 ${note.isFavorite ? 'fill-amber-400 text-amber-500' : ''}`}
+            />
+          </span>
+          {menuItems && menuItems.length > 0 && (
+            <ChurchDropdownMenu items={menuItems} layer="belowPlayer" />
           )}
         </div>
-        {menuItems && menuItems.length > 0 && (
-          <ChurchDropdownMenu items={menuItems} />
-        )}
       </div>
-
-      <p className="text-[15px] font-bold text-gray-900 line-clamp-2 mb-2">{title}</p>
-
-      {!compact && (
-        <p className="text-sm text-gray-600 leading-relaxed line-clamp-2 mb-2 flex-1">
-          {note.graceContent}
-        </p>
-      )}
-
-      <p
-        className="text-[13px] font-medium truncate mb-1"
-        style={{ color: '#6B7280' }}
-      >
-        {author.label}
-        <span className="text-gray-300 mx-1.5">·</span>
-        {dateText}
-      </p>
-
-      <p className="text-[12px] text-gray-500 line-clamp-1">{relatedLine}</p>
     </div>
   );
 }
+
+/** 공통 목록 컴포넌트 별칭 */
+export { GraceNoteListRow as GraceRecordListItem };

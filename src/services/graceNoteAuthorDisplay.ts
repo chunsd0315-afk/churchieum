@@ -18,6 +18,7 @@ export type GraceNoteAuthorDisplay = {
   /** "천성대 장로" */
   label: string;
   imageSrc: string;
+  isUnknown: boolean;
 };
 
 export function formatGraceNoteListDate(iso: string): string {
@@ -68,9 +69,26 @@ export function resolveGraceNoteAuthorDisplay(note: {
   authorRole?: string;
 }): GraceNoteAuthorDisplay {
   const fromStore = lookupAuthorFromStores(note.userId);
-  const name = fromStore?.name ?? note.authorName?.trim() ?? '성도';
-  const position = fromStore?.position ?? note.authorRole?.trim() ?? '';
-  const label = position ? `${name} ${position}` : name;
+  const snapshotName = note.authorName?.trim();
+  const snapshotRole = note.authorRole?.trim();
+
+  let name: string;
+  let position: string;
+  let isUnknown = false;
+
+  if (fromStore) {
+    name = fromStore.name;
+    position = fromStore.position;
+  } else if (snapshotName) {
+    name = snapshotName;
+    position = snapshotRole ?? '';
+  } else {
+    name = '알 수 없는 작성자';
+    position = '';
+    isUnknown = true;
+  }
+
+  const label = isUnknown ? name : position ? `${name} ${position}` : name;
 
   const demo = note.userId ? getPrimaryDemoAccountById(note.userId) : undefined;
   const profileRole = demo
@@ -81,6 +99,19 @@ export function resolveGraceNoteAuthorDisplay(note: {
     name,
     position,
     label,
+    isUnknown,
     imageSrc: resolveProfileImage({ userId: note.userId, role: profileRole }),
   };
+}
+
+/** 목록 공통 작성자 줄 — "작성자 : {이름} {직분} · {날짜}" */
+export function formatGraceNoteAuthorLine(note: {
+  userId?: string;
+  authorName?: string;
+  authorRole?: string;
+  createdAt: string;
+}): string {
+  const author = resolveGraceNoteAuthorDisplay(note);
+  const date = formatGraceNoteListDate(note.createdAt);
+  return `작성자 : ${author.label} · ${date}`;
 }

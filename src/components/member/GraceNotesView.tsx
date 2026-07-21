@@ -1385,7 +1385,7 @@ export function PlanGraceNotesSummary({ progressId, planName: _planName, planCol
           {notes.length === 0 ? (
             <p className="text-xs text-gray-400 text-center mt-4 pb-2">아직 기록된 은혜가 없습니다.</p>
           ) : (
-            <div className="mt-3 space-y-2">
+            <div className="mt-3 church-list">
               {notes.map(note => (
                 <GraceNoteListRow
                   key={note.id}

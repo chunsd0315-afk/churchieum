@@ -7,6 +7,10 @@ export function graceRecordTypeLabel(type: GraceNoteType): string {
   return type === 'reading' ? '성경통독' : type === 'sermon' ? '설교' : '자유';
 }
 
+/** 기록유형·공개범위 배지 공통 크기 */
+export const GRACE_BADGE_BASE =
+  'inline-flex items-center h-5 px-2 rounded-full text-[11px] font-semibold leading-none';
+
 export function graceTypeBadgeClass(type: GraceNoteType): string {
   return type === 'reading'
     ? 'bg-emerald-50 text-emerald-700'
