@@ -9,5 +9,6 @@ export { MobileMenuTile } from './MobileMenuTile';
 export { SidebarMenuItem } from './SidebarMenuItem';
 export { MobileMenuGrid, DesktopMenuGrid } from './MobileMenuGrid';
 export { RoleGreetingBanner, HomeGreetingBanner } from './RoleGreetingBanner';
+export { RoleBadge } from './RoleBadge';
 export { BannerSceneIllustration } from './BannerSceneIllustration';
 export { HomeSummaryWidgets } from './HomeSummaryWidgets';

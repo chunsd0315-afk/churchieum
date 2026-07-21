@@ -30,7 +30,7 @@ export function UserProfileAvatar({
     <img
       src={imageSrc}
       alt={alt ?? user?.name ?? '프로필'}
-      className={`object-cover shrink-0 ${radius} ${className}`}
+      className={`object-cover shrink-0 ${radius} ring-2 ring-primary-500 ${className}`}
       style={{ width: size, height: size }}
     />
   );

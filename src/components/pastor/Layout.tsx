@@ -114,7 +114,7 @@ export function PastorLayout({ children, currentPage, onNavigate }: Props) {
           <div className="flex items-center gap-1 min-w-0">
             <span className="font-bold text-gray-900 truncate" style={{ fontSize: '15px' }}>{user?.name || '교역자'}</span>
             <span className="text-gray-300 shrink-0" style={{ fontSize: '13px' }}>·</span>
-            <span className="text-emerald-600 truncate shrink-0" style={{ fontSize: '13px', fontWeight: 600 }}>{position}</span>
+            <span className="text-gray-500 truncate shrink-0" style={{ fontSize: '13px', fontWeight: 500 }}>{position}</span>
           </div>
         </button>
         <button
@@ -130,9 +130,9 @@ export function PastorLayout({ children, currentPage, onNavigate }: Props) {
         </button>
       </div>
       <div className="px-4 pb-3">
-        <p className="font-bold leading-tight" style={{ fontSize: '18px', color: '#111827' }}>{churchName}</p>
+        <p className="font-bold leading-tight" style={{ fontSize: '28px', color: '#111827' }}>{churchName}</p>
         {orgLabel && (
-          <p className="leading-tight mt-0.5" style={{ fontSize: '13px', fontWeight: 500, color: '#6B7280' }}>{orgLabel}</p>
+          <p className="leading-tight mt-1" style={{ fontSize: '14px', fontWeight: 500, color: '#6B7280' }}>{orgLabel}</p>
         )}
       </div>
     </header>

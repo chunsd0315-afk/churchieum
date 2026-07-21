@@ -36,6 +36,9 @@
   /* ── Color: Primary (Blue) ───────────────────────── */
   --color-primary-50:  #EFF6FF;
   --color-primary-100: #DBEAFE;
+  --color-sky-blue:      #A7D8FF;
+  --color-soft-blue-bg:  #EFF6FF;
+  --color-accent-yellow: #FFD24D;
   --color-primary-200: #BFDBFE;
   --color-primary-300: #93C5FD;
   --color-primary-400: #60A5FA;
@@ -106,7 +109,7 @@
   --color-neutral-950: #030712;
 
   /* ── Color: Surface / Background ───────────────── */
-  --color-bg-page:    #FFFFFF;
+  --color-bg-page:    #F8FAFC;
   --color-bg-surface: #FFFFFF;
   --color-bg-sunken:  #FAFAFA;
   --color-bg-raised:  #FFFFFF;

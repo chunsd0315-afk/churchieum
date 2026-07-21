@@ -1,22 +1,21 @@
-﻿import type { MenuIconKey } from '../design-system';
+﻿import type { MenuIconKey } from '../../../config/menuIconMap';
 import {
   RoleGreetingBanner,
   HomeSummaryWidgets,
   MobileMenuGrid,
   DesktopMenuGrid,
+  DS,
 } from '../design-system';
 import { useBreakpoint } from '../../../hooks/useBreakpoint';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useChurchOrg } from '../../../hooks/useChurchOrg';
 import { useHomeDashboardData } from './useHomeDashboardData';
 
-// ─── Public types ─────────────────────────────────────────────────────────────
-
 export type HomeMenuItem = {
   id: string;
   label: string;
   description: string;
-  iconKey: MenuIconKey;
+  iconKey: import('../../../config/menuIconMap').MenuIconKey;
   onClick: () => void;
 };
 
@@ -50,7 +49,14 @@ export type HomeDashboardProps = {
   onNoticesMore?: () => void;
 };
 
-// ─── Main component ───────────────────────────────────────────────────────────
+function roleLabelForMode(
+  mode: 'admin' | 'pastor' | 'member',
+  userPosition?: string,
+): string {
+  if (mode === 'admin') return '최고관리자';
+  if (mode === 'pastor') return '교역자';
+  return userPosition ?? '성도';
+}
 
 export default function HomeDashboard({
   menuItems,
@@ -63,25 +69,23 @@ export default function HomeDashboard({
   const { churchName } = useChurchOrg(user);
   const { recentNotices, upcomingSchedules } = useHomeDashboardData();
 
-  const roleLabel =
-    mode === 'admin'
-      ? '최고관리자'
-      : mode === 'pastor'
-        ? '교역자'
-        : user?.position ?? '성도';
+  const roleLabel = roleLabelForMode(mode, user?.position);
 
   if (menuItems.length === 0) {
     return (
-      <p className="text-center text-gray-500 py-12 text-base">메뉴가 없습니다</p>
+      <p className="text-center py-12 text-base" style={{ color: DS.colors.textMuted }}>
+        메뉴가 없습니다
+      </p>
     );
   }
 
   return (
-    <div className="w-full">
+    <div className="w-full" style={{ background: isMobile ? DS.colors.bgPage : 'transparent' }}>
       <RoleGreetingBanner
         userName={user?.name}
         roleLabel={roleLabel}
-        churchName={churchName}
+        position={user?.position}
+        churchName={isMobile ? undefined : churchName}
         mode={mode}
       />
 

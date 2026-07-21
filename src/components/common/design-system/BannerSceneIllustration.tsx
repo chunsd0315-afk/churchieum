@@ -13,10 +13,10 @@ export function BannerSceneIllustration() {
       <ellipse cx="248" cy="32" rx="28" ry="12" fill="white" opacity="0.7" />
       <ellipse cx="196" cy="34" rx="22" ry="10" fill="white" opacity="0.6" />
 
-      {/* 나무 */}
-      <circle cx="52" cy="118" r="18" fill="#22C55E" filter="url(#bShadow)" />
-      <circle cx="68" cy="112" r="14" fill="#4ADE80" />
-      <rect x="58" y="118" width="8" height="16" rx="3" fill="#92400E" />
+      {/* 나무 — 블루그린 톤 */}
+      <circle cx="52" cy="118" r="18" fill="#60A5FA" filter="url(#bShadow)" />
+      <circle cx="68" cy="112" r="14" fill="#93C5FD" />
+      <rect x="58" y="118" width="8" height="16" rx="3" fill="#64748B" />
 
       {/* 교회 건물 */}
       <g filter="url(#bShadow)">
@@ -38,18 +38,18 @@ export function BannerSceneIllustration() {
         <path d="M26 15L30 14" stroke="#F97316" strokeWidth="1.5" strokeLinecap="round" />
       </g>
 
-      {/* 하트 */}
+      {/* 하트 — 블루 포인트 */}
       <g transform="translate(210, 100)" filter="url(#bShadow)">
         <path
           d="M16 8C16 8 8 12 8 20C8 26 16 34 16 34C16 34 24 26 24 20C24 12 16 8 16 8Z"
-          fill="#EF4444"
+          fill="#2563EB"
         />
-        <ellipse cx="12" cy="16" rx="4" ry="5" fill="#FCA5A5" opacity="0.5" />
+        <ellipse cx="12" cy="16" rx="4" ry="5" fill="#DBEAFE" opacity="0.6" />
       </g>
 
-      {/* 작은 나무 */}
-      <circle cx="238" cy="120" r="12" fill="#16A34A" filter="url(#bShadow)" />
-      <rect x="234" y="120" width="6" height="12" rx="2" fill="#78350F" />
+      {/* 작은 나무 — 블루 */}
+      <circle cx="238" cy="120" r="12" fill="#3B82F6" filter="url(#bShadow)" />
+      <rect x="234" y="120" width="6" height="12" rx="2" fill="#64748B" />
 
       <defs>
         <filter id="bShadow" x="-20%" y="-20%" width="140%" height="140%">

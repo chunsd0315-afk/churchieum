@@ -150,9 +150,9 @@ export function MemberLayout({ children, currentPage, onNavigate, onSwitchMode, 
         </div>
       </div>
       <div className="px-4 pb-3">
-        <p className="font-bold leading-tight" style={{ fontSize: '18px', color: '#111827' }}>{churchName}</p>
+        <p className="font-bold leading-tight" style={{ fontSize: '28px', color: '#111827' }}>{churchName}</p>
         {orgLabel && (
-          <p className="leading-tight mt-0.5" style={{ fontSize: '13px', fontWeight: 500, color: '#6B7280' }}>{orgLabel}</p>
+          <p className="leading-tight mt-1" style={{ fontSize: '14px', fontWeight: 500, color: '#6B7280' }}>{orgLabel}</p>
         )}
       </div>
     </header>
