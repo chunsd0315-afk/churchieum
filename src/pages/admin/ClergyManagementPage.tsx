@@ -16,6 +16,7 @@ import {
 import { getDistricts, getDepartments } from '../../services/orgData';
 import { useOrgSettings } from '../../contexts/OrgSettingsContext';
 import { PageHeaderBar, ChurchList, CHURCH_LIST_ROW_CLASS } from '../../components/common/ui';
+import { resolveClergyProfileImage } from '../../services/profileImage';
 
 const INPUT = 'w-full px-3.5 py-3 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:border-primary-400 focus:ring-0 focus:outline-none';
 
@@ -430,9 +431,11 @@ function DetailView({ clergyId, onBack, onRefresh }: {
           <div className="bg-gradient-to-br from-primary-500 via-primary-600 to-secondary-500 px-6 py-7 text-white relative overflow-hidden">
             <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl pointer-events-none" />
             <div className="relative flex items-start gap-4">
-              <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center text-2xl font-bold flex-shrink-0 shadow-lg">
-                {clergy.name.charAt(0)}
-              </div>
+              <img
+                src={resolveClergyProfileImage(clergy)}
+                alt={clergy.name}
+                className="w-16 h-16 rounded-2xl object-cover flex-shrink-0 shadow-lg"
+              />
               <div className="flex-1 min-w-0">
                 <h2 className="text-xl font-bold">{clergy.name}</h2>
                 <div className="flex flex-wrap items-center gap-2 mt-2">
@@ -514,9 +517,11 @@ function ClergyCard({ clergy, assignments, onClick }: {
   return (
     <button onClick={onClick}
       className={`${CHURCH_LIST_ROW_CLASS} flex items-center gap-3.5`}>
-      <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-100 to-secondary-100 flex items-center justify-center flex-shrink-0 font-bold text-xl text-primary-700">
-        {clergy.name.charAt(0)}
-      </div>
+      <img
+        src={resolveClergyProfileImage(clergy)}
+        alt={clergy.name}
+        className="w-12 h-12 rounded-2xl object-cover flex-shrink-0"
+      />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap mb-1">
           <span className="font-bold text-gray-900 text-sm">{clergy.name}</span>

@@ -3,7 +3,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import {
   Bell, ChevronLeft, Home, BookOpen, Heart, User,
 } from 'lucide-react';
-import { getProfileImage } from '../../services/profileImage';
+import { getProfileImage, resolveProfileImage } from '../../services/profileImage';
+import { UserProfileAvatar } from '../common/ui/UserProfileAvatar';
 import { useChurchOrg } from '../../hooks/useChurchOrg';
 import { getUnreadNotificationCount } from '../../services/prayerNotificationStorage';
 import { AppLayout } from '../layout/AppLayout';
@@ -83,11 +84,14 @@ export function PastorLayout({ children, currentPage, onNavigate }: Props) {
   void notifTick;
 
   useEffect(() => {
-    if (user?.id) setProfileImg(getProfileImage(user.id));
-  }, [user?.id]);
+    if (user?.id) {
+      setProfileImg(
+        resolveProfileImage({ userId: user.id, role: user.role, src: getProfileImage(user.id) }),
+      );
+    }
+  }, [user?.id, user?.role]);
 
   const isHome = currentPage === 'home';
-  const initial = (user?.name || '목')[0];
   const position = user?.position ?? '교역자';
   const pageLabel = PAGE_LABELS[currentPage] ?? '메뉴';
   const pageSubtitle = PAGE_SUBTITLES[currentPage];
@@ -104,11 +108,8 @@ export function PastorLayout({ children, currentPage, onNavigate }: Props) {
     <header className="bg-white sticky top-0 z-sticky" style={{ borderBottom: '1px solid #F1F5F9' }}>
       <div className="px-4 h-14 flex items-center justify-between">
         <button type="button" onClick={() => onNavigate('profile')} className="flex items-center gap-2.5 min-w-0 flex-1">
-          <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg, #2563EB 0%, #4F46E5 100%)' }}>
-            {profileImg
-              ? <img src={profileImg} alt="프로필" className="w-full h-full object-cover" />
-              : <span className="text-white font-bold text-sm">{initial}</span>}
+          <div className="w-10 h-10 rounded-full overflow-hidden shrink-0">
+            <UserProfileAvatar user={user} src={profileImg} size={40} />
           </div>
           <div className="flex items-center gap-1 min-w-0">
             <span className="font-bold text-gray-900 truncate" style={{ fontSize: '15px' }}>{user?.name || '교역자'}</span>

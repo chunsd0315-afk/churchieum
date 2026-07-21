@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth, PRIMARY_DEMO_ACCOUNTS } from '../contexts/AuthContext';
+import { resolveProfileImage, roleToProfileImageRole } from '../services/profileImage';
 import { Mail, Lock, User, Eye, EyeOff, Check } from 'lucide-react';
 import ChurchieumLogo from '../components/common/ChurchieumLogo';
 
@@ -34,13 +35,16 @@ function dailyRandom(max: number): number {
   return seed % max;
 }
 
-// ─── Demo Accounts ────────────────────────────────────────────────────────────
-
-const DEMO_ACCOUNTS = [
-  { label: '👑 최고관리자', name: '김영수', title: '담임목사', email: 'pastor01@churchieum.com', password: 'Church@2026', toast: '최고관리자 계정이 입력되었습니다.' },
-  { label: '👨‍💼 교역자',   name: '이성호', title: '목사',     email: 'pastor02@churchieum.com', password: 'Church@2026', toast: '교역자 계정이 입력되었습니다.' },
-  { label: '👤 성도',       name: '강수아', title: '성도',     email: 'member60@demo.com',        password: 'Church@2026', toast: '성도 계정이 입력되었습니다.' },
-];
+const DEMO_ACCOUNTS = PRIMARY_DEMO_ACCOUNTS.map(acc => ({
+  label: acc.label,
+  name: acc.name,
+  title: acc.position,
+  roleLabel: acc.roleLabel,
+  email: acc.email,
+  password: acc.password,
+  toast: acc.toast,
+  role: acc.role,
+}));
 
 // ─── Demo Panel ───────────────────────────────────────────────────────────────
 
@@ -74,12 +78,21 @@ function DemoPanel({ selectedEmail, onSelectAccount }: DemoPanelProps) {
                 borderLeft: selected ? '3px solid rgba(79,134,247,0.9)' : '3px solid transparent',
               }}
             >
-              {/* Role + name/title + check */}
-              <div className="flex items-center justify-between mb-1.5">
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-bold" style={{ color: selected ? 'rgba(147,197,253,0.95)' : 'rgba(255,255,255,0.55)' }}>{acc.label}</span>
-                  <span className="text-[12px] font-semibold" style={{ color: selected ? '#fff' : 'rgba(255,255,255,0.8)' }}>{acc.name}</span>
-                  <span className="text-[11px]" style={{ color: selected ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.4)' }}>/ {acc.title}</span>
+              {/* Role + avatar + name/title + check */}
+              <div className="flex items-center justify-between mb-1.5 gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <img
+                    src={resolveProfileImage({ role: roleToProfileImageRole(acc.role) })}
+                    alt=""
+                    className="w-9 h-9 rounded-full object-cover shrink-0 ring-1 ring-white/20"
+                  />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[11px] font-bold" style={{ color: selected ? 'rgba(147,197,253,0.95)' : 'rgba(255,255,255,0.55)' }}>{acc.label}</span>
+                      <span className="text-[12px] font-semibold" style={{ color: selected ? '#fff' : 'rgba(255,255,255,0.8)' }}>{acc.name}</span>
+                      <span className="text-[11px]" style={{ color: selected ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.4)' }}>/ {acc.title}</span>
+                    </div>
+                  </div>
                 </div>
                 {selected && <Check className="w-3.5 h-3.5 text-blue-300 shrink-0" />}
               </div>

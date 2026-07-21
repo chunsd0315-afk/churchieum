@@ -1,5 +1,6 @@
 import { Bell, Settings } from 'lucide-react';
 import ChurchieumLogo from '../common/ChurchieumLogo';
+import { UserProfileAvatar } from '../common/ui/UserProfileAvatar';
 import type { AppMode, LayoutUser } from './LayoutTypes';
 
 export type DesktopHeaderProps = {
@@ -21,8 +22,6 @@ export function DesktopHeader({
   onNotificationClick,
   onProfileClick,
 }: DesktopHeaderProps) {
-  const initial = user?.name?.charAt(0) ?? '?';
-
   return (
     <header className="sticky top-0 z-50 h-16 bg-white border-b border-gray-200 flex items-center px-5 gap-4 shrink-0">
       {/* Logo mark only — no "교회이음" text */}
@@ -62,13 +61,15 @@ export function DesktopHeader({
           </button>
         )}
 
-        {/* Avatar */}
         <button
           onClick={onProfileClick}
-          className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-emerald-400 flex items-center justify-center text-white font-bold text-sm hover:opacity-90 transition-opacity ml-1 shrink-0"
+          className="ml-1 shrink-0 hover:opacity-90 transition-opacity"
           aria-label="프로필"
         >
-          {initial}
+          <UserProfileAvatar
+            user={user ? { id: user.id, name: user.name, role: user.role } : null}
+            size={36}
+          />
         </button>
       </div>
     </header>

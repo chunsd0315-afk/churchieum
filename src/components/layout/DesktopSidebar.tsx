@@ -1,3 +1,4 @@
+import { UserProfileAvatar } from '../common/ui/UserProfileAvatar';
 import type { LayoutMenuItem, LayoutUser } from './LayoutTypes';
 
 export type DesktopSidebarProps = {
@@ -20,9 +21,7 @@ export function DesktopSidebar({
       {/* User profile */}
       <div className="px-4 py-5 border-b border-gray-100">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-emerald-400 flex items-center justify-center text-white font-bold text-sm shrink-0">
-            {user?.name?.charAt(0) ?? '?'}
-          </div>
+          <UserProfileAvatar user={user} size={40} />
           <div className="min-w-0">
             <p className="font-bold text-gray-900 text-sm truncate leading-tight">{user?.name ?? '사용자'}</p>
             {position && (

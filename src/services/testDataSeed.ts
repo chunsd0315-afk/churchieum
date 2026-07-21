@@ -36,8 +36,9 @@ export type TestDataSeedReport = {
 const DEMO_MEMBER: AppUser = {
   id: 'demo-member60',
   email: 'member60@demo.com',
-  name: '강수아',
+  name: '천성대',
   role: 'member',
+  position: '장로',
   districtId: 'd1',
   zoneId: 'z1',
   departmentIds: ['dep3', 'dep5'],

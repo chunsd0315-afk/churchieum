@@ -86,8 +86,9 @@ const DEMO_MEMBER_ACCOUNTS: AppUser[] = [
   {
     id: 'demo-member60',
     email: 'member60@demo.com',
-    name: '강수아',
+    name: '천성대',
     role: 'member',
+    position: '장로',
     districtId: 'd1',
     zoneId: 'z3',
     departmentIds: ['dep3', 'dep5'],

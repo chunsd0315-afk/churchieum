@@ -15,6 +15,7 @@ import {
 } from '../../services/orgData';
 import { useOrgSettings } from '../../contexts/OrgSettingsContext';
 import { ChurchList, CHURCH_LIST_ROW_CLASS } from '../common/ui';
+import { Avatar } from '../common/ui/Avatar';
 
 /* ── Enriched member type ── */
 export type RichMember = Member & {
@@ -41,23 +42,9 @@ const ROLE_COLORS: Record<string, string> = {
   '성도':     'bg-gray-100 text-gray-600',
 };
 
-/* ── Avatar ── */
-function Avatar({ src, name, size = 'md' }: { src?: string; name: string; size?: 'sm' | 'md' }) {
-  const [imgErr, setImgErr] = useState(false);
-  const cls = size === 'sm'
-    ? 'w-8 h-8 text-xs'
-    : 'w-10 h-10 text-sm';
-  if (src && !imgErr) {
-    return (
-      <img src={src} alt={name} onError={() => setImgErr(true)}
-        className={`${cls} rounded-full object-cover flex-shrink-0`} />
-    );
-  }
-  return (
-    <div className={`${cls} rounded-full bg-primary-100 flex items-center justify-center font-bold text-primary-700 flex-shrink-0`}>
-      {name.charAt(0)}
-    </div>
-  );
+/* ── Avatar (성도 기본 3D 프로필) ── */
+function MemberAvatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' }) {
+  return <Avatar name={name} role="member" size={size === 'sm' ? 'sm' : 'md'} />;
 }
 
 /* ── Sort icon ── */
@@ -152,7 +139,7 @@ function MemberTable({
               <tr key={m.id} onClick={() => onSelect(m)} className="hover:bg-gray-50 transition-colors cursor-pointer">
                 <td className="px-4 py-3.5 whitespace-nowrap">
                   <div className="flex items-center gap-2.5">
-                    <Avatar name={m.name} size="sm" />
+                    <Avatar name={m.name} role="member" size="sm" />
                     <span className="font-semibold text-gray-900">{m.name}</span>
                   </div>
                 </td>
@@ -212,7 +199,7 @@ function MemberCard({ member, onSelect, l1, l2, deptLabel }: {
     <button onClick={onSelect}
       className={`${CHURCH_LIST_ROW_CLASS}`}>
       <div className="flex items-start gap-3">
-        <Avatar name={member.name} size="md" />
+        <Avatar name={member.name} role="member" size="md" />
         <div className="flex-1 min-w-0">
           {/* Name + position */}
           <div className="flex items-center gap-2 flex-wrap mb-1">

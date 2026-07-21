@@ -49,8 +49,8 @@ export type StaffAssignment = {
 // ─── Demo data ────────────────────────────────────────────────────────────────
 
 const DEFAULT_CLERGY: ClergyMember[] = [
-  { id: 'cl1',  name: '김영수', position: '담임목사',   gender: '남', phone: '010-1000-0001', email: 'pastor01@churchieum.com', address: '서울시 강남구 테헤란로 101',   status: 'active', isChief: true,  createdAt: '2024-01-01T00:00:00Z', updatedAt: '2024-01-01T00:00:00Z' },
-  { id: 'cl2',  name: '이성호', position: '목사',       gender: '남', phone: '010-1000-0002', email: 'pastor02@churchieum.com', address: '서울시 서초구 반포대로 202',   status: 'active', isChief: false, createdAt: '2024-02-01T00:00:00Z', updatedAt: '2024-02-01T00:00:00Z' },
+  { id: 'cl1',  name: '정재명', position: '목사',       gender: '남', phone: '010-1000-0001', email: 'pastor01@churchieum.com', address: '서울시 강남구 테헤란로 101',   status: 'active', isChief: true,  createdAt: '2024-01-01T00:00:00Z', updatedAt: '2024-01-01T00:00:00Z' },
+  { id: 'cl2',  name: '이변우', position: '목사',       gender: '남', phone: '010-1000-0002', email: 'pastor02@churchieum.com', address: '서울시 서초구 반포대로 202',   status: 'active', isChief: false, createdAt: '2024-02-01T00:00:00Z', updatedAt: '2024-02-01T00:00:00Z' },
   { id: 'cl3',  name: '박민수', position: '목사',       gender: '남', phone: '010-1000-0003', email: 'pastor03@churchieum.com', address: '서울시 송파구 올림픽로 303',   status: 'active', isChief: false, createdAt: '2024-02-15T00:00:00Z', updatedAt: '2024-02-15T00:00:00Z' },
   { id: 'cl4',  name: '정현우', position: '목사',       gender: '남', phone: '010-1000-0004', email: 'pastor04@churchieum.com', address: '서울시 마포구 월드컵로 404',   status: 'active', isChief: false, createdAt: '2024-03-01T00:00:00Z', updatedAt: '2024-03-01T00:00:00Z' },
   { id: 'cl5',  name: '최준호', position: '목사',       gender: '남', phone: '010-1000-0005', email: 'pastor05@churchieum.com', address: '서울시 영등포구 여의대로 505', status: 'active', isChief: false, createdAt: '2024-03-15T00:00:00Z', updatedAt: '2024-03-15T00:00:00Z' },

@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect } from 'react';
 import { ChevronLeft, Save, User, Building2, ChevronDown, Check } from 'lucide-react';
+import { UserProfileAvatar } from '../common/ui/UserProfileAvatar';
 import type { RichMember } from './MemberListTab';
 import { updateDemoMember } from '../../services/demoData';
 import { getAllDistricts, getAllZones, getAllDepartments, getDistrictNameById, getZoneNameById, getDepartmentNamesByIds } from '../../services/orgData';
@@ -164,9 +165,11 @@ export default function MemberDetailSheet({
 
         {/* Member heading */}
         <div className="flex items-center gap-4 mb-6">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-100 to-secondary-100 flex items-center justify-center text-2xl font-bold text-primary-700 flex-shrink-0 shadow-sm">
-            {(form.name || member.name).charAt(0)}
-          </div>
+          <UserProfileAvatar
+            user={{ id: member.id, name: form.name || member.name, role: 'member' }}
+            size={56}
+            rounded="2xl"
+          />
           <div>
             <h1 className="text-xl font-bold text-gray-900">{form.name || member.name}</h1>
             <p className="text-sm text-gray-400 mt-0.5">

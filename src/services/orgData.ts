@@ -39,8 +39,8 @@ const LS_DEPARTMENTS = 'org_departments_v1';
 
 // ─── Defaults (only if nothing stored) ───────────────────────────────────────
 const DEFAULT_DISTRICTS: OrgDistrict[] = [
-  { id: 'd1', name: '1교구', leader_name: '김영수 목사',  description: '서울 북부',  is_active: true, sort_order: 1 },
-  { id: 'd2', name: '2교구', leader_name: '이성호 목사',  description: '서울 중부',  is_active: true, sort_order: 2 },
+  { id: 'd1', name: '1교구', leader_name: '정재명 목사',  description: '서울 북부',  is_active: true, sort_order: 1 },
+  { id: 'd2', name: '2교구', leader_name: '이변우 목사',  description: '서울 중부',  is_active: true, sort_order: 2 },
   { id: 'd3', name: '3교구', leader_name: '박민수 목사',  description: '서울 남부',  is_active: true, sort_order: 3 },
   { id: 'd4', name: '4교구', leader_name: '정현우 목사',  description: '서울 동부',  is_active: true, sort_order: 4 },
   { id: 'd-youth', name: '청년국', leader_name: '박지훈 전도사', description: '청년 사역', is_active: true, sort_order: 5 },
@@ -55,7 +55,7 @@ const DEFAULT_ZONES: OrgZone[] = [
 ];
 const DEFAULT_DEPARTMENTS: OrgDepartment[] = [
   { id: 'dep1',  name: '청년부',     leader_name: '강다은 전도사',   description: '20-30대 청년',    is_active: true, sort_order: 1 },
-  { id: 'dep2',  name: '장년부',     leader_name: '김영수 목사',     description: '장년 성도',       is_active: true, sort_order: 2 },
+  { id: 'dep2',  name: '장년부',     leader_name: '정재명 목사',     description: '장년 성도',       is_active: true, sort_order: 2 },
   { id: 'dep3',  name: '찬양대',     leader_name: null,              description: '예배 찬양',       is_active: true, sort_order: 3 },
   { id: 'dep4',  name: '남선교회',   leader_name: null,              description: '남성 선교 모임',  is_active: true, sort_order: 4 },
   { id: 'dep5',  name: '여선교회',   leader_name: null,              description: '여성 선교 모임',  is_active: true, sort_order: 5 },

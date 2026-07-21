@@ -1,7 +1,8 @@
 ﻿import { useState, useRef, useEffect } from 'react';
 import { Bell, Settings, LogOut, Camera, User, ChevronDown } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { getProfileImage, saveProfileImage } from '../../services/profileImage';
+import { getProfileImage, resolveProfileImage, saveProfileImage } from '../../services/profileImage';
+import { UserProfileAvatar } from '../common/ui/UserProfileAvatar';
 import { useChurchOrg } from '../../hooks/useChurchOrg';
 import ChurchieumLogo from '../common/ChurchieumLogo';
 
@@ -20,8 +21,12 @@ export default function PCTopHeader({ showSettings = false, onSettingsClick }: P
   const { churchName, orgLabel } = useChurchOrg(user);
 
   useEffect(() => {
-    if (user?.id) setProfileImg(getProfileImage(user.id));
-  }, [user?.id]);
+    if (user?.id) {
+      setProfileImg(
+        resolveProfileImage({ userId: user.id, role: user.role, src: getProfileImage(user.id) }),
+      );
+    }
+  }, [user?.id, user?.role]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -40,8 +45,6 @@ export default function PCTopHeader({ showSettings = false, onSettingsClick }: P
     setProfileImg(url);
     setProfileMenuOpen(false);
   };
-
-  const initial = (user?.name || '?')[0];
 
   return (
     <header
@@ -89,14 +92,8 @@ export default function PCTopHeader({ showSettings = false, onSettingsClick }: P
             onClick={() => setProfileMenuOpen(o => !o)}
             className="flex items-center gap-2 pl-2.5 pr-2 py-1.5 rounded-[12px] hover:bg-gray-100 transition-colors"
           >
-            <div
-              className="w-8 h-8 rounded-[8px] overflow-hidden flex items-center justify-center shrink-0"
-              style={{ background: 'linear-gradient(135deg, #2563EB 0%, #22C55E 100%)' }}
-            >
-              {profileImg
-                ? <img src={profileImg} alt="프로필" className="w-full h-full object-cover" />
-                : <span className="text-white font-bold text-xs">{initial}</span>
-              }
+            <div className="w-8 h-8 rounded-[8px] overflow-hidden shrink-0">
+              <UserProfileAvatar user={user} src={profileImg} size={32} rounded="2xl" />
             </div>
             <span className="text-sm font-semibold text-gray-700 hidden sm:block max-w-[90px] truncate">
               {user?.name || '사용자'}

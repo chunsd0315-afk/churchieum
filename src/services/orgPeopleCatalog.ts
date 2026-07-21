@@ -9,6 +9,7 @@ import {
   positionLabel,
   type ClergyMember,
 } from './clergyData';
+import { resolveClergyProfileImage } from './profileImage';
 import { getDemoData, type DemoMember } from './demoData';
 import {
   getDistrictNameById,
@@ -45,7 +46,7 @@ export function listPastorCandidates(): OrgPersonCandidate[] {
       titleLabel: positionLabel(c),
       orgSummary: clergyOrgSummary(c),
       email: c.email,
-      profileImage: c.profileImage,
+      profileImage: c.profileImage ?? resolveClergyProfileImage(c),
     }))
     .sort((a, b) => a.name.localeCompare(b.name, 'ko'));
 }

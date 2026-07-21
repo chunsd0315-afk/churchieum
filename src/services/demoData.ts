@@ -208,18 +208,18 @@ function generate(): DemoData {
     };
   });
 
-  // Members — 100명 (index 59 = member-60 강수아 고정)
+  // Members — 100명 (index 59 = member-60 천성대 고정)
   const STATUSES: DemoMember['memberStatus'][] = ['활동중','활동중','활동중','활동중','활동중','활동중','활동중','새가족','가입대기','장기결석'];
   const members: DemoMember[] = range(100).map((_, i) => {
     if (i === 59) {
       return {
         id: 'member-60',
-        name: '강수아',
+        name: '천성대',
         phone: '010-7056-9354',
         email: 'member60@demo.com',
-        gender: 'female',
+        gender: 'male',
         birthDate: '1971-10-11',
-        position: '성도',
+        position: '장로',
         districtId: 'd1',
         districtName: '1교구',
         zoneId: 'z3',

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useChurchOrg } from '../../hooks/useChurchOrg';
+import { UserProfileAvatar } from '../common/ui/UserProfileAvatar';
 import { getAllAnnouncements } from '../../services/announcementStorage';
 import { supabase } from '../../services/supabase';
 import type { NavIcon } from '../../types/icons';
@@ -88,8 +89,8 @@ function ProfileCard({ role, onNavigate }: { role: HomeDashboardProps['role']; o
   const { user } = useAuth();
   const { churchName, orgLabel } = useChurchOrg(user);
 
-  const initial = user?.name?.charAt(0) ?? '?';
   const roleBadge = role === 'admin' ? '최고관리자' : role === 'pastor' ? '교역자' : '성도';
+  const profileRole = role === 'admin' ? 'super_admin' as const : role === 'pastor' ? 'pastor' as const : 'member' as const;
   const roleBadgeStyle = role === 'admin'
     ? 'bg-primary-100 text-primary-700'
     : role === 'pastor'
@@ -98,8 +99,12 @@ function ProfileCard({ role, onNavigate }: { role: HomeDashboardProps['role']; o
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-4">
-      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-400 to-accent-400 flex items-center justify-center text-white text-xl font-bold shrink-0">
-        {initial}
+      <div className="w-14 h-14 rounded-2xl overflow-hidden shrink-0">
+        <UserProfileAvatar
+          user={user ? { ...user, role: profileRole } : null}
+          size={56}
+          rounded="2xl"
+        />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">

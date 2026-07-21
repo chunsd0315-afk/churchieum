@@ -569,8 +569,8 @@ export function getDemoMemberCandidates(): { id: string; name: string }[] {
     }
   } catch { /* ignore */ }
   return [
-    { id: 'demo-pastor01', name: '김영수' },
-    { id: 'demo-pastor02', name: '이성호' },
-    { id: 'demo-member60', name: '강수아' },
+    { id: 'demo-pastor01', name: '정재명' },
+    { id: 'demo-pastor02', name: '이변우' },
+    { id: 'demo-member60', name: '천성대' },
   ];
 }

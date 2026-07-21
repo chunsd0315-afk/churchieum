@@ -182,12 +182,12 @@ function buildAuthors(): SeedAuthor[] {
   MALE_NAMES.forEach((n, i) => pushAuthor(n, '남', i));
   FEMALE_NAMES.forEach((n, i) => pushAuthor(n, '여', MALE_NAMES.length + i));
 
-  // 데모 로그인 성도 (강수아) — 모아보기 테스트용
+  // 데모 로그인 성도 (천성대) — 모아보기 테스트용
   authors.push({
     id: 'demo-member60',
-    name: '강수아',
-    role: '성도',
-    gender: '여',
+    name: '천성대',
+    role: '장로',
+    gender: '남',
     districtId: 'd1',
     zoneId: 'z1',
     departmentIds: ['dep3', 'dep5'],
@@ -196,8 +196,8 @@ function buildAuthors(): SeedAuthor[] {
   // 데모 교역자·최고관리자 (Auth 계정 ID와 동일)
   authors.push({
     id: 'demo-pastor01',
-    name: '김영수',
-    role: '담임목사',
+    name: '정재명',
+    role: '목사',
     gender: '남',
     districtId: 'd1',
     zoneId: 'z1',
@@ -205,7 +205,7 @@ function buildAuthors(): SeedAuthor[] {
   });
   authors.push({
     id: 'demo-pastor02',
-    name: '이성호',
+    name: '이변우',
     role: '목사',
     gender: '남',
     districtId: 'd2',

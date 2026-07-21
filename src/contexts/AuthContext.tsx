@@ -1,5 +1,6 @@
 ﻿import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import type { UserRole, AppUser } from '../services/permissions';
+import type { AppUser } from '../services/permissions';
+import { getDemoAccountMap, PRIMARY_DEMO_ACCOUNTS } from '../config/demoAccounts';
 
 type AuthContextType = {
   user: AppUser | null;
@@ -14,56 +15,12 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Demo accounts — pastor (super_admin / chief), pastor (assigned scopes), member
-const DEMO_ACCOUNTS: Record<string, {
-  password: string;
-  name: string;
-  role: UserRole;
-  assignedDistrictIds?: string[];
-  assignedZoneIds?: string[];
-  assignedDepartmentIds?: string[];
-  districtId?: string;
-  zoneId?: string;
-  departmentIds?: string[];
-}> = {
-  'pastor01@churchieum.com': {
-    password: 'Church@2026',
-    name: '김영수',
-    role: 'super_admin',
-    assignedDistrictIds: ['d1'],
-    assignedZoneIds: ['z1'],
-    assignedDepartmentIds: ['dep1'],
-    districtId: 'd1',
-    zoneId: 'z1',
-    departmentIds: ['dep1'],
-  },
-  'pastor02@churchieum.com': {
-    password: 'Church@2026',
-    name: '이성호',
-    role: 'pastor',
-    assignedDistrictIds: ['d2'],
-    assignedZoneIds: ['z3'],
-    assignedDepartmentIds: ['dep1'],
-    districtId: 'd2',
-    zoneId: 'z3',
-    departmentIds: ['dep1'],
-  },
-  'member60@demo.com': {
-    password: 'Church@2026',
-    name: '강수아',
-    role: 'member',
-    districtId: 'd1',
-    zoneId: 'z1',
-    departmentIds: ['dep3', 'dep5'],
-  },
-};
+const DEMO_ACCOUNTS = getDemoAccountMap();
 
 const STORAGE_KEY = 'churchieum_demo_user';
 
 // Enrich a base AppUser with the latest saved data from clergy/member stores.
-// Called at login and on page restore so profile updates are always reflected.
 function enrichUserFromStorage(base: AppUser): AppUser {
-  // 1. Try clergy_v1 (covers super_admin & pastor accounts)
   try {
     const raw = localStorage.getItem('clergy_v1');
     if (raw) {
@@ -80,7 +37,6 @@ function enrichUserFromStorage(base: AppUser): AppUser {
     }
   } catch { /**/ }
 
-  // 2. Try demo members (covers member accounts)
   try {
     const raw = localStorage.getItem('churchieum_demo_generated_v2');
     if (raw) {
@@ -116,7 +72,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const parsed = JSON.parse(storedUser) as AppUser;
         const enriched = enrichUserFromStorage(parsed);
         setUser(enriched);
-        // Persist enriched version so next restore is up-to-date
         if (JSON.stringify(enriched) !== storedUser) {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(enriched));
         }
@@ -138,6 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email: normalizedEmail,
       name: account.name,
       role: account.role,
+      position: account.position,
       assignedDistrictIds: account.assignedDistrictIds,
       assignedZoneIds: account.assignedZoneIds,
       assignedDepartmentIds: account.assignedDepartmentIds,
@@ -146,7 +102,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       departmentIds: account.departmentIds,
     };
 
-    // Enrich with latest persisted profile data
     const appUser = enrichUserFromStorage(base);
 
     setUser(appUser);
@@ -189,3 +144,6 @@ export function useAuth() {
   if (context === undefined) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 }
+
+/** 로그인 화면 체험용 계정 목록 (항상 3명, 고정 순서) */
+export { PRIMARY_DEMO_ACCOUNTS };

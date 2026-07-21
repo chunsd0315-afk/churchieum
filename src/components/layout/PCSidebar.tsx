@@ -3,7 +3,8 @@ import { Camera, LogOut } from 'lucide-react';
 import type { MenuIconKey } from '../common/design-system';
 import { SidebarMenuItem } from '../common/design-system';
 import { useAuth } from '../../contexts/AuthContext';
-import { getProfileImage, saveProfileImage } from '../../services/profileImage';
+import { getProfileImage, resolveProfileImage, saveProfileImage } from '../../services/profileImage';
+import { UserProfileAvatar } from '../common/ui/UserProfileAvatar';
 import { DS } from '../common/design-system/tokens';
 
 type NavItem<P extends string> = {
@@ -35,8 +36,12 @@ export default function PCSidebar<P extends string>({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (user?.id) setProfileImg(getProfileImage(user.id));
-  }, [user?.id]);
+    if (user?.id) {
+      setProfileImg(
+        resolveProfileImage({ userId: user.id, role: user.role, src: getProfileImage(user.id) }),
+      );
+    }
+  }, [user?.id, user?.role]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -50,7 +55,6 @@ export default function PCSidebar<P extends string>({
     }
   };
 
-  const initial = (user?.name || '?')[0];
   const homeActive = currentPage === ('home' as P);
 
   return (
@@ -76,10 +80,7 @@ export default function PCSidebar<P extends string>({
               className="w-11 h-11 rounded-2xl overflow-hidden flex items-center justify-center shadow-sm relative"
               style={{ background: 'linear-gradient(135deg, #2563EB 0%, #22C55E 100%)' }}
             >
-              {profileImg
-                ? <img src={profileImg} alt="프로필" className="w-full h-full object-cover" />
-                : <span className="text-white font-bold text-base">{initial}</span>
-              }
+              <UserProfileAvatar user={user} src={profileImg} size={44} rounded="2xl" />
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-2xl">
                 <Camera className="w-4 h-4 text-white" />
               </div>
