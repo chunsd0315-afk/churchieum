@@ -64,7 +64,13 @@ import {
 } from '../../services/userOrganizationTree';
 import { isSuperAdmin } from '../../services/permissions';
 import { resolveGraceNoteAuthorDisplay } from '../../services/graceNoteAuthorDisplay';
-import { GraceNoteListRow } from './GraceNoteListRow';
+import {
+  getGraceNoteListTitle,
+  getGraceNoteRelatedLine,
+  graceRecordTypeLabel,
+  graceShareBadgeClass,
+  graceTypeBadgeClass,
+} from '../../services/graceNoteDisplay';
 import {
   getPastorFilterGroupsForMine,
   getFilterPastorsForUser,
@@ -72,6 +78,7 @@ import {
   matchesSharedPastorFilter,
   pastorLabel,
 } from '../../services/graceShareFilterHelpers';
+import { GraceNoteListRow } from './GraceNoteListRow';
 
 export {
   GraceNoteEditor,
@@ -129,10 +136,6 @@ const GRACE_RECORD_TYPE_OPTIONS = [
   { id: 'sermon' as const, label: '설교' },
   { id: 'personal' as const, label: '자유' },
 ] as const;
-
-function graceRecordTypeLabel(type: GraceNoteType): string {
-  return type === 'reading' ? '성경통독' : type === 'sermon' ? '설교' : '자유';
-}
 
 function GraceRecordTypeFilterButtons({
   value,
@@ -987,11 +990,11 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
   const shareLabel = shareSummary(note);
   const authorName = user?.name ?? '성도';
   const vm = visibilityMeta(note.visibility ?? 'private', note.sharedGroupAll);
-  const typeLabel = note.type === 'reading' ? '성경통독' : note.type === 'sermon' ? '설교' : '자유';
-  const typeBadgeClass =
-    note.type === 'reading' ? 'bg-green-50 text-green-700'
-      : note.type === 'sermon' ? 'bg-blue-50 text-blue-700'
-        : 'bg-amber-50 text-amber-700';
+  const typeLabel = graceRecordTypeLabel(note.type);
+  const typeBadgeClass = graceTypeBadgeClass(note.type);
+  const authorDisplay = resolveGraceNoteAuthorDisplay(note);
+  const listTitle = getGraceNoteListTitle(note);
+  const relatedLine = getGraceNoteRelatedLine(note);
 
   const refreshNote = () => {
     const fresh = getGraceNote(noteId);
@@ -1142,65 +1145,41 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
               <span className={`text-[11px] px-2.5 py-1 rounded-full font-semibold flex items-center gap-1 ${vm.color}`}>
                 {vm.icon} {vm.label}
               </span>
+              {note.isFavorite && (
+                <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold bg-amber-50 text-amber-700">
+                  ★ 즐겨찾기
+                </span>
+              )}
             </div>
 
-            {note.graceTitle && (
-              <h2 className="text-xl font-bold text-gray-900 leading-snug">{note.graceTitle}</h2>
-            )}
+            <h2 className="text-xl font-bold text-gray-900 leading-snug">{listTitle}</h2>
 
-            <div className="flex items-center justify-between gap-2 text-sm text-gray-500">
-              <span>
-                {note.authorName ?? '성도'}
-                {note.authorRole ? ` · ${note.authorRole}` : ''}
-              </span>
-              <span className="shrink-0 text-xs text-gray-400">
-                {note.createdAt.slice(0, 10).replace(/-/g, '.')}
-              </span>
-            </div>
-
-            {(note.type === 'sermon' || note.type === 'reading' || note.bibleReference) && (
-              <div className="rounded-2xl bg-slate-50 border border-slate-100 px-4 py-3 space-y-1.5">
-                {note.type === 'sermon' && (
-                  <>
-                    {note.sermonTitle && (
-                      <p className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
-                        <Mic className="w-3.5 h-3.5 text-secondary-500 shrink-0" />
-                        {note.sermonTitle}
-                      </p>
-                    )}
-                    <p className="text-xs text-gray-500">
-                      {[note.sermonPreacher, note.bibleReference, note.sermonDate].filter(Boolean).join(' · ')}
-                    </p>
-                  </>
-                )}
-                {note.type === 'reading' && (
-                  <>
-                    {note.planName && (
-                      <p className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
-                        <BookOpen className="w-3.5 h-3.5 text-primary-500 shrink-0" />
-                        {note.planName}{note.day ? ` · ${note.day}일차` : ''}
-                      </p>
-                    )}
-                    {note.bibleReference && (
-                      <p className="text-xs text-gray-500">{note.bibleReference}</p>
-                    )}
-                  </>
-                )}
-                {note.type === 'personal' && note.bibleReference && (
-                  <p className="text-sm text-gray-700 flex items-center gap-1.5">
-                    <BookOpen className="w-3.5 h-3.5 text-primary-500 shrink-0" />
-                    {note.bibleReference}
-                  </p>
-                )}
-              </div>
-            )}
+            <p
+              className="text-[13px] font-medium"
+              style={{ color: '#6B7280' }}
+            >
+              {authorDisplay.label}
+              <span className="text-gray-300 mx-1.5">·</span>
+              {note.createdAt.slice(0, 10).replace(/-/g, '.')}
+            </p>
 
             <section>
               <h3 className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5">
-                <Heart className="w-3.5 h-3.5 text-rose-500" /> 받은 은혜
+                <Heart className="w-3.5 h-3.5 text-rose-500" /> 은혜 내용
               </h3>
               <p className="text-[15px] text-gray-800 leading-relaxed whitespace-pre-wrap">{note.graceContent}</p>
             </section>
+
+            <div className="rounded-2xl bg-slate-50 border border-slate-100 px-4 py-3">
+              <p className="text-xs font-bold text-gray-500 mb-1">관련 기록</p>
+              <p className="text-sm text-gray-700">{relatedLine}</p>
+              {note.type === 'sermon' && note.sermonPreacher && (
+                <p className="text-xs text-gray-500 mt-1">{note.sermonPreacher}</p>
+              )}
+              {note.type === 'reading' && note.planName && note.day && (
+                <p className="text-xs text-gray-500 mt-1">{note.planName} · {note.day}일차</p>
+              )}
+            </div>
 
             {note.memorableVerse && (
               <section>

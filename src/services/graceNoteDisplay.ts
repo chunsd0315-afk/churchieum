@@ -1,0 +1,54 @@
+import type { GraceNote, GraceNoteType } from '../data/graceNotes';
+
+export const GRACE_CONTENT_MAX_LENGTH = 2000;
+export const GRACE_LIST_TITLE_FALLBACK = '제목 없는 은혜기록';
+
+export function graceRecordTypeLabel(type: GraceNoteType): string {
+  return type === 'reading' ? '성경통독' : type === 'sermon' ? '설교' : '자유';
+}
+
+export function graceTypeBadgeClass(type: GraceNoteType): string {
+  return type === 'reading'
+    ? 'bg-emerald-50 text-emerald-700'
+    : type === 'sermon'
+      ? 'bg-blue-50 text-blue-700'
+      : 'bg-amber-50 text-amber-700';
+}
+
+export function graceShareBadgeClass(label: string): string {
+  if (label.includes('나만')) return 'bg-gray-100 text-gray-600';
+  if (label.includes('전체 공개')) return 'bg-violet-50 text-violet-700';
+  if (label.includes('교역자')) return 'bg-blue-50 text-blue-700';
+  return 'bg-emerald-50 text-emerald-700';
+}
+
+/** 목록·상세 공통 제목 */
+export function getGraceNoteListTitle(note: GraceNote): string {
+  const title = note.graceTitle?.trim();
+  if (title) return title;
+  if (note.type === 'sermon' && note.sermonTitle?.trim()) return note.sermonTitle.trim();
+  if (note.type === 'reading' && note.bibleReference?.trim()) return note.bibleReference.trim();
+  if (note.memorableVerse?.trim() && note.type === 'personal') return note.memorableVerse.trim();
+  if (note.graceContent?.trim()) return note.graceContent.trim().slice(0, 28);
+  return GRACE_LIST_TITLE_FALLBACK;
+}
+
+/** 목록 마지막 메타 줄 — 관련 기록 */
+export function getGraceNoteRelatedLine(note: GraceNote): string {
+  if (note.type === 'reading') {
+    const ref = note.bibleReference?.trim();
+    if (ref) return ref;
+    if (note.planName && note.day) return `${note.planName} ${note.day}일차`;
+    if (note.planName) return note.planName;
+    return '관련 기록 없음';
+  }
+  if (note.type === 'sermon') {
+    const title = note.sermonTitle?.trim();
+    const ref = note.bibleReference?.trim();
+    if (title && ref) return `${title} · ${ref}`;
+    if (title) return title;
+    if (ref) return ref;
+    return '관련 기록 없음';
+  }
+  return '자유 은혜기록';
+}
