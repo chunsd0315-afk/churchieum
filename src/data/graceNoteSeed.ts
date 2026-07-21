@@ -26,16 +26,14 @@ import {
 } from '../services/graceNoteShareScope';
 import type { AppUser } from '../services/permissions';
 import { getAllSermons } from '../services/sermonStorage';
-import {
-  buildGraceContent,
-  titlesForType,
-} from './graceNoteSeedTemplates';
+import { buildGraceCopyForSeedNote } from './graceNoteSeedCopyPools';
 import {
   isGraceSeedFormatCurrent,
   migrateDemoGraceRecordsToUnifiedFormat,
   normalizeSeedGraceRecord,
   validateGraceSeedRecords,
 } from '../services/graceNoteSeedNormalize';
+import { ensureSeedGraceNoteCopyRefreshed } from '../services/graceNoteSeedCopyRefresh';
 import { formatOrganizationShareDisplayLabels } from '../services/graceNoteShareScope';
 import { readOrgSettings } from '../contexts/OrgSettingsContext';
 import { migrateVisibility } from '../types/sharedContent';
@@ -56,11 +54,6 @@ type SeedAuthor = {
   zoneId: string;
   departmentIds: string[];
 };
-
-const SEARCH_KEYWORDS = [
-  '감사', '믿음', '순종', '기도', '사랑', '복음', '십자가', '회개', '소망', '성령',
-  '치유', '전도', '예배', '찬양', '가정', '직장', '봉사',
-];
 
 const MALE_NAMES = [
   '김민수', '박지훈', '오세훈', '유성민', '윤서준', '정서준', '한도윤', '임준서',
@@ -128,12 +121,13 @@ function randomPastDate(seedIndex: number): string {
   return d.toISOString();
 }
 
-function maybeKeyword(text: string, index: number): string {
-  const kw = SEARCH_KEYWORDS[index % SEARCH_KEYWORDS.length];
-  if (index % 4 === 0) {
-    return `${text} 오늘 '${kw}'이라는 은혜가 마음에 남았습니다.`;
+function seedHash(id: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) {
+    h ^= id.charCodeAt(i);
+    h = Math.imul(h, 16777619);
   }
-  return text;
+  return h >>> 0;
 }
 
 function makeComments(count: number, baseDate: string, names: string[], seed: number): GraceNoteComment[] {
@@ -394,19 +388,18 @@ function seedMeta(index: number): Pick<GraceNote, 'isSeed' | 'isDemo' | 'source'
 
 function generateSermonNotes(count: number, authors: SeedAuthor[], names: string[]): GraceNote[] {
   const sermons = getAllSermons();
-  const titles = titlesForType('sermon');
   const notes: GraceNote[] = [];
   for (let i = 0; i < count; i++) {
     const author = pickAuthor(authors, i + 7);
+    const id = `gn-demo-s-${i}`;
     const createdAt = randomPastDate(i);
     const share = pickVisibilityForAuthor(author, i);
     const eng = baseEngagement(share.visibility, createdAt, names, i);
     const sermon = sermons[i % Math.max(sermons.length, 1)];
-    const graceTitle = titles[i % titles.length];
-    const graceContent = maybeKeyword(buildGraceContent(i, i + 11), i);
+    const copy = buildGraceCopyForSeedNote('sermon', id, seedHash(id));
     const preacher = getAllClergy().find(c => c.id === 'cl1') ?? getAllClergy()[0];
     notes.push(normalizeSeedGraceRecord({
-      id: `gn-demo-s-${i}`,
+      id,
       userId: author.id,
       authorName: author.name,
       authorRole: author.role,
@@ -415,10 +408,10 @@ function generateSermonNotes(count: number, authors: SeedAuthor[], names: string
       authorDepartmentIds: author.departmentIds,
       type: 'sermon',
       ...share,
-      graceTitle,
-      graceContent,
+      graceTitle: copy.graceTitle,
+      graceContent: copy.graceContent,
       sourceId: sermon?.id,
-      sermonTitle: sermon?.title ?? graceTitle,
+      sermonTitle: sermon?.title ?? copy.graceTitle,
       sermonPreacher: preacher ? `${preacher.name} ${positionLabel(preacher)}` : '정재명 목사',
       sermonDate: sermon?.sermonDate ?? createdAt.slice(0, 10),
       bibleReference: sermon?.scripture ?? `${pick(['요한복음', '로마서', '시편'])} ${randInt(1, 12)}:${randInt(1, 28)}`,
@@ -436,19 +429,18 @@ function generateSermonNotes(count: number, authors: SeedAuthor[], names: string
 
 function generateReadingNotes(count: number, authors: SeedAuthor[], names: string[]): GraceNote[] {
   const plans = READING_PLANS.filter(p => ['1year', 'mccheyne', '30day-nt'].includes(p.id));
-  const titles = titlesForType('reading');
   const notes: GraceNote[] = [];
   for (let i = 0; i < count; i++) {
     const author = pickAuthor(authors, i + 3);
+    const id = `gn-demo-r-${i}`;
     const createdAt = randomPastDate(i + 50);
     const share = pickVisibilityForAuthor(author, i + 100);
     const eng = baseEngagement(share.visibility, createdAt, names, i + 50);
     const plan = plans[i % Math.max(plans.length, 1)] ?? READING_PLANS[0];
     const passage = READING_PASSAGES[i % READING_PASSAGES.length];
-    const graceTitle = titles[i % titles.length];
-    const graceContent = maybeKeyword(buildGraceContent(i + 3, i + 19), i);
+    const copy = buildGraceCopyForSeedNote('reading', id, seedHash(id));
     notes.push(normalizeSeedGraceRecord({
-      id: `gn-demo-r-${i}`,
+      id,
       userId: author.id,
       authorName: author.name,
       authorRole: author.role,
@@ -457,8 +449,8 @@ function generateReadingNotes(count: number, authors: SeedAuthor[], names: strin
       authorDepartmentIds: author.departmentIds,
       type: 'reading',
       ...share,
-      graceTitle,
-      graceContent,
+      graceTitle: copy.graceTitle,
+      graceContent: copy.graceContent,
       sourceId: `demo-progress-${plan.id}`,
       sourceTitle: plan.name,
       planId: plan.id as PlanId,
@@ -479,17 +471,16 @@ function generateReadingNotes(count: number, authors: SeedAuthor[], names: strin
 }
 
 function generatePersonalNotes(count: number, authors: SeedAuthor[], names: string[]): GraceNote[] {
-  const titles = titlesForType('personal');
   const notes: GraceNote[] = [];
   for (let i = 0; i < count; i++) {
     const author = pickAuthor(authors, i + 11);
+    const id = `gn-demo-p-${i}`;
     const createdAt = randomPastDate(i + 120);
     const share = pickVisibilityForAuthor(author, i + 220);
     const eng = baseEngagement(share.visibility, createdAt, names, i + 120);
-    const graceTitle = titles[i % titles.length];
-    const graceContent = maybeKeyword(buildGraceContent(i + 5, i + 23), i);
+    const copy = buildGraceCopyForSeedNote('personal', id, seedHash(id));
     notes.push(normalizeSeedGraceRecord({
-      id: `gn-demo-p-${i}`,
+      id,
       userId: author.id,
       authorName: author.name,
       authorRole: author.role,
@@ -498,8 +489,8 @@ function generatePersonalNotes(count: number, authors: SeedAuthor[], names: stri
       authorDepartmentIds: author.departmentIds,
       type: 'personal',
       ...share,
-      graceTitle,
-      graceContent,
+      graceTitle: copy.graceTitle,
+      graceContent: copy.graceContent,
       memorableVerse: '',
       application: pick(APPLICATIONS),
       prayer: pick(PRAYERS),
@@ -570,12 +561,11 @@ export function generateGraceNoteDemoData(): GraceNote[] {
     author: SeedAuthor,
     type: GraceNote['type'],
     visibility: GraceNoteVisibility,
-    graceTitle: string,
-    graceContent: string,
     shareExtra: Partial<GraceNote> = {},
     index: number,
   ) => {
     const createdAt = randomPastDate(index + 400);
+    const copy = buildGraceCopyForSeedNote(type, id, seedHash(id));
     const share = pickVisibilityForAuthor(author, index);
     const finalVis = visibility;
     const shareOverride = {
@@ -599,9 +589,9 @@ export function generateGraceNoteDemoData(): GraceNote[] {
       authorZoneId: author.zoneId,
       authorDepartmentIds: author.departmentIds,
       type,
-      graceTitle,
-      graceContent,
-      memorableVerse: graceContent.slice(0, 40),
+      graceTitle: copy.graceTitle,
+      graceContent: copy.graceContent,
+      memorableVerse: copy.graceContent.slice(0, 40),
       application: pick(APPLICATIONS),
       prayer: pick(PRAYERS),
       ...shareOverride,
@@ -617,18 +607,15 @@ export function generateGraceNoteDemoData(): GraceNote[] {
   if (demoAuthor) {
     for (let i = 0; i < 12; i++) {
       const type: GraceNote['type'] = i % 3 === 0 ? 'sermon' : i % 3 === 1 ? 'reading' : 'personal';
-      const titles = titlesForType(type);
       pushFixture(
         `gn-demo-me-${i}`,
         demoAuthor,
         type,
         pickVisibilityForAuthor(demoAuthor, i).visibility,
-        titles[(i + 5) % titles.length],
-        buildGraceContent(i + 60, i + 70),
         type === 'reading'
           ? { sourceId: 'demo-progress-1year', planId: '1year', planName: '1년 성경통독', bibleReference: READING_PASSAGES[i % READING_PASSAGES.length] }
           : type === 'sermon'
-            ? { sourceId: getAllSermons()[0]?.id, sermonTitle: titles[i % titles.length], sermonPreacher: '정재명 목사' }
+            ? { sourceId: getAllSermons()[0]?.id, sermonTitle: '순종으로 시작하는 믿음', sermonPreacher: '정재명 목사' }
             : {},
         i + 500,
       );
@@ -638,9 +625,9 @@ export function generateGraceNoteDemoData(): GraceNote[] {
   const pastor01 = authors.find(a => a.id === 'demo-pastor01');
   const pastor02 = authors.find(a => a.id === 'demo-pastor02');
   if (pastor01) {
-    pushFixture('gn-fix-p01-private', pastor01, 'personal', 'private', '나만 기록하는 은혜 묵상', buildGraceContent(1, 2), {}, 600);
-    pushFixture('gn-fix-p01-pastor-to-cl2', pastor01, 'personal', 'pastor_share', '교역자와 나누는 은혜', buildGraceContent(3, 4), { sharedPastorIds: ['cl2'] }, 601);
-    pushFixture('gn-fix-p01-group-d1', pastor01, 'reading', 'organization_share', '교구와 함께 나누는 말씀', buildGraceContent(5, 6), {
+    pushFixture('gn-fix-p01-private', pastor01, 'personal', 'private', {}, 600);
+    pushFixture('gn-fix-p01-pastor-to-cl2', pastor01, 'personal', 'pastor_share', { sharedPastorIds: ['cl2'] }, 601);
+    pushFixture('gn-fix-p01-group-d1', pastor01, 'reading', 'organization_share', {
       sharedUpperOrganizationIds: ['d1'],
       sharedOrganizationIds: ['d1'],
       sharedGroupIds: ['d1'],
@@ -649,21 +636,21 @@ export function generateGraceNoteDemoData(): GraceNote[] {
     }, 602);
   }
   if (pastor02) {
-    pushFixture('gn-fix-p02-private', pastor02, 'personal', 'private', '조용히 기록하는 묵상', buildGraceContent(7, 8), {}, 603);
-    pushFixture('gn-fix-p02-pastor-to-cl1', pastor02, 'sermon', 'pastor_share', '담당 교역자에게 전하는 은혜', buildGraceContent(9, 10), {
+    pushFixture('gn-fix-p02-private', pastor02, 'personal', 'private', {}, 603);
+    pushFixture('gn-fix-p02-pastor-to-cl1', pastor02, 'sermon', 'pastor_share', {
       sharedPastorIds: ['cl1'],
       sourceId: getAllSermons()[1]?.id,
       sermonTitle: '순종으로 시작하는 믿음',
     }, 604);
-    pushFixture('gn-fix-p02-group-d2', pastor02, 'personal', 'organization_share', '교구 성도와 나누는 감사', buildGraceContent(11, 12), {
+    pushFixture('gn-fix-p02-group-d2', pastor02, 'personal', 'organization_share', {
       sharedUpperOrganizationIds: ['d2'],
       sharedOrganizationIds: ['d2'],
       sharedGroupIds: ['d2'],
     }, 605);
   }
   if (demoAuthor) {
-    pushFixture('gn-fix-m60-private', demoAuthor, 'personal', 'private', '오늘의 감사와 묵상', buildGraceContent(13, 14), {}, 606);
-    pushFixture('gn-fix-m60-pastor-cl1', demoAuthor, 'reading', 'pastor_share', '말씀 안에서 다시 힘을 얻었습니다', buildGraceContent(15, 16), {
+    pushFixture('gn-fix-m60-private', demoAuthor, 'personal', 'private', {}, 606);
+    pushFixture('gn-fix-m60-pastor-cl1', demoAuthor, 'reading', 'pastor_share', {
       sharedPastorIds: ['cl1'],
       sourceId: 'demo-progress-mccheyne',
       bibleReference: '로마서 8장',
@@ -696,14 +683,19 @@ export function generateGraceRecordSeeds(
 
 export function ensureGraceNoteDemoData(): void {
   ensureDemoReadingProgresses();
-  if (isDemoGraceNotesSeeded() && isGraceSeedFormatCurrent()) return;
+  if (isDemoGraceNotesSeeded() && isGraceSeedFormatCurrent()) {
+    ensureSeedGraceNoteCopyRefreshed();
+    return;
+  }
 
   if (isDemoGraceNotesSeeded() && !isGraceSeedFormatCurrent()) {
     migrateDemoGraceRecordsToUnifiedFormat(() => generateGraceNoteDemoData());
+    ensureSeedGraceNoteCopyRefreshed();
     return;
   }
 
   generateGraceRecordSeeds({ count: 300, replaceExistingSeed: true });
+  ensureSeedGraceNoteCopyRefreshed();
 }
 
 export function resetGraceNoteDemoData(): void {
@@ -713,6 +705,7 @@ export function resetGraceNoteDemoData(): void {
     localStorage.removeItem('graceNotesV2_demo_seeded_v3');
     localStorage.removeItem('graceNotesV2_demo_seeded');
     localStorage.removeItem('churchieum_grace_seed_version');
+    localStorage.removeItem('churchieum_grace_seed_copy_version');
     localStorage.removeItem(LS_PROGRESS_SEEDED);
   } catch { /* ignore */ }
   generateGraceRecordSeeds({ count: 300, replaceExistingSeed: true });

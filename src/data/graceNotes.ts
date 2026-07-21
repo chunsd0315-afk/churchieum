@@ -5,9 +5,11 @@ import { migrateVisibility, isLegacyPublic, type VisibilityType } from '../types
 const LS_KEY = 'graceNotesV2';
 const LS_DEMO_SEEDED = 'graceNotesV2_demo_seeded_v5';
 const LS_GRACE_SEED_FORMAT = 'churchieum_grace_seed_version';
+const LS_GRACE_SEED_COPY = 'churchieum_grace_seed_copy_version';
 const LS_LIKES = 'graceNotes_likes_by_me';
 export const DEMO_SEED_VERSION = 'v5';
 export const GRACE_SEED_FORMAT_VERSION = '5';
+export const GRACE_SEED_COPY_VERSION = '1';
 
 export type GraceNoteType = 'reading' | 'sermon' | 'personal';
 
@@ -477,6 +479,14 @@ export function getGraceSeedFormatVersion(): string | null {
 
 export function setGraceSeedFormatVersion(version: string): void {
   try { localStorage.setItem(LS_GRACE_SEED_FORMAT, version); } catch { /* ignore */ }
+}
+
+export function getGraceSeedCopyVersion(): string | null {
+  try { return localStorage.getItem(LS_GRACE_SEED_COPY); } catch { return null; }
+}
+
+export function setGraceSeedCopyVersion(version: string): void {
+  try { localStorage.setItem(LS_GRACE_SEED_COPY, version); } catch { /* ignore */ }
 }
 
 /** 성경 본문에서 책 이름 추출 (예: "창세기 1장" → "창세기") */
