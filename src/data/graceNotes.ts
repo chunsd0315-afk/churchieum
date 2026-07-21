@@ -3,9 +3,11 @@ import type { AppUser } from '../services/permissions';
 import { migrateVisibility, isLegacyPublic, type VisibilityType } from '../types/sharedContent';
 
 const LS_KEY = 'graceNotesV2';
-const LS_DEMO_SEEDED = 'graceNotesV2_demo_seeded_v4';
+const LS_DEMO_SEEDED = 'graceNotesV2_demo_seeded_v5';
+const LS_GRACE_SEED_FORMAT = 'churchieum_grace_seed_version';
 const LS_LIKES = 'graceNotes_likes_by_me';
-const DEMO_SEED_VERSION = 'v4';
+export const DEMO_SEED_VERSION = 'v5';
+export const GRACE_SEED_FORMAT_VERSION = '5';
 
 export type GraceNoteType = 'reading' | 'sermon' | 'personal';
 
@@ -99,6 +101,10 @@ export type GraceNote = {
   comments?: GraceNoteComment[];
   createdAt: string;
   updatedAt: string;
+  /** seed·demo 식별 — 실제 사용자 기록과 구분 */
+  isSeed?: boolean;
+  isDemo?: boolean;
+  source?: 'seed' | 'user';
 };
 
 export type GraceNoteInput = Omit<GraceNote, 'id' | 'createdAt' | 'updatedAt'>;
@@ -131,6 +137,9 @@ function normalizeNote(n: GraceNote): GraceNote {
     prayCount: n.prayCount ?? 0,
     comments: n.comments ?? [],
     isFavorite: n.isFavorite ?? false,
+    isSeed: n.isSeed,
+    isDemo: n.isDemo,
+    source: n.source,
   };
 }
 
@@ -422,6 +431,52 @@ export function markDemoGraceNotesSeeded(): void {
 
 export function replaceAllGraceNotes(notes: GraceNote[]): void {
   save(notes.map(normalizeNote));
+}
+
+/** seed·demo 은혜기록 여부 (실제 사용자 작성 기록은 제외) */
+export function isSeedGraceNote(
+  note: Pick<GraceNote, 'id' | 'isSeed' | 'isDemo' | 'source'>,
+): boolean {
+  if (note.isSeed === true || note.isDemo === true || note.source === 'seed') return true;
+  const id = String(note.id ?? '');
+  return (
+    id.startsWith('gn-demo-')
+    || id.startsWith('gn-fix-')
+    || id.startsWith('gn-seed-')
+  );
+}
+
+export function partitionGraceNotes(notes: GraceNote[]): {
+  seed: GraceNote[];
+  user: GraceNote[];
+} {
+  const seed: GraceNote[] = [];
+  const user: GraceNote[] = [];
+  for (const n of notes) {
+    if (isSeedGraceNote(n)) seed.push(n);
+    else user.push(n);
+  }
+  return { seed, user };
+}
+
+/** seed 기록만 교체하고 사용자 작성 기록은 유지 */
+export function replaceSeedGraceNotes(seedNotes: GraceNote[]): void {
+  const { user } = partitionGraceNotes(load());
+  const marked = seedNotes.map(n => normalizeNote({
+    ...n,
+    isSeed: true,
+    isDemo: true,
+    source: 'seed',
+  }));
+  save([...user, ...marked]);
+}
+
+export function getGraceSeedFormatVersion(): string | null {
+  try { return localStorage.getItem(LS_GRACE_SEED_FORMAT); } catch { return null; }
+}
+
+export function setGraceSeedFormatVersion(version: string): void {
+  try { localStorage.setItem(LS_GRACE_SEED_FORMAT, version); } catch { /* ignore */ }
 }
 
 /** 성경 본문에서 책 이름 추출 (예: "창세기 1장" → "창세기") */

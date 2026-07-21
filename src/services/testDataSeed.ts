@@ -10,7 +10,12 @@ import {
   ensureGraceNoteDemoData,
   resetGraceNoteDemoData,
   prepareDemoSeedAuthors,
+  validateCurrentGraceSeedData,
 } from '../data/graceNoteSeed';
+import {
+  formatGraceSeedValidationReport,
+  type GraceSeedValidationReport,
+} from './graceNoteSeedNormalize';
 import { ensurePrayerDemoData, resetPrayerDemoData } from '../data/prayerSeed';
 import { getAllPrayers, isDemoPrayersSeeded } from '../services/prayerStorage';
 import { migrateVisibility } from '../types/sharedContent';
@@ -31,6 +36,7 @@ export type TestDataSeedReport = {
   permissionTestPassed: boolean;
   filterTestPassed: boolean;
   paginationTestPassed: boolean;
+  graceValidation?: GraceSeedValidationReport;
 };
 
 const DEMO_MEMBER: AppUser = {
@@ -119,6 +125,7 @@ function buildReport(alreadySeeded: boolean): TestDataSeedReport {
   const combined = [...graceNotes, ...prayers];
   const visibilityDistribution = countVisibility(combined);
   const smoke = runSmokeTests(DEMO_MEMBER);
+  const graceValidation = validateCurrentGraceSeedData();
 
   return {
     graceNoteCount: graceNotes.length,
@@ -127,6 +134,7 @@ function buildReport(alreadySeeded: boolean): TestDataSeedReport {
     visibilityDistribution,
     graceTypeDistribution,
     alreadySeeded,
+    graceValidation,
     ...smoke,
   };
 }
@@ -154,5 +162,8 @@ export function formatTestDataSeedReport(report: TestDataSeedReport): string {
     `권한 테스트: ${report.permissionTestPassed ? '통과' : '실패'}`,
     `상세설정 테스트: ${report.filterTestPassed ? '통과' : '실패'}`,
     `페이지네이션 테스트: ${report.paginationTestPassed ? '통과' : '실패'}`,
-  ].join('\n');
+    report.graceValidation
+      ? `은혜 seed 검증: ${report.graceValidation.passed ? '통과' : '실패'} (seed ${report.graceValidation.seedCount} / 사용자 ${report.graceValidation.userCount})`
+      : '',
+  ].filter(Boolean).join('\n');
 }
