@@ -1,4 +1,4 @@
-import type { UserRole } from '../services/permissions';
+import type { UserRole, AppUser } from '../services/permissions';
 
 /** 교회이음 0.4 — 기본 체험용 계정 (로그인·시드·표시 우선) */
 export type DemoAccountKey = 'admin' | 'pastor' | 'member';
@@ -92,3 +92,52 @@ export const DEMO_ACCOUNT_IDS = {
   pastor: 'demo-pastor02',
   member: 'demo-member60',
 } as const;
+
+export function isPrimaryDemoEmail(email?: string | null): boolean {
+  if (!email) return false;
+  return byEmail.has(email.toLowerCase().trim());
+}
+
+export function isPrimaryDemoUserId(id?: string | null): id is (typeof DEMO_ACCOUNT_IDS)[DemoAccountKey] {
+  if (!id) return false;
+  return (Object.values(DEMO_ACCOUNT_IDS) as string[]).includes(id);
+}
+
+export function getPrimaryDemoAccountById(id: string): DemoAccountDefinition | undefined {
+  const match = (Object.entries(DEMO_ACCOUNT_IDS) as [DemoAccountKey, string][]).find(([, v]) => v === id);
+  if (!match) return undefined;
+  return PRIMARY_DEMO_ACCOUNTS.find(a => a.key === match[0]);
+}
+
+/** 로그인·AuthContext용 AppUser — ID·이름·직분·역할·조직 단일 소스 */
+export function buildDemoAppUser(email: string): AppUser | null {
+  const acc = getPrimaryDemoAccount(email);
+  if (!acc) return null;
+  return {
+    id: DEMO_ACCOUNT_IDS[acc.key],
+    email: acc.email.toLowerCase(),
+    name: acc.name,
+    role: acc.role,
+    position: acc.position,
+    assignedDistrictIds: acc.assignedDistrictIds,
+    assignedZoneIds: acc.assignedZoneIds,
+    assignedDepartmentIds: acc.assignedDepartmentIds,
+    districtId: acc.districtId,
+    zoneId: acc.zoneId,
+    departmentIds: acc.departmentIds,
+  };
+}
+
+/** 저장된 사용자가 대표 데모 계정이면 canonical 필드로 덮어씀 */
+export function normalizePrimaryDemoUser(user: AppUser): AppUser {
+  const acc = getPrimaryDemoAccount(user.email) ?? getPrimaryDemoAccountById(user.id);
+  if (!acc) return user;
+  const canonical = buildDemoAppUser(acc.email);
+  if (!canonical) return user;
+  return { ...canonical, phone: user.phone ?? canonical.phone };
+}
+
+/** authorId → 최신 대표 데모 사용자 이름 (스냅샷보다 우선) */
+export function resolvePrimaryDemoDisplayName(userId: string): string | null {
+  return getPrimaryDemoAccountById(userId)?.name ?? null;
+}

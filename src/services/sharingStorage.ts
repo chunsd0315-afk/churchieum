@@ -79,9 +79,9 @@ function makeSeed(): SharingPost[] {
   ): SharingPost => ({
     id: 'seed_' + Math.random().toString(36).slice(2),
     churchId: 'demo',
-    writerId: 'demo_writer',
-    writerName: '김영수',
-    writerRole: '담임목사',
+    writerId: 'demo-pastor01',
+    writerName: '정재명',
+    writerRole: '목사',
     images: [],
     files: [],
     status: 'active',

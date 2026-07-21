@@ -90,7 +90,7 @@ const DEMO_MEMBER_ACCOUNTS: AppUser[] = [
     role: 'member',
     position: '장로',
     districtId: 'd1',
-    zoneId: 'z3',
+    zoneId: 'z1',
     departmentIds: ['dep3', 'dep5'],
   },
 ];

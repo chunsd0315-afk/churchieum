@@ -72,10 +72,10 @@ const DEFAULT_CLERGY: ClergyMember[] = [
 ];
 
 const DEFAULT_ASSIGNMENTS: StaffAssignment[] = [
-  // cl1 김영수: 1교구, 장년부
+  // cl1 정재명: 1교구, 장년부
   { id: 'sa1',  pastorId: 'cl1',  districtId: 'd1',   districtName: '1교구',    assignmentType: 'district',   createdAt: '2024-01-01T00:00:00Z', isActive: true },
   { id: 'sa2',  pastorId: 'cl1',  departmentId: 'dep2', departmentName: '장년부', assignmentType: 'department', createdAt: '2024-01-01T00:00:00Z', isActive: true },
-  // cl2 이성호: 2교구, 청년부
+  // cl2 이변우: 2교구, 청년부
   { id: 'sa3',  pastorId: 'cl2',  districtId: 'd2',   districtName: '2교구',    assignmentType: 'district',   createdAt: '2024-02-01T00:00:00Z', isActive: true },
   { id: 'sa4',  pastorId: 'cl2',  departmentId: 'dep1', departmentName: '청년부', assignmentType: 'department', createdAt: '2024-02-01T00:00:00Z', isActive: true },
   // cl3 박민수: 3교구, 찬양대

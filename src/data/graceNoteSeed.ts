@@ -400,7 +400,7 @@ function generateSermonNotes(count: number, authors: SeedAuthor[], names: string
       type: 'sermon',
       ...share,
       sermonTitle: pick(SERMON_TITLES),
-      sermonPreacher: preacher ? `${preacher.name} ${positionLabel(preacher)}` : '김영수 목사',
+      sermonPreacher: preacher ? `${preacher.name} ${positionLabel(preacher)}` : '정재명 목사',
       sermonDate: createdAt.slice(0, 10),
       bibleReference: `${pick(['요한복음', '로마서', '시편', '에베소서', '마태복음'])} ${randInt(1, 12)}:${randInt(1, 28)}`,
       memorableVerse: pick(GRACE_BODIES).slice(0, 40),
@@ -578,7 +578,7 @@ export function generateGraceNoteDemoData(): GraceNote[] {
     });
   };
 
-  // 데모 성도(강수아) 본인 기록 — 공개범위 골고루
+  // 데모 성도(천성대) 본인 기록 — 공개범위 골고루
   const demoAuthor = authors.find(a => a.id === 'demo-member60');
   if (demoAuthor) {
     for (let i = 0; i < 12; i++) {
@@ -596,13 +596,13 @@ export function generateGraceNoteDemoData(): GraceNote[] {
         type: i % 3 === 0 ? 'sermon' : i % 3 === 1 ? 'reading' : 'personal',
         ...share,
         sermonTitle: i % 3 === 0 ? pick(SERMON_TITLES) : undefined,
-        sermonPreacher: i % 3 === 0 ? '김영수 목사' : undefined,
+        sermonPreacher: i % 3 === 0 ? '정재명 목사' : undefined,
         sermonDate: i % 3 === 0 ? createdAt.slice(0, 10) : undefined,
         planId: i % 3 === 1 ? '1year' : undefined,
         planName: i % 3 === 1 ? '1년 성경통독' : undefined,
         bibleReference: i % 3 === 1 ? pick(READING_PASSAGES) : undefined,
         memorableVerse: '',
-        graceContent: withKeyword(`[강수아] ${pick(GRACE_BODIES)}`),
+        graceContent: withKeyword(`[천성대] ${pick(GRACE_BODIES)}`),
         application: pick(APPLICATIONS),
         prayer: pick(PRAYERS),
         ...eng,
@@ -616,28 +616,28 @@ export function generateGraceNoteDemoData(): GraceNote[] {
   const pastor01 = authors.find(a => a.id === 'demo-pastor01');
   const pastor02 = authors.find(a => a.id === 'demo-pastor02');
   if (pastor01) {
-    pushFixture('gn-fix-p01-private', pastor01, 'private', '[픽스처] 김영수 나만 보기 — 다른 역할은 조회 불가');
-    pushFixture('gn-fix-p01-pastor-to-cl2', pastor01, 'pastor_share', '[픽스처] 김영수 → 이성호 교역자 공유', {
+    pushFixture('gn-fix-p01-private', pastor01, 'private', '[픽스처] 정재명 나만 보기 — 다른 역할은 조회 불가');
+    pushFixture('gn-fix-p01-pastor-to-cl2', pastor01, 'pastor_share', '[픽스처] 정재명 → 이변우 교역자 공유', {
       sharedPastorIds: ['cl2'],
     });
-    pushFixture('gn-fix-p01-group-d1', pastor01, 'organization_share', '[픽스처] 김영수 1교구 조직 공유 (강수아·김영수 조회)', {
+    pushFixture('gn-fix-p01-group-d1', pastor01, 'organization_share', '[픽스처] 정재명 1교구 조직 공유 (천성대·정재명 조회)', {
       sharedUpperOrganizationIds: ['d1'],
       sharedGroupIds: ['d1'],
     });
   }
   if (pastor02) {
-    pushFixture('gn-fix-p02-private', pastor02, 'private', '[픽스처] 이성호 나만 보기 — 다른 역할은 조회 불가');
-    pushFixture('gn-fix-p02-pastor-to-cl1', pastor02, 'pastor_share', '[픽스처] 이성호 → 김영수 교역자 공유', {
+    pushFixture('gn-fix-p02-private', pastor02, 'private', '[픽스처] 이변우 나만 보기 — 다른 역할은 조회 불가');
+    pushFixture('gn-fix-p02-pastor-to-cl1', pastor02, 'pastor_share', '[픽스처] 이변우 → 정재명 교역자 공유', {
       sharedPastorIds: ['cl1'],
     });
-    pushFixture('gn-fix-p02-group-d2', pastor02, 'organization_share', '[픽스처] 이성호 2교구 조직 공유 (이성호만 소속으로 조회)', {
+    pushFixture('gn-fix-p02-group-d2', pastor02, 'organization_share', '[픽스처] 이변우 2교구 조직 공유 (이변우만 소속으로 조회)', {
       sharedUpperOrganizationIds: ['d2'],
       sharedGroupIds: ['d2'],
     });
   }
   if (demoAuthor) {
-    pushFixture('gn-fix-m60-private', demoAuthor, 'private', '[픽스처] 강수아 나만 보기 — 본인만 조회');
-    pushFixture('gn-fix-m60-pastor-cl1', demoAuthor, 'pastor_share', '[픽스처] 강수아 → 김영수 담당 교역자 공유', {
+    pushFixture('gn-fix-m60-private', demoAuthor, 'private', '[픽스처] 천성대 나만 보기 — 본인만 조회');
+    pushFixture('gn-fix-m60-pastor-cl1', demoAuthor, 'pastor_share', '[픽스처] 천성대 → 정재명 담당 교역자 공유', {
       sharedPastorIds: ['cl1'],
     });
   }

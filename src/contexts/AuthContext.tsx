@@ -1,6 +1,13 @@
 ﻿import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import type { AppUser } from '../services/permissions';
-import { getDemoAccountMap, PRIMARY_DEMO_ACCOUNTS } from '../config/demoAccounts';
+import {
+  getDemoAccountMap,
+  PRIMARY_DEMO_ACCOUNTS,
+  buildDemoAppUser,
+  isPrimaryDemoEmail,
+  normalizePrimaryDemoUser,
+} from '../config/demoAccounts';
+import { migrateDemoUserStorage } from '../services/demoUserMigration';
 
 type AuthContextType = {
   user: AppUser | null;
@@ -19,8 +26,23 @@ const DEMO_ACCOUNTS = getDemoAccountMap();
 
 const STORAGE_KEY = 'churchieum_demo_user';
 
-// Enrich a base AppUser with the latest saved data from clergy/member stores.
+function mergePhoneFromClergy(base: AppUser): AppUser {
+  try {
+    const raw = localStorage.getItem('clergy_v1');
+    if (!raw) return base;
+    const list = JSON.parse(raw) as Array<{ email?: string; phone?: string }>;
+    const match = list.find(c => c.email?.toLowerCase() === base.email.toLowerCase());
+    if (match?.phone) return { ...base, phone: match.phone };
+  } catch { /**/ }
+  return base;
+}
+
+/** 대표 데모 계정은 canonical 유지, 그 외만 저장소에서 보강 */
 function enrichUserFromStorage(base: AppUser): AppUser {
+  if (isPrimaryDemoEmail(base.email)) {
+    return mergePhoneFromClergy(normalizePrimaryDemoUser(base));
+  }
+
   try {
     const raw = localStorage.getItem('clergy_v1');
     if (raw) {
@@ -66,15 +88,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    migrateDemoUserStorage();
+
     const storedUser = localStorage.getItem(STORAGE_KEY);
     if (storedUser) {
       try {
         const parsed = JSON.parse(storedUser) as AppUser;
         const enriched = enrichUserFromStorage(parsed);
         setUser(enriched);
-        if (JSON.stringify(enriched) !== storedUser) {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(enriched));
-        }
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(enriched));
       } catch {
         localStorage.removeItem(STORAGE_KEY);
       }
@@ -88,19 +110,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!account) return { error: '등록되지 않은 이메일입니다.' };
     if (account.password !== password) return { error: '비밀번호가 올바르지 않습니다.' };
 
-    const base: AppUser = {
-      id: `demo-${normalizedEmail.split('@')[0]}`,
-      email: normalizedEmail,
-      name: account.name,
-      role: account.role,
-      position: account.position,
-      assignedDistrictIds: account.assignedDistrictIds,
-      assignedZoneIds: account.assignedZoneIds,
-      assignedDepartmentIds: account.assignedDepartmentIds,
-      districtId: account.districtId,
-      zoneId: account.zoneId,
-      departmentIds: account.departmentIds,
-    };
+    const base = buildDemoAppUser(normalizedEmail);
+    if (!base) return { error: '등록되지 않은 이메일입니다.' };
 
     const appUser = enrichUserFromStorage(base);
 
@@ -123,7 +134,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateCurrentUser = (updates: Partial<AppUser>) => {
     setUser(prev => {
       if (!prev) return prev;
-      const updated = { ...prev, ...updates };
+      const merged = { ...prev, ...updates };
+      const updated = isPrimaryDemoEmail(merged.email)
+        ? normalizePrimaryDemoUser(merged)
+        : merged;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
       return updated;
     });

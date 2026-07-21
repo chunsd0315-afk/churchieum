@@ -171,13 +171,23 @@ export default function LoginPage({ onSuccess }: Props) {
     }
   };
 
-  const handleSelectDemo = (demoEmail: string, demoPassword: string, toastMsg: string) => {
+  const handleSelectDemo = async (demoEmail: string, demoPassword: string, toastMsg: string) => {
     setEmail(demoEmail);
     setPassword(demoPassword);
     setIsLogin(true);
     setError('');
     setToast(toastMsg);
-    setTimeout(() => setToast(null), 2000);
+    setLoading(true);
+    try {
+      const { error: err } = await signIn(demoEmail, demoPassword);
+      if (err) throw new Error(err);
+      onSuccess();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '로그인에 실패했습니다.');
+      setToast(null);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
