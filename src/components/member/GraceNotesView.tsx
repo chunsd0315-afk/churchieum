@@ -73,7 +73,11 @@ import {
   resolveOrgTreeMode,
 } from '../../services/userOrganizationTree';
 import { isSuperAdmin } from '../../services/permissions';
-import { resolveGraceNoteAuthorDisplay } from '../../services/graceNoteAuthorDisplay';
+import {
+  formatGraceNoteAuthorLine,
+  resolveGraceNoteAuthorDisplay,
+} from '../../services/graceNoteAuthorDisplay';
+import { CommentAuthorMeta } from './CommentAuthorMeta';
 import {
   getGraceNoteListTitle,
   graceRecordTypeLabel,
@@ -1103,7 +1107,10 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
   }
 
   const isOwn = Boolean(user?.id && note.userId === user.id);
-  const isPublic = note.visibility !== 'private';
+  const visibility = migrateVisibility(note.visibility);
+  const isPublic = visibility !== 'private';
+  /** 공유 기록만 공감 표시 (댓글 허용과 독립) */
+  const canShowReaction = isPublic;
   const allowComments = resolveAllowComments(note);
   const canWriteComment = isPublic && allowComments;
   /** 화면 표시용 — prayer·amen 반응 댓글은 보존하되 미표시 */
@@ -1111,12 +1118,17 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
   const commentCount = visibleComments.length;
   const likeLabel = likeCount.toLocaleString('ko-KR');
   const shareLabel = shareSummary(note);
-  const authorName = user?.name ?? '성도';
   const vm = visibilityMeta(note.visibility ?? 'private', note.sharedGroupAll);
   const typeLabel = graceRecordTypeLabel(note.type);
   const typeBadgeClass = graceTypeBadgeClass(note.type);
-  const authorDisplay = resolveGraceNoteAuthorDisplay(note);
+  const authorLine = formatGraceNoteAuthorLine(note);
   const listTitle = getGraceNoteListTitle(note);
+  const relatedOrganizationIds = [
+    ...(note.sharedOrganizationIds ?? note.sharedGroupIds ?? []),
+    ...(note.sharedUpperOrganizationIds ?? []),
+    ...(note.sharedLowerOrganizationIds ?? []),
+    ...(note.sharedDepartmentIds ?? []),
+  ];
 
   const refreshNote = () => {
     const fresh = getGraceNote(noteId);
@@ -1139,7 +1151,12 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
     if (!canWriteComment || commentSubmitting || !commentText.trim()) return;
     setCommentSubmitting(true);
     try {
-      addGraceNoteComment(noteId, authorName, commentText, {
+      const commentAuthorLabel = resolveGraceNoteAuthorDisplay({
+        userId: user?.id,
+        authorName: user?.name,
+        authorRole: user?.position,
+      }).label;
+      addGraceNoteComment(noteId, commentAuthorLabel, commentText, {
         authorId: user?.id,
         canView: true,
       });
@@ -1196,7 +1213,7 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
     </button>
   );
 
-  const engagementFooter = isMobile ? (
+  const engagementFooter = isMobile && canShowReaction ? (
     <div className="flex items-center gap-2">
       <button
         type="button"
@@ -1210,16 +1227,14 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
         <Heart className={`w-4 h-4 ${liked ? 'fill-rose-500' : ''}`} />
         공감 {likeLabel}
       </button>
-      {isPublic && (
-        <button
-          type="button"
-          onClick={() => setShowComments(true)}
-          className="flex-1 flex items-center justify-center gap-1.5 py-3 min-h-[48px] rounded-xl text-sm font-semibold bg-gray-50 text-gray-700 touch-target"
-        >
-          <MessageCircle className="w-4 h-4" />
-          댓글 {commentCount.toLocaleString('ko-KR')}
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={() => setShowComments(true)}
+        className="flex-1 flex items-center justify-center gap-1.5 py-3 min-h-[48px] rounded-xl text-sm font-semibold bg-gray-50 text-gray-700 touch-target"
+      >
+        <MessageCircle className="w-4 h-4" />
+        댓글 {commentCount.toLocaleString('ko-KR')}
+      </button>
     </div>
   ) : undefined;
 
@@ -1258,13 +1273,8 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
 
             <h2 className="text-xl font-bold text-gray-900 leading-snug">{listTitle}</h2>
 
-            <p
-              className="text-[13px] font-medium"
-              style={{ color: '#6B7280' }}
-            >
-              {authorDisplay.label}
-              <span className="text-gray-300 mx-1.5">·</span>
-              {note.createdAt.slice(0, 10).replace(/-/g, '.')}
+            <p className="text-[13px] font-medium text-gray-500">
+              {authorLine}
             </p>
 
             <section>
@@ -1321,8 +1331,8 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
               )}
             </section>
 
-            {/* 공감 — 댓글과 독립. PC만 본문에 표시(모바일은 하단 푸터) */}
-            {!isMobile && (
+            {/* 공감 — 공유 기록만. 댓글과 독립. PC만 본문에 표시(모바일은 하단 푸터) */}
+            {!isMobile && canShowReaction && (
               <section className="pt-2 border-t border-gray-100">
                 {likeButton}
               </section>
@@ -1359,12 +1369,12 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
                           return (
                             <div key={c.id} className="py-2.5 first:pt-0">
                               <div className="flex items-start justify-between gap-2 mb-0.5">
-                                <div className="min-w-0">
-                                  <span className="text-xs font-semibold text-gray-700">{c.authorName}</span>
-                                  <span className="text-[10px] text-gray-400 ml-2">
-                                    {c.createdAt.slice(0, 10).replace(/-/g, '.')}
-                                  </span>
-                                </div>
+                                <CommentAuthorMeta
+                                  authorId={c.authorId}
+                                  authorName={c.authorName}
+                                  createdAt={c.createdAt}
+                                  relatedOrganizationIds={relatedOrganizationIds}
+                                />
                                 {canManage && (
                                   <button
                                     type="button"

@@ -21,8 +21,32 @@ export type GraceNoteAuthorDisplay = {
   isUnknown: boolean;
 };
 
-export function formatGraceNoteListDate(iso: string): string {
-  return iso.slice(0, 10).replace(/-/g, '.');
+/** YYYY.MM.DD — 잘못된 날짜는 빈 문자열 */
+export function formatGraceNoteListDate(iso: string | undefined | null): string {
+  if (iso == null || iso === '') return '';
+  const raw = String(iso).trim();
+  const prefix = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (prefix) return `${prefix[1]}.${prefix[2]}.${prefix[3]}`;
+
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}.${m}.${day}`;
+}
+
+/** 이름에 직분이 이미 있으면 중복 부착 방지 */
+export function combineNameAndPosition(name: string, position: string): string {
+  const n = name.trim().replace(/\s+/g, ' ');
+  const p = position.trim();
+  if (!n) return p || '알 수 없는 작성자';
+  if (!p) return n;
+  if (n === p) return n;
+  if (n.endsWith(` ${p}`) || n.endsWith(p)) return n;
+  const tokens = n.split(/\s+/);
+  if (tokens[tokens.length - 1] === p) return n;
+  return `${n} ${p}`;
 }
 
 function lookupAuthorFromStores(userId?: string): { name: string; position: string } | null {
@@ -88,7 +112,7 @@ export function resolveGraceNoteAuthorDisplay(note: {
     isUnknown = true;
   }
 
-  const label = isUnknown ? name : position ? `${name} ${position}` : name;
+  const label = isUnknown ? name : combineNameAndPosition(name, position);
 
   const demo = note.userId ? getPrimaryDemoAccountById(note.userId) : undefined;
   const profileRole = demo
@@ -104,7 +128,7 @@ export function resolveGraceNoteAuthorDisplay(note: {
   };
 }
 
-/** 목록 공통 작성자 줄 — "작성자 : {이름} {직분} · {날짜}" */
+/** 목록·상세 공통 작성자 줄 — "작성자 : {이름} {직분} · {날짜}" */
 export function formatGraceNoteAuthorLine(note: {
   userId?: string;
   authorName?: string;
@@ -113,5 +137,5 @@ export function formatGraceNoteAuthorLine(note: {
 }): string {
   const author = resolveGraceNoteAuthorDisplay(note);
   const date = formatGraceNoteListDate(note.createdAt);
-  return `작성자 : ${author.label} · ${date}`;
+  return date ? `작성자 : ${author.label} · ${date}` : `작성자 : ${author.label}`;
 }
