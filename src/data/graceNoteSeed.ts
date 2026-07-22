@@ -119,17 +119,29 @@ function seedHash(id: string): number {
 function makeComments(count: number, baseDate: string, names: string[], seed: number): GraceNoteComment[] {
   const result: GraceNoteComment[] = [];
   const base = new Date(baseDate).getTime();
+  const demoAuthors: { name: string; id: string }[] = [
+    { name: '정재명', id: 'demo-pastor01' },
+    { name: '이변우', id: 'demo-pastor02' },
+    { name: '천성대', id: 'demo-member60' },
+  ];
   for (let i = 0; i < count; i++) {
     const typeRoll = (seed + i) % 10;
     const type = typeRoll < 4 ? 'prayer' as const
       : typeRoll < 6 ? 'amen' as const
         : 'comment' as const;
+    const demo = demoAuthors[(seed + i) % demoAuthors.length];
+    const useDemo = (seed + i) % 3 === 0;
+    const authorName = useDemo ? demo.name : names[(seed + i) % names.length];
+    const authorId = useDemo ? demo.id : undefined;
+    const createdAt = new Date(base + (i + 1) * 3600000).toISOString();
     result.push({
       id: `gnc-seed-${seed}-${i}`,
-      authorName: names[(seed + i) % names.length],
+      authorName,
+      authorId,
       content: type === 'prayer' ? '기도합니다' : type === 'amen' ? '아멘' : pick(COMMENT_SAMPLES),
       type,
-      createdAt: new Date(base + (i + 1) * 3600000).toISOString(),
+      createdAt,
+      updatedAt: createdAt,
     });
   }
   return result;
@@ -346,10 +358,16 @@ function pickVisibilityForAuthor(author: SeedAuthor, index: number): {
 
 function baseEngagement(visibility: GraceNoteVisibility, createdAt: string, names: string[], seed: number) {
   const open = visibility !== 'private';
+  /** 나만 보기: false / 공유: 약 80% 허용 */
+  const allowComments = open ? seed % 5 !== 0 : false;
   const likeCount = open ? seed % 21 : 0;
-  const commentCount = open ? seed % 11 : 0;
+  // 허용 기록: 0~5개 / 차단이지만 일부는 기존 댓글 1~3개(보존 테스트)
+  let commentCount = 0;
+  if (open && allowComments) commentCount = seed % 6;
+  else if (open && !allowComments && seed % 7 === 0) commentCount = 1 + (seed % 3);
   const comments = makeComments(commentCount, createdAt, names, seed);
   return {
+    allowComments,
     likeCount,
     comments,
     prayCount: comments.filter(c => c.type === 'prayer').length,
@@ -678,6 +696,7 @@ export function ensureGraceNoteDemoData(): void {
 
 export function resetGraceNoteDemoData(): void {
   try {
+    localStorage.removeItem('graceNotesV2_demo_seeded_v6');
     localStorage.removeItem('graceNotesV2_demo_seeded_v5');
     localStorage.removeItem('graceNotesV2_demo_seeded_v4');
     localStorage.removeItem('graceNotesV2_demo_seeded_v3');

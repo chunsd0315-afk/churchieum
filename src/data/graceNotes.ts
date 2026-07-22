@@ -7,9 +7,10 @@ const LS_DEMO_SEEDED = 'graceNotesV2_demo_seeded_v5';
 const LS_GRACE_SEED_FORMAT = 'churchieum_grace_seed_version';
 const LS_GRACE_SEED_COPY = 'churchieum_grace_seed_copy_version';
 const LS_LIKES = 'graceNotes_likes_by_me';
-export const DEMO_SEED_VERSION = 'v5';
-export const GRACE_SEED_FORMAT_VERSION = '5';
+export const DEMO_SEED_VERSION = 'v6';
+export const GRACE_SEED_FORMAT_VERSION = '6';
 export const GRACE_SEED_COPY_VERSION = '2';
+export const GRACE_COMMENT_MAX_LENGTH = 500;
 
 export type GraceNoteType = 'reading' | 'sermon' | 'prayer';
 
@@ -38,9 +39,12 @@ export type GraceNoteCommentType = 'comment' | 'prayer' | 'amen';
 export type GraceNoteComment = {
   id: string;
   authorName: string;
+  /** 댓글 작성자 userId — 본인 삭제 판별용 (레거시 없음) */
+  authorId?: string;
   content: string;
   type: GraceNoteCommentType;
   createdAt: string;
+  updatedAt?: string;
 };
 
 /** 공유 당시 교역자 스냅샷 (퇴사·조직 이동 후에도 표시용) */
@@ -111,6 +115,12 @@ export type GraceNote = {
   amenCount?: number;
   prayCount?: number;
   comments?: GraceNoteComment[];
+  /**
+   * 댓글 허용 여부.
+   * 미설정·레거시(commentsAllowed)는 true.
+   * 나만 보기에서는 UI/정책상 false 로 저장·표시.
+   */
+  allowComments?: boolean;
   createdAt: string;
   updatedAt: string;
   /** seed·demo 식별 — 실제 사용자 기록과 구분 */
@@ -122,6 +132,15 @@ export type GraceNote = {
 };
 
 export type GraceNoteInput = Omit<GraceNote, 'id' | 'createdAt' | 'updatedAt'>;
+
+/** allowComments 안전 해석 — 레거시 commentsAllowed 호환 */
+export function resolveAllowComments(
+  note: Partial<Pick<GraceNote, 'allowComments'>> & { commentsAllowed?: boolean },
+): boolean {
+  if (typeof note.allowComments === 'boolean') return note.allowComments;
+  if (typeof note.commentsAllowed === 'boolean') return note.commentsAllowed;
+  return true;
+}
 
 function normalizeNote(n: GraceNote): GraceNote {
   const rawVis = n.visibility as string | undefined;
@@ -135,6 +154,7 @@ function normalizeNote(n: GraceNote): GraceNote {
   });
   const composed = composeSharedGroupIds(split.upper, split.lower, split.departments);
   const sharedGroupAll = n.sharedGroupAll || isLegacyPublic(rawVis) || false;
+  const legacy = n as GraceNote & { commentsAllowed?: boolean };
   return {
     ...n,
     type,
@@ -152,6 +172,7 @@ function normalizeNote(n: GraceNote): GraceNote {
     amenCount: n.amenCount ?? 0,
     prayCount: n.prayCount ?? 0,
     comments: n.comments ?? [],
+    allowComments: resolveAllowComments(legacy),
     isFavorite: n.isFavorite ?? false,
     isSeed: n.isSeed,
     isDemo: n.isDemo,
@@ -430,20 +451,68 @@ export function addGraceNoteAmen(noteId: string, authorName: string): number {
   return notes[idx].amenCount ?? 0;
 }
 
-export function addGraceNoteComment(noteId: string, authorName: string, content: string): GraceNoteComment | null {
+/** 댓글 허용 여부 — 레거시(필드 없음)는 허용 */
+export function isGraceNoteCommentsAllowed(
+  note: Partial<Pick<GraceNote, 'allowComments'>> & { commentsAllowed?: boolean },
+): boolean {
+  return resolveAllowComments(note);
+}
+
+export type AddGraceNoteCommentOptions = {
+  authorId?: string;
+  /** 조회 가능 여부 — false 이면 저장하지 않음 */
+  canView?: boolean;
+};
+
+export function addGraceNoteComment(
+  noteId: string,
+  authorName: string,
+  content: string,
+  options?: AddGraceNoteCommentOptions,
+): GraceNoteComment | null {
   const notes = load();
   const idx = notes.findIndex(n => n.id === noteId);
-  if (idx < 0 || !content.trim()) return null;
+  if (idx < 0) return null;
+  if (options?.canView === false) return null;
+
+  const note = notes[idx];
+  if (migrateVisibility(note.visibility) === 'private') return null;
+  if (!resolveAllowComments(note)) return null;
+
+  const trimmed = content.trim().slice(0, GRACE_COMMENT_MAX_LENGTH);
+  if (!trimmed) return null;
+
+  const now = new Date().toISOString();
   const comment: GraceNoteComment = {
     id: `gnc-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
     authorName,
-    content: content.trim(),
+    authorId: options?.authorId,
+    content: trimmed,
     type: 'comment',
-    createdAt: new Date().toISOString(),
+    createdAt: now,
+    updatedAt: now,
   };
   notes[idx].comments = [...(notes[idx].comments ?? []), comment];
   save(notes);
   return comment;
+}
+
+export function deleteGraceNoteComment(
+  noteId: string,
+  commentId: string,
+  actor: { userId?: string; isAdmin?: boolean },
+): boolean {
+  const notes = load();
+  const idx = notes.findIndex(n => n.id === noteId);
+  if (idx < 0) return false;
+  const list = notes[idx].comments ?? [];
+  const target = list.find(c => c.id === commentId);
+  if (!target) return false;
+  const isOwner = Boolean(actor.userId && target.authorId && target.authorId === actor.userId);
+  if (!isOwner && !actor.isAdmin) return false;
+  notes[idx].comments = list.filter(c => c.id !== commentId);
+  save(notes);
+  return true;
 }
 
 export function isDemoGraceNotesSeeded(): boolean {

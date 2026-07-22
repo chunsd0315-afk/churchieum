@@ -8,6 +8,7 @@ import {
   getGraceSeedFormatVersion,
   markDemoGraceNotesSeeded,
   normalizeGraceNoteType,
+  resolveAllowComments,
 } from '../data/graceNotes';
 import { migrateVisibility } from '../types/sharedContent';
 import {
@@ -220,6 +221,9 @@ export function normalizeSeedGraceRecord(note: GraceNote, index = 0): GraceNote 
 
   const share = normalizeShareArrays(note, visibility);
   const isFavorite = normalizeFavorite(note, index);
+  const allowComments = visibility === 'private'
+    ? false
+    : resolveAllowComments(note as GraceNote & { commentsAllowed?: boolean });
 
   const relatedReading =
     (note as { relatedBibleReadingId?: string | null }).relatedBibleReadingId
@@ -240,6 +244,7 @@ export function normalizeSeedGraceRecord(note: GraceNote, index = 0): GraceNote 
     graceContent,
     ...EMPTY_GRACE_LEGACY_FIELDS,
     isFavorite,
+    allowComments,
     ...share,
     sourceId: type === 'reading'
       ? (relatedReading ?? note.sourceId)

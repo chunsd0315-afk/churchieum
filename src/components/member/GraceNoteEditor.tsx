@@ -7,13 +7,14 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { BookOpen, Mic, HandHeart } from 'lucide-react';
 import {
-  getGraceNote, createGraceNote, updateGraceNote,
+  getGraceNote, createGraceNote, updateGraceNote, resolveAllowComments,
   type GraceNoteInput, type GraceNoteType,
 } from '../../data/graceNotes';
 import { getAllProgresses, getPlanColor, type PlanId } from '../../data/readingPlans';
 import { GraceNoteShareSelector, defaultShareState, shareStateToInput, type GraceNoteShareState } from './GraceNoteShareSelector';
 import { GraceRelatedSourceSelector } from './GraceRelatedSourceSelector';
 import { ReadingProgressList, buildReadingFormCtx } from './ReadingProgressPicker';
+import { CommentPermissionSetting } from './CommentPermissionSetting';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../common/ui';
 import ContentEditorLayout, { ContentFormCard } from '../layout/ContentEditorLayout';
@@ -164,6 +165,11 @@ export function GraceNoteEditor({
   const [graceTitle, setGraceTitle] = useState(existing?.graceTitle ?? '');
   const [graceContent, setGraceContent] = useState(existing?.graceContent ?? '');
   const [share, setShare] = useState<GraceNoteShareState>(() => defaultShareState(existing ?? undefined));
+  const initialAllow = existing
+    ? (existing.visibility === 'private' ? false : resolveAllowComments(existing))
+    : true;
+  const [allowComments, setAllowComments] = useState(initialAllow);
+  const allowBeforePrivateRef = useRef(initialAllow || true);
   const [saved, setSaved] = useState(false);
   const [leaveConfirm, setLeaveConfirm] = useState(false);
   const [tabConfirm, setTabConfirm] = useState<GraceNoteType | null>(null);
@@ -194,6 +200,7 @@ export function GraceNoteEditor({
     graceTitle: existing?.graceTitle ?? '',
     graceContent: existing?.graceContent ?? '',
     share: JSON.stringify(defaultShareState(existing ?? undefined)),
+    allowComments: initialAllow,
     readingRef: existing?.bibleReference ?? readingCtx?.readingReferences ?? '',
     editSermonTitle: existing?.sermonTitle ?? sermonCtx?.sermonTitle ?? '',
     editPreacher: existing?.sermonPreacher ?? sermonCtx?.sermonPreacher ?? '',
@@ -208,6 +215,7 @@ export function GraceNoteEditor({
       graceTitle !== snap.graceTitle
       || graceContent !== snap.graceContent
       || JSON.stringify(share) !== snap.share
+      || allowComments !== snap.allowComments
       || readingRef !== snap.readingRef
       || editSermonTitle !== snap.editSermonTitle
       || editPreacher !== snap.editPreacher
@@ -215,7 +223,7 @@ export function GraceNoteEditor({
       || editBibleRef !== snap.editBibleRef
     );
   }, [
-    confirmLeaveWhenDirty, editId, saved, graceTitle, graceContent, share,
+    confirmLeaveWhenDirty, editId, saved, graceTitle, graceContent, share, allowComments,
     readingRef, editSermonTitle, editPreacher, editSermonDate, editBibleRef,
   ]);
 
@@ -229,11 +237,12 @@ export function GraceNoteEditor({
       || editPreacher.trim().length > 0
       || editBibleRef.trim().length > 0
       || JSON.stringify(share) !== JSON.stringify(emptyShare())
+      || allowComments !== true
       || Boolean(activeReadingCtx)
     );
   }, [
     isCreate, saved, graceTitle, graceContent, readingRef,
-    editSermonTitle, editPreacher, editBibleRef, share, activeReadingCtx,
+    editSermonTitle, editPreacher, editBibleRef, share, allowComments, activeReadingCtx,
   ]);
 
   const handleBack = () => {
@@ -262,6 +271,8 @@ export function GraceNoteEditor({
     setGraceTitle('');
     setGraceContent('');
     setShare(emptyShare());
+    setAllowComments(true);
+    allowBeforePrivateRef.current = true;
     setReadingRef('');
     setEditSermonTitle(sermonCtx?.sermonTitle ?? '');
     setEditPreacher(sermonCtx?.sermonPreacher ?? '');
@@ -320,6 +331,7 @@ export function GraceNoteEditor({
         graceContent: graceContent.trim(),
         ...legacyEmpty,
         isFavorite,
+        allowComments: share.visibility === 'private' ? false : allowComments,
       };
     }
 
@@ -346,6 +358,7 @@ export function GraceNoteEditor({
         graceContent: graceContent.trim(),
         ...legacyEmpty,
         isFavorite,
+        allowComments: share.visibility === 'private' ? false : allowComments,
       };
     }
 
@@ -358,6 +371,7 @@ export function GraceNoteEditor({
       graceContent: graceContent.trim(),
       ...legacyEmpty,
       isFavorite,
+      allowComments: share.visibility === 'private' ? false : allowComments,
     };
   };
 
@@ -610,7 +624,32 @@ export function GraceNoteEditor({
           )}
 
           {/* 공개범위 */}
-          <GraceNoteShareSelector value={share} onChange={setShare} />
+          <GraceNoteShareSelector
+            value={share}
+            onChange={next => {
+              const wasPrivate = share.visibility === 'private';
+              const nowPrivate = next.visibility === 'private';
+              if (!wasPrivate && nowPrivate) {
+                allowBeforePrivateRef.current = allowComments;
+                setAllowComments(false);
+              } else if (wasPrivate && !nowPrivate) {
+                setAllowComments(allowBeforePrivateRef.current);
+              }
+              setShare(next);
+            }}
+          />
+
+          {/* 댓글 설정 */}
+          <CommentPermissionSetting
+            visibility={share.visibility}
+            allowComments={allowComments}
+            onChange={next => {
+              setAllowComments(next);
+              if (share.visibility !== 'private') {
+                allowBeforePrivateRef.current = next;
+              }
+            }}
+          />
         </ContentFormCard>
       )}
     </ContentEditorLayout>
