@@ -75,18 +75,18 @@ export function getSharedContentShareTypeFilterOptions(
     if (includePastorShare) {
       opts.push({
         id: 'pastor_share',
-        label: '교역자에게 공유한 전체 기록',
-        chipLabel: '교역자 공유 전체',
-        description: `교회 내 담당 교역자와 공유된 모든 ${noun}입니다.`,
-        ariaLabel: `교역자에게 공유한 전체 ${noun} 보기`,
+        label: '교역자에게 공유한 기록',
+        chipLabel: '교역자 직접 공유',
+        description: '성도 또는 다른 교역자가 담당 교역자에게 직접 공유한 기록입니다.',
+        ariaLabel: `교역자에게 공유한 ${noun} 보기`,
       });
     }
     opts.push({
       id: 'organization_share',
-      label: '교구·부서에 공유한 전체 기록',
-      chipLabel: '교구·부서 공유 전체',
+      label: '교구·부서에 공유한 기록',
+      chipLabel: '교구·부서 공유',
       description: `교회 내 교구·부서에 공유된 모든 ${noun}입니다.`,
-      ariaLabel: `교구·부서에 공유한 전체 ${noun} 보기`,
+      ariaLabel: `교구·부서에 공유한 ${noun} 보기`,
     });
     return opts;
   }
@@ -110,16 +110,16 @@ export function getSharedContentShareTypeFilterOptions(
   if (includePastorShare) {
     opts.push({
       id: 'pastor_share',
-      label: `${userTitle}에게 공유한 기록`,
-      chipLabel: '나에게 공유',
+      label: '나에게 직접 공유한 기록',
+      chipLabel: '나에게 직접 공유',
       description: `성도 또는 다른 교역자가 나를 선택해 공유한 ${noun}입니다.`,
-      ariaLabel: `${userTitle}에게 공유한 ${noun} 보기`,
+      ariaLabel: `${userTitle}에게 직접 공유한 ${noun} 보기`,
     });
   }
 
   opts.push({
     id: 'organization_share',
-    label: `${userTitle} 교구·부서에 공유한 기록`,
+    label: '내 교구·부서에 공유한 기록',
     chipLabel: '내 교구·부서 공유',
     description: `내가 속하거나 담당하는 교구·부서에 공유된 ${noun}입니다.`,
     ariaLabel: `${userTitle} 교구·부서에 공유한 ${noun} 보기`,
@@ -143,12 +143,13 @@ export function getSharedContentShareTypeFilterLabel(
   return variant === 'chip' ? opt.chipLabel : opt.label;
 }
 
-/** 활성 상세설정 개수 — recordType/contentType, shareType, org, pastor, authorRole, authorQuery */
+/** 활성 상세설정 개수 — recordType/contentType, shareType, org, pastor, authorRole, authorQuery, selectedAuthorIds */
 export function countSharedContentDetailFilters(state: {
   contentType?: string;
   shareType?: string;
   organizationIds?: string[];
   selectedPastorIds?: string[];
+  selectedAuthorIds?: string[];
   authorRole?: string;
   authorQuery?: string;
   visibility?: string;
@@ -162,6 +163,9 @@ export function countSharedContentDetailFilters(state: {
   if (state.organizationIds && state.organizationIds.length > 0) count += state.organizationIds.length;
   if (state.selectedPastorIds && state.selectedPastorIds.length > 0) {
     count += state.selectedPastorIds.length;
+  }
+  if (state.selectedAuthorIds && state.selectedAuthorIds.length > 0) {
+    count += state.selectedAuthorIds.length;
   }
   if (state.authorRole && state.authorRole !== 'all') count += 1;
   if (state.authorQuery?.trim()) count += 1;

@@ -53,7 +53,7 @@ import {
   SharedContentVisibilityFilterSection,
   SharedContentShareTypeFilterSection,
   SharedContentAuthorRoleFilterSection,
-  SharedContentAuthorQueryField,
+  SharedContentAuthorSelector,
   PeriodFilterSection,
 } from '../common/shared-content';
 import {
@@ -79,6 +79,13 @@ import {
 } from '../../services/graceNoteAuthorDisplay';
 import { GracePrayerCommentItem } from './CommentAuthorMeta';
 import { resolveCommentAuthorId } from '../../services/graceCommentAuthorMeta';
+import {
+  buildGraceSharedAuthorPool,
+  buildGraceSharedListDescription,
+  classifyGraceNoteAuthorRole,
+  getGraceAuthorRoleHint,
+  isPastoralGraceAuthorRole,
+} from '../../services/graceShareAuthorPool';
 import {
   getGraceNoteListTitle,
   graceRecordTypeLabel,
@@ -136,22 +143,11 @@ function shareSummary(note: GraceNote): string | null {
   return null;
 }
 
-const PASTORAL_AUTHOR_ROLES = new Set([
-  'pastor', 'admin', 'super_admin',
-  '담임목사', '부목사', '목사', '전도사', '교육전도사', '선교사', '간사',
-]);
-
-function isPastoralGraceAuthorRole(role?: string): boolean {
-  if (!role) return false;
-  if (PASTORAL_AUTHOR_ROLES.has(role)) return true;
-  return role.includes('목사') || role.includes('전도사');
-}
-
 const GRACE_RECORD_TYPE_OPTIONS = [
   { id: '' as const, label: '전체' },
-  { id: 'reading' as const, label: '성경통독' },
-  { id: 'sermon' as const, label: '설교' },
   { id: 'prayer' as const, label: '기도' },
+  { id: 'sermon' as const, label: '설교' },
+  { id: 'reading' as const, label: '성경통독' },
 ] as const;
 
 function GraceRecordTypeFilterButtons({
@@ -179,6 +175,7 @@ type GraceListFilterState = {
   shareType: ShareTypeFilter;
   organizationIds: string[];
   selectedPastorIds: string[];
+  selectedAuthorIds: string[];
   authorRole: 'all' | 'member' | 'pastor';
   authorQuery: string;
   period: PeriodFilter;
@@ -190,6 +187,7 @@ const EMPTY_FILTER: GraceListFilterState = {
   shareType: 'all',
   organizationIds: [],
   selectedPastorIds: [],
+  selectedAuthorIds: [],
   authorRole: 'all',
   authorQuery: '',
   period: { ...EMPTY_PERIOD_FILTER },
@@ -200,6 +198,7 @@ function hasSharedTabSecondaryFilters(applied: GraceListFilterState): boolean {
     applied.shareType !== 'all' ||
     applied.organizationIds.length > 0 ||
     applied.selectedPastorIds.length > 0 ||
+    applied.selectedAuthorIds.length > 0 ||
     applied.authorRole !== 'all' ||
     applied.authorQuery.trim() !== '' ||
     isPeriodActive(applied.period)
@@ -212,6 +211,7 @@ function hasNonPeriodDetailFilters(applied: GraceListFilterState, tab: GraceColl
   if (tab === 'shared' && applied.shareType !== 'all') return true;
   if (applied.organizationIds.length > 0) return true;
   if (applied.selectedPastorIds.length > 0) return true;
+  if (applied.selectedAuthorIds.length > 0) return true;
   if (applied.authorRole !== 'all') return true;
   if (applied.authorQuery.trim()) return true;
   return false;
@@ -282,6 +282,7 @@ function filterGraceNotesForTab(
     shareType,
     organizationIds,
     selectedPastorIds,
+    selectedAuthorIds,
     authorRole,
     authorQuery,
   } = applied;
@@ -321,9 +322,15 @@ function filterGraceNotesForTab(
       }
 
       if ((opts.isPastorUser || opts.isAdminUser) && authorRole !== 'all') {
-        const isPastoral = isPastoralGraceAuthorRole(n.authorRole);
+        const role = classifyGraceNoteAuthorRole(n);
+        const isPastoral = role === 'pastor' || role === 'admin' || isPastoralGraceAuthorRole(n.authorRole);
         if (authorRole === 'member' && isPastoral) return false;
         if (authorRole === 'pastor' && !isPastoral) return false;
+      }
+
+      if ((opts.isPastorUser || opts.isAdminUser) && selectedAuthorIds.length > 0) {
+        const authorId = n.userId?.trim();
+        if (!authorId || !selectedAuthorIds.includes(authorId)) return false;
       }
 
       if ((opts.isPastorUser || opts.isAdminUser) && authorQuery.trim()) {
@@ -357,6 +364,7 @@ function cloneFilter(f: GraceListFilterState): GraceListFilterState {
     ...f,
     organizationIds: [...f.organizationIds],
     selectedPastorIds: [...f.selectedPastorIds],
+    selectedAuthorIds: [...f.selectedAuthorIds],
     period: { ...f.period },
   };
 }
@@ -500,9 +508,31 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
 
   useEffect(() => {
     if (!draftFlags.showPastorPicker && draft.selectedPastorIds.length > 0) {
-      setDraft(prev => ({ ...prev, selectedPastorIds: [] }));
+      setDraft(prev => ({ ...prev, selectedPastorIds: [], selectedAuthorIds: [] }));
     }
   }, [draftFlags.showPastorPicker, draft.selectedPastorIds.length]);
+
+  const draftAuthorPool = useMemo(
+    () => buildGraceSharedAuthorPool(sharedNotes, {
+      typeFilter: draft.typeFilter,
+      shareType: draft.shareType,
+      organizationIds: draft.organizationIds,
+      selectedPastorIds: draft.selectedPastorIds,
+      showPastorPicker: draftFlags.showPastorPicker,
+      showOrgTree: draftFlags.showSharedOrgTree,
+    }),
+    [sharedNotes, draft, draftFlags.showPastorPicker, draftFlags.showSharedOrgTree],
+  );
+
+  const authorRoleHint = useMemo(
+    () => getGraceAuthorRoleHint({
+      authorRole: draft.authorRole,
+      shareType: draft.shareType,
+      isAdmin: isAdminUser,
+      isPastor: isPastorUser,
+    }),
+    [draft.authorRole, draft.shareType, isAdminUser, isPastorUser],
+  );
 
   const openFilter = () => {
     setDraft(cloneFilter(applied));
@@ -536,6 +566,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
       shareType: next,
       organizationIds: [],
       selectedPastorIds: [],
+      selectedAuthorIds: [],
       ...(next !== 'pastor_share' ? { authorRole: 'all' as const } : {}),
     }));
   };
@@ -587,6 +618,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
           shareType: 'all',
           organizationIds: [],
           selectedPastorIds: [],
+          selectedAuthorIds: [],
           authorRole: 'all',
         })),
       });
@@ -599,6 +631,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
           clear: () => setApplied(prev => ({
             ...prev,
             organizationIds: prev.organizationIds.filter(x => x !== id),
+            selectedAuthorIds: [],
           })),
         });
       }
@@ -611,14 +644,26 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
         clear: () => setApplied(prev => ({
           ...prev,
           selectedPastorIds: prev.selectedPastorIds.filter(x => x !== id),
+          selectedAuthorIds: [],
         })),
       });
     }
     if (tab === 'shared' && applied.authorRole !== 'all') {
       chips.push({
         key: 'authorRole',
-        label: applied.authorRole === 'member' ? '성도' : '교역자',
-        clear: () => setApplied(prev => ({ ...prev, authorRole: 'all' })),
+        label: applied.authorRole === 'member' ? '성도 작성' : '교역자 작성',
+        clear: () => setApplied(prev => ({ ...prev, authorRole: 'all', selectedAuthorIds: [] })),
+      });
+    }
+    for (const id of applied.selectedAuthorIds) {
+      const label = resolveGraceNoteAuthorDisplay({ userId: id }).label;
+      chips.push({
+        key: `authorId:${id}`,
+        label,
+        clear: () => setApplied(prev => ({
+          ...prev,
+          selectedAuthorIds: prev.selectedAuthorIds.filter(x => x !== id),
+        })),
       });
     }
     if (applied.authorQuery.trim()) {
@@ -724,10 +769,14 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
 
     if (applied.shareType === 'pastor_share') {
       return {
-        title: '교역자에게 직접 공유받은 기록이 없습니다.',
+        title: isAdminUser
+          ? '교역자에게 직접 공유된 기록이 없습니다.'
+          : isPastorUser
+            ? '나에게 직접 공유된 기록이 없습니다.'
+            : '교역자에게 직접 공유받은 기록이 없습니다.',
         desc: isMemberUser
-          ? '담당 교역자가 직접 공유하면 이곳에 나타납니다.'
-          : '성도·교역자가 교역자와 공유한 기록이 이곳에 나타납니다.',
+          ? '성도 모드에서는 다른 사람의 교역자 직접 공유 기록을 보지 않습니다.'
+          : '성도·교역자가 교역자에게 직접 공유한 기록이 이곳에 나타납니다.',
       };
     }
 
@@ -830,7 +879,11 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
             user={user}
             mode={orgTreeMode}
             selectedOrganizationIds={draft.organizationIds}
-            onChange={ids => setDraft(prev => ({ ...prev, organizationIds: ids }))}
+            onChange={ids => setDraft(prev => ({
+              ...prev,
+              organizationIds: ids,
+              selectedAuthorIds: [],
+            }))}
             defaultScope={draftFlags.orgTreeDefaultScope}
             sectionTitle={draftFlags.orgTreeSectionTitle}
           />
@@ -840,8 +893,13 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
           <PastorOrgFilterSelector
             groups={draftPastorFilterData.groups}
             selectedPastorIds={draft.selectedPastorIds}
-            onChange={ids => setDraft(prev => ({ ...prev, selectedPastorIds: ids }))}
+            onChange={ids => setDraft(prev => ({
+              ...prev,
+              selectedPastorIds: ids,
+              selectedAuthorIds: [],
+            }))}
             sectionTitle="공유받은 교역자"
+            sectionDescription="성도 또는 다른 교역자가 직접 공유 대상으로 선택한 교역자를 선택합니다."
           />
         )}
 
@@ -849,11 +907,18 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
           <>
             <SharedContentAuthorRoleFilterSection
               value={draft.authorRole}
-              onChange={id => setDraft(prev => ({ ...prev, authorRole: id }))}
+              onChange={id => setDraft(prev => ({
+                ...prev,
+                authorRole: id === 'super_admin' ? 'pastor' : id,
+                selectedAuthorIds: [],
+              }))}
+              description={authorRoleHint}
             />
-            <SharedContentAuthorQueryField
-              value={draft.authorQuery}
-              onChange={q => setDraft(prev => ({ ...prev, authorQuery: q }))}
+            <SharedContentAuthorSelector
+              authors={draftAuthorPool}
+              selectedIds={draft.selectedAuthorIds}
+              onChange={ids => setDraft(prev => ({ ...prev, selectedAuthorIds: ids }))}
+              roleFilter={draft.authorRole}
             />
           </>
         )}
@@ -872,7 +937,14 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
 
   const pageDescription = isMineMode
     ? '내가 작성한 기록을 확인합니다.'
-    : '나에게 또는 내 교구·부서에 공유된 기록을 확인합니다.';
+    : buildGraceSharedListDescription({
+        user,
+        applied,
+        isAdmin: isAdminUser,
+        isPastor: isPastorUser,
+        isMember: isMemberUser,
+        pastorLookup: pastorLookupFlat,
+      });
 
   const collectionTabs = (
     <div

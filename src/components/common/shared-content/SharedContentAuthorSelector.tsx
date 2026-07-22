@@ -33,7 +33,8 @@ export function SharedContentAuthorSelector({
     if (roleFilter === 'member') {
       list = list.filter(a => a.role === 'member');
     } else if (roleFilter === 'pastor') {
-      list = list.filter(a => a.role === 'pastor');
+      // 최고관리자 작성 기록도 교역자 계열로 포함
+      list = list.filter(a => a.role === 'pastor' || a.role === 'admin');
     } else if (roleFilter === 'super_admin') {
       list = list.filter(a => a.role === 'admin');
     }
@@ -96,11 +97,15 @@ export function SharedContentAuthorSelector({
                       {roleBadge(author.role)}
                     </span>
                   </span>
-                  {(author.positionLabel || author.orgLabel) && (
-                    <span className="block text-[12px] text-gray-500 mt-0.5">
-                      {[author.positionLabel, author.orgLabel].filter(Boolean).join(' · ')}
+                  {author.orgLabel ? (
+                    <span className="block text-[12px] text-gray-500 mt-0.5 leading-snug line-clamp-2">
+                      {author.orgLabel}
                     </span>
-                  )}
+                  ) : author.positionLabel ? (
+                    <span className="block text-[12px] text-gray-500 mt-0.5">
+                      {author.positionLabel}
+                    </span>
+                  ) : null}
                 </span>
               </label>
             );

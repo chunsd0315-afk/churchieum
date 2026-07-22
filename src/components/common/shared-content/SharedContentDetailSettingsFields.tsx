@@ -11,7 +11,7 @@ const VISIBILITY_OPTIONS: { id: VisibilityFilter; label: string }[] = [
 ];
 
 const AUTHOR_ROLE_OPTIONS = [
-  { id: 'all' as const, label: '전체' },
+  { id: 'all' as const, label: '전체 작성자' },
   { id: 'member' as const, label: '성도' },
   { id: 'pastor' as const, label: '교역자' },
 ];
@@ -64,10 +64,12 @@ export function SharedContentAuthorRoleFilterSection({
   value,
   onChange,
   includeSuperAdmin = false,
+  description,
 }: {
   value: 'all' | 'member' | 'pastor' | 'super_admin';
   onChange: (next: 'all' | 'member' | 'pastor' | 'super_admin') => void;
   includeSuperAdmin?: boolean;
+  description?: string;
 }) {
   const options = includeSuperAdmin
     ? [
@@ -77,13 +79,18 @@ export function SharedContentAuthorRoleFilterSection({
     : AUTHOR_ROLE_OPTIONS;
 
   return (
-    <SharedContentSegmentButtons
-      title="작성자 구분"
-      options={options}
-      value={value}
-      onChange={onChange}
-      layout="wrap"
-    />
+    <div>
+      <SharedContentSegmentButtons
+        title="작성자 구분"
+        options={options}
+        value={value}
+        onChange={onChange}
+        layout="wrap"
+      />
+      {description ? (
+        <p className="text-[12px] text-gray-500 mt-2 leading-snug">{description}</p>
+      ) : null}
+    </div>
   );
 }
 

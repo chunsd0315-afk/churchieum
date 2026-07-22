@@ -12,8 +12,8 @@ export type VisibilityFilter = VisibilityType | 'all';
 
 export const SHARE_TYPE_FILTER_LABELS: Record<ShareTypeFilter, string> = {
   all: '전체',
-  pastor_share: '교역자 공유',
-  organization_share: '교구/부서 공유',
+  pastor_share: '교역자에게 공유한 기록',
+  organization_share: '교구·부서에 공유한 기록',
 };
 
 /** 레거시 저장값 포함 — 읽기 호환용 */

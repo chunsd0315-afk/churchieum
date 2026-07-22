@@ -9,6 +9,7 @@ export type PastorOrgFilterSelectorProps = {
   onChange: (pastorIds: string[]) => void;
   searchable?: boolean;
   sectionTitle?: string;
+  sectionDescription?: string;
   className?: string;
   /** [] = 전체 교역자 */
   emptyMeansAll?: boolean;
@@ -24,6 +25,7 @@ export function PastorOrgFilterSelector({
   onChange,
   searchable = true,
   sectionTitle = '교역자 선택',
+  sectionDescription,
   className = '',
   emptyMeansAll = true,
 }: PastorOrgFilterSelectorProps) {
@@ -89,7 +91,7 @@ export function PastorOrgFilterSelector({
 
   return (
     <div className={className}>
-      <div className="flex items-center justify-between mb-2 gap-2">
+      <div className="flex items-center justify-between mb-1 gap-2">
         <p className="text-xs font-bold text-gray-500">{sectionTitle}</p>
         {!isAll && (
           <span className="text-[11px] font-semibold text-primary-600">
@@ -97,6 +99,9 @@ export function PastorOrgFilterSelector({
           </span>
         )}
       </div>
+      {sectionDescription ? (
+        <p className="text-[12px] text-gray-500 mb-2 leading-snug">{sectionDescription}</p>
+      ) : null}
 
       {searchable && flat.length >= 6 && (
         <div className="relative mb-2">
@@ -104,7 +109,7 @@ export function PastorOrgFilterSelector({
           <input
             value={q}
             onChange={e => setQ(e.target.value)}
-            placeholder="교역자 조직 검색"
+            placeholder="교역자 이름 또는 조직을 검색하세요."
             className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white focus:border-primary-400 focus:outline-none"
           />
         </div>
@@ -148,21 +153,28 @@ export function PastorOrgFilterSelector({
                 {open &&
                   g.pastors.map(p => {
                     const checked = !isAll && selectedPastorIds.includes(p.id);
+                    const orgLine = (p.orgLabels ?? []).filter(Boolean).join(' · ')
+                      || (g.organizationId !== '_all' ? g.organizationName : '');
                     return (
                       <label
                         key={p.id}
-                        className="flex items-center gap-3 pl-10 pr-4 py-2.5 min-h-[48px] touch-target cursor-pointer hover:bg-gray-50"
+                        className="flex items-start gap-3 pl-10 pr-4 py-2.5 min-h-[48px] touch-target cursor-pointer hover:bg-gray-50"
                       >
                         <input
                           type="checkbox"
                           checked={checked}
                           onChange={() => toggle(p.id)}
-                          className="w-5 h-5 rounded border-gray-300 text-primary-600 shrink-0"
+                          className="mt-0.5 w-5 h-5 rounded border-gray-300 text-primary-600 shrink-0"
                         />
                         <span className="min-w-0">
                           <span className="block text-[14px] font-semibold text-gray-800">
                             {p.name} {p.position}
                           </span>
+                          {orgLine ? (
+                            <span className="block text-[12px] text-gray-500 mt-0.5 leading-snug">
+                              {orgLine}
+                            </span>
+                          ) : null}
                         </span>
                       </label>
                     );
