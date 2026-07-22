@@ -3,7 +3,7 @@
  * 성경통독·설교·기도 — 동일 필드 순서, 관련 기록 영역만 유형별 분기
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { BookOpen, Mic, HandHeart } from 'lucide-react';
 import {
   getGraceNote, createGraceNote, updateGraceNote,
@@ -51,6 +51,8 @@ export type GraceNoteEditorProps = {
   readingCtx?: ReadingEditorCtx | null;
   sermonCtx?: SermonEditorCtx | null;
   onNeedReadingPick?: () => void;
+  /** 수정 중 변경사항이 있을 때 뒤로가기 확인 */
+  confirmLeaveWhenDirty?: boolean;
 };
 
 const TYPE_OPTIONS: {
@@ -124,6 +126,7 @@ export function GraceNoteEditor({
   readingCtx = null,
   sermonCtx = null,
   onNeedReadingPick,
+  confirmLeaveWhenDirty = false,
 }: GraceNoteEditorProps) {
   const { user } = useAuth();
   const toast = useToast();
@@ -136,6 +139,7 @@ export function GraceNoteEditor({
   const [graceContent, setGraceContent] = useState(existing?.graceContent ?? '');
   const [share, setShare] = useState<GraceNoteShareState>(() => defaultShareState(existing ?? undefined));
   const [saved, setSaved] = useState(false);
+  const [leaveConfirm, setLeaveConfirm] = useState(false);
 
   const [readingRef, setReadingRef] = useState(
     existing?.bibleReference ?? readingCtx?.readingReferences ?? '',
@@ -154,6 +158,43 @@ export function GraceNoteEditor({
   const [editBibleRef, setEditBibleRef] = useState(
     existing?.bibleReference ?? sermonCtx?.bibleReference ?? '',
   );
+
+  const initialSnapshot = useRef({
+    graceTitle: existing?.graceTitle ?? '',
+    graceContent: existing?.graceContent ?? '',
+    share: JSON.stringify(defaultShareState(existing ?? undefined)),
+    readingRef: existing?.bibleReference ?? readingCtx?.readingReferences ?? '',
+    editSermonTitle: existing?.sermonTitle ?? sermonCtx?.sermonTitle ?? '',
+    editPreacher: existing?.sermonPreacher ?? sermonCtx?.sermonPreacher ?? '',
+    editSermonDate: existing?.sermonDate ?? sermonCtx?.sermonDate ?? new Date().toISOString().slice(0, 10),
+    editBibleRef: existing?.bibleReference ?? sermonCtx?.bibleReference ?? '',
+  });
+
+  const isDirty = useMemo(() => {
+    if (!confirmLeaveWhenDirty || !editId || saved) return false;
+    const snap = initialSnapshot.current;
+    return (
+      graceTitle !== snap.graceTitle
+      || graceContent !== snap.graceContent
+      || JSON.stringify(share) !== snap.share
+      || readingRef !== snap.readingRef
+      || editSermonTitle !== snap.editSermonTitle
+      || editPreacher !== snap.editPreacher
+      || editSermonDate !== snap.editSermonDate
+      || editBibleRef !== snap.editBibleRef
+    );
+  }, [
+    confirmLeaveWhenDirty, editId, saved, graceTitle, graceContent, share,
+    readingRef, editSermonTitle, editPreacher, editSermonDate, editBibleRef,
+  ]);
+
+  const handleBack = () => {
+    if (isDirty) {
+      setLeaveConfirm(true);
+      return;
+    }
+    onBack();
+  };
 
   useEffect(() => {
     if (initialType && !editId) setNoteType(initialType);
@@ -282,10 +323,37 @@ export function GraceNoteEditor({
     <ContentEditorLayout
       title={editId ? meta.editTitle : meta.title}
       description={meta.description}
-      onBack={onBack}
+      onBack={handleBack}
       saveButton={saveBtn}
       mobileHeaderVariant="subpage"
     >
+      {leaveConfirm && (
+        <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl">
+            <h3 className="font-bold text-gray-900 mb-2">수정 중인 내용이 저장되지 않았습니다.</h3>
+            <p className="text-sm text-gray-500 mb-5">나가시겠습니까?</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setLeaveConfirm(false)}
+                className="flex-1 py-3 bg-primary-500 text-white rounded-2xl text-sm font-bold touch-target"
+              >
+                계속 수정
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLeaveConfirm(false);
+                  onBack();
+                }}
+                className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-2xl text-sm font-bold touch-target"
+              >
+                나가기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <ContentFormCard className="space-y-5">
         {/* 기록유형 — 수정 시에만 읽기 전용 표시 */}
         {editId && (

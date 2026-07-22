@@ -1,6 +1,6 @@
 ﻿/**
  * 은혜와 기도 페이지
- * 메뉴 진입 시 바로 내 기록 목록(collection / mine)을 표시합니다.
+ * 목록 → 상세 → 수정 → 상세 → 목록 흐름을 유지합니다.
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -34,19 +34,44 @@ type SubView =
   | 'detail'
   | 'timeline';
 
-const LIST_VIEWS: SubView[] = ['all-list'];
-const HISTORY_DETAIL = 'churchieum-grace-detail';
+const HISTORY_KEY = 'churchieum-grace-nav';
+
+type GraceHistoryState = {
+  [HISTORY_KEY]: true;
+  layer: 'detail' | 'edit';
+  id: string;
+};
 
 function formatDate(iso: string) {
   return iso.slice(0, 10).replace(/-/g, '.');
 }
 
+function readGraceHistory(): GraceHistoryState | null {
+  const state = window.history.state as GraceHistoryState | null;
+  if (state?.[HISTORY_KEY] && (state.layer === 'detail' || state.layer === 'edit') && state.id) {
+    return state;
+  }
+  return null;
+}
+
+function EditTargetMissing({ onGoList }: { onGoList: () => void }) {
+  useEffect(() => {
+    onGoList();
+  }, [onGoList]);
+  return (
+    <div className="p-8 text-center">
+      <p className="text-sm text-gray-600">기록을 찾을 수 없어 목록으로 이동합니다.</p>
+    </div>
+  );
+}
+
 export default function GraceNotesPage() {
   const { user } = useAuth();
-  /** 메뉴 진입 기본: 내 기록 목록 */
   const [view, setView] = useState<SubView>('all-list');
   const [, setRefresh] = useState(0);
   const [listMineReset, setListMineReset] = useState(0);
+  const listScrollRef = useRef(0);
+  const pendingSaveDetailIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     ensureGraceNoteDemoData();
@@ -55,10 +80,6 @@ export default function GraceNotesPage() {
   }, []);
 
   const [detailId, setDetailId] = useState<string | null>(null);
-  const [backView, setBackView] = useState<SubView>('all-list');
-  const backViewRef = useRef<SubView>('all-list');
-  backViewRef.current = backView;
-
   const [editId, setEditId] = useState<string | undefined>(undefined);
   const [writeType, setWriteType] = useState<GraceNoteType | undefined>(undefined);
   const [lockWriteType, setLockWriteType] = useState(false);
@@ -70,63 +91,176 @@ export default function GraceNotesPage() {
   const todayStr = new Date().toISOString().slice(0, 10);
   const todayNotes = allNotes.filter(n => n.createdAt.slice(0, 10) === todayStr);
 
-  const closeDetail = useCallback(() => {
-    setView(backViewRef.current);
+  const captureListScroll = () => {
+    listScrollRef.current = window.scrollY || document.documentElement.scrollTop || 0;
+  };
+
+  const restoreListScroll = useCallback(() => {
+    const top = listScrollRef.current;
+    requestAnimationFrame(() => {
+      window.scrollTo({ top, behavior: 'auto' });
+    });
   }, []);
 
-  const navToDetail = (id: string, from: SubView) => {
+  const clearWriteState = () => {
+    setEditId(undefined);
+    setReadingCtx(null);
+    setSermonCtx(null);
+    setWriteType(undefined);
+    setLockWriteType(false);
+  };
+
+  const goToCollection = useCallback(() => {
+    clearWriteState();
+    setDetailId(null);
+    setView('all-list');
+    restoreListScroll();
+  }, [restoreListScroll]);
+
+  const goToDetail = useCallback((id: string, opts?: { pushHistory?: boolean; replaceHistory?: boolean }) => {
+    clearWriteState();
     setDetailId(id);
-    setBackView(from);
     setView('detail');
-    window.history.pushState({ [HISTORY_DETAIL]: true, from }, '');
+    const hist: GraceHistoryState = { [HISTORY_KEY]: true, layer: 'detail', id };
+    if (opts?.replaceHistory) {
+      window.history.replaceState(hist, '');
+    } else if (opts?.pushHistory) {
+      window.history.pushState(hist, '');
+    }
+  }, []);
+
+  const navToDetail = (id: string) => {
+    captureListScroll();
+    goToDetail(id, { pushHistory: true });
   };
 
   const handleDetailBack = useCallback(() => {
-    const state = window.history.state as Record<string, unknown> | null;
-    if (state?.[HISTORY_DETAIL]) {
+    const hist = readGraceHistory();
+    if (hist?.layer === 'detail') {
       window.history.back();
       return;
     }
-    closeDetail();
-  }, [closeDetail]);
+    goToCollection();
+  }, [goToCollection]);
+
+  const openEdit = (note: GraceNote, opts?: { fromDetail?: boolean }) => {
+    if (!opts?.fromDetail) {
+      captureListScroll();
+      setDetailId(note.id);
+      // 목록에서 바로 수정해도 뒤로가기는 상세로 — detail 이력을 먼저 쌓음
+      window.history.pushState(
+        { [HISTORY_KEY]: true, layer: 'detail', id: note.id } satisfies GraceHistoryState,
+        '',
+      );
+    }
+    setEditId(note.id);
+    setWriteType(note.type);
+    setLockWriteType(true);
+    setReadingCtx(null);
+    setSermonCtx(null);
+    setView('write');
+    window.history.pushState(
+      { [HISTORY_KEY]: true, layer: 'edit', id: note.id } satisfies GraceHistoryState,
+      '',
+    );
+  };
+
+  const handleEditBack = useCallback(() => {
+    const id = editId ?? detailId;
+    const hist = readGraceHistory();
+    if (hist?.layer === 'edit') {
+      window.history.back();
+      return;
+    }
+    if (id) {
+      goToDetail(id);
+      return;
+    }
+    goToCollection();
+  }, [editId, detailId, goToDetail, goToCollection]);
+
+  const handleEditSave = useCallback((savedId: string) => {
+    clearWriteState();
+    setListMineReset(n => n + 1);
+    const hist = readGraceHistory();
+    if (hist?.layer === 'edit') {
+      // edit 이력 제거 후 상세 이력으로 — 다음 뒤로가기는 목록
+      pendingSaveDetailIdRef.current = savedId;
+      window.history.back();
+      return;
+    }
+    setDetailId(savedId);
+    setView('detail');
+  }, []);
+
+  const handleDetailDelete = useCallback(() => {
+    const hist = readGraceHistory();
+    if (hist?.layer === 'detail' || hist?.layer === 'edit') {
+      window.history.replaceState({}, '');
+    }
+    goToCollection();
+    setRefresh(n => n + 1);
+  }, [goToCollection]);
 
   useEffect(() => {
     const onPopState = () => {
-      setView(prev => (prev === 'detail' ? backViewRef.current : prev));
+      const pendingSaveId = pendingSaveDetailIdRef.current;
+      if (pendingSaveId) {
+        pendingSaveDetailIdRef.current = null;
+        clearWriteState();
+        setDetailId(pendingSaveId);
+        setView('detail');
+        window.history.replaceState(
+          { [HISTORY_KEY]: true, layer: 'detail', id: pendingSaveId } satisfies GraceHistoryState,
+          '',
+        );
+        return;
+      }
+
+      const hist = readGraceHistory();
+      if (hist?.layer === 'edit') {
+        setDetailId(hist.id);
+        setEditId(hist.id);
+        const note = getAllGraceNotes().find(n => n.id === hist.id);
+        setWriteType(note?.type);
+        setLockWriteType(true);
+        setView('write');
+        return;
+      }
+      if (hist?.layer === 'detail') {
+        clearWriteState();
+        setDetailId(hist.id);
+        setView('detail');
+        return;
+      }
+      clearWriteState();
+      setDetailId(null);
+      setView(prev => (prev === 'detail' || prev === 'write' ? 'all-list' : prev));
+      restoreListScroll();
     };
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
-  }, []);
+  }, [restoreListScroll]);
 
   const openWrite = (opts?: {
     type?: GraceNoteType;
     lockType?: boolean;
-    editId?: string;
     reading?: ReadingEditorCtx | null;
     sermon?: SermonEditorCtx | null;
-    from?: SubView;
     skipPicker?: boolean;
   }) => {
-    setBackView(opts?.from ?? 'all-list');
-    setEditId(opts?.editId);
+    // 신규 작성 — 상세와 무관, 목록으로 복귀
+    setDetailId(null);
+    setEditId(undefined);
     setWriteType(opts?.type);
     setLockWriteType(Boolean(opts?.lockType ?? Boolean(opts?.type)));
     setReadingCtx(opts?.reading ?? null);
     setSermonCtx(opts?.sermon ?? null);
-    if (opts?.editId || opts?.skipPicker || opts?.type || opts?.reading || opts?.sermon) {
+    if (opts?.skipPicker || opts?.type || opts?.reading || opts?.sermon) {
       setView('write');
     } else {
       setView('write-pick');
     }
-  };
-
-  const navToEdit = (note: GraceNote, from: SubView) => {
-    openWrite({
-      editId: note.id,
-      type: note.type,
-      from,
-      skipPicker: true,
-    });
   };
 
   const startReadingPick = (from: SubView) => {
@@ -158,34 +292,25 @@ export default function GraceNotesPage() {
       <GraceNoteWritePicker
         onBack={() => setView('all-list')}
         onSelectReading={() => startReadingPick('write-pick')}
-        onSelectSermon={() => openWrite({ type: 'sermon', lockType: true, from: backView, skipPicker: true })}
-        onSelectPrayer={() => openWrite({ type: 'prayer', lockType: true, from: backView, skipPicker: true })}
+        onSelectSermon={() => openWrite({ type: 'sermon', lockType: true, skipPicker: true })}
+        onSelectPrayer={() => openWrite({ type: 'prayer', lockType: true, skipPicker: true })}
       />
     );
   }
 
-  if (view === 'write') {
-    const writeBackTarget = editId
-      ? (backView === 'detail' ? 'detail' : 'all-list')
-      : 'write-pick';
+  // 신규 작성 (editId 없음) — 목록 언마운트 허용
+  if (view === 'write' && !editId) {
     return (
       <GraceNoteEditor
         onSave={() => {
-          setEditId(undefined);
-          setReadingCtx(null);
-          setSermonCtx(null);
-          setWriteType(undefined);
+          clearWriteState();
           setView('all-list');
           setListMineReset(n => n + 1);
         }}
         onBack={() => {
-          setEditId(undefined);
-          setReadingCtx(null);
-          setSermonCtx(null);
-          setWriteType(undefined);
-          setView(writeBackTarget);
+          clearWriteState();
+          setView('write-pick');
         }}
-        editId={editId}
         initialType={writeType}
         lockType={lockWriteType}
         readingCtx={readingCtx}
@@ -195,38 +320,71 @@ export default function GraceNotesPage() {
     );
   }
 
-  const showList = LIST_VIEWS.includes(view) || (view === 'detail' && LIST_VIEWS.includes(backView));
+  const showList =
+    view === 'all-list' || view === 'detail' || (view === 'write' && Boolean(editId));
   const showDetail = view === 'detail' && Boolean(detailId);
+  const showEdit = view === 'write' && Boolean(editId);
 
-  if (showList || showDetail) {
+  if (showList || showDetail || showEdit) {
+    const detailExists = detailId ? Boolean(getAllGraceNotes().find(n => n.id === detailId)) : false;
+    const editExists = editId ? Boolean(getAllGraceNotes().find(n => n.id === editId)) : false;
+
     return (
       <>
         {showList && (
           <div
-            style={{ display: view === 'detail' ? 'none' : undefined }}
-            aria-hidden={view === 'detail'}
+            style={{ display: view === 'all-list' ? undefined : 'none' }}
+            aria-hidden={view !== 'all-list'}
           >
             <GraceNoteListView
               isRootPage
               onBack={() => setView('all-list')}
               resetToMineSignal={listMineReset}
-              onWrite={() => openWrite({ from: 'all-list' })}
-              onDetail={id => navToDetail(id, 'all-list')}
-              onEdit={note => navToEdit(note, 'all-list')}
+              onWrite={() => openWrite()}
+              onDetail={id => navToDetail(id)}
+              onEdit={note => openEdit(note, { fromDetail: false })}
             />
           </div>
         )}
 
         {showDetail && detailId && (
-          <GraceNoteDetailView
-            noteId={detailId}
-            onBack={handleDetailBack}
-            onEdit={() => {
-              const note = getAllGraceNotes().find(n => n.id === detailId);
-              if (note) navToEdit(note, 'detail');
-            }}
-            onDelete={handleDetailBack}
-          />
+          detailExists ? (
+            <GraceNoteDetailView
+              noteId={detailId}
+              onBack={handleDetailBack}
+              onEdit={() => {
+                const note = getAllGraceNotes().find(n => n.id === detailId);
+                if (note) openEdit(note, { fromDetail: true });
+              }}
+              onDelete={handleDetailDelete}
+            />
+          ) : (
+            <div className="p-8 text-center">
+              <p className="text-sm text-gray-600 mb-4">기록을 찾을 수 없습니다.</p>
+              <button
+                type="button"
+                onClick={goToCollection}
+                className="text-primary-600 font-semibold text-sm touch-target"
+              >
+                목록으로 돌아가기
+              </button>
+            </div>
+          )
+        )}
+
+        {showEdit && editId && (
+          editExists ? (
+            <GraceNoteEditor
+              onSave={handleEditSave}
+              onBack={handleEditBack}
+              editId={editId}
+              initialType={writeType}
+              lockType
+              confirmLeaveWhenDirty
+            />
+          ) : (
+            <EditTargetMissing onGoList={goToCollection} />
+          )
         )}
       </>
     );
@@ -260,12 +418,12 @@ export default function GraceNotesPage() {
                     key={note.id}
                     note={note}
                     shareBadge={getGraceListBadge(note, user, isOwn ? 'mine' : 'shared')}
-                    onClick={() => navToDetail(note.id, 'today')}
+                    onClick={() => navToDetail(note.id)}
                     menuItems={isOwn ? [
                       {
                         label: '수정',
                         icon: <Edit3 style={{ width: '15px', height: '15px' }} />,
-                        onClick: () => navToEdit(note, 'today'),
+                        onClick: () => openEdit(note, { fromDetail: false }),
                       },
                       {
                         label: '삭제',
