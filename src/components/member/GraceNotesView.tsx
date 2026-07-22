@@ -7,7 +7,7 @@
  * 작성 화면은 GraceNoteEditor.tsx 로 통합됨
  */
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Heart, BookOpen, Edit3, Trash2, Copy,
   ChevronDown, Sparkles,
@@ -256,6 +256,105 @@ function deriveGraceListShowFlags(
   };
 }
 
+/** 탭별 상세설정·검색 적용 (페이지네이션 전 전체 결과) */
+function filterGraceNotesForTab(
+  tabNotes: GraceNote[],
+  tab: GraceCollectTab,
+  applied: GraceListFilterState,
+  search: string,
+  opts: {
+    planFilter: string;
+    isAdminUser: boolean;
+    isPastorUser: boolean;
+    isMemberUser: boolean;
+    user: { id?: string } | null;
+  },
+): GraceNote[] {
+  const {
+    typeFilter,
+    visibilityFilter,
+    shareType,
+    organizationIds,
+    selectedPastorIds,
+    authorRole,
+    authorQuery,
+  } = applied;
+  const flags = deriveGraceListShowFlags(
+    applied,
+    tab,
+    opts.isAdminUser,
+    opts.isPastorUser,
+    opts.isMemberUser,
+  );
+  const showShareTypeFilter = tab === 'shared';
+
+  let list = tabNotes.filter(n => {
+    if (tab === 'mine') {
+      if (typeFilter && n.type !== typeFilter) return false;
+      if (visibilityFilter !== 'all' && migrateVisibility(n.visibility) !== visibilityFilter) {
+        return false;
+      }
+      if (visibilityFilter === 'pastor_share' && selectedPastorIds.length > 0) {
+        if (!matchesSharedPastorFilter(n, selectedPastorIds)) return false;
+      }
+      if (visibilityFilter === 'organization_share' && organizationIds.length > 0) {
+        if (!matchesOrganizationFilterForRecord(n, organizationIds)) return false;
+      }
+    }
+
+    if (tab === 'shared') {
+      if (typeFilter && n.type !== typeFilter) return false;
+      if (showShareTypeFilter && !matchesShareTypeFilter(n, shareType)) return false;
+
+      if (flags.showOrgTree && organizationIds.length > 0 && shareType === 'organization_share') {
+        if (!matchesOrganizationFilterForRecord(n, organizationIds)) return false;
+      }
+
+      if (flags.showPastorPicker && selectedPastorIds.length > 0) {
+        if (!matchesSharedPastorFilter(n, selectedPastorIds)) return false;
+      }
+
+      if ((opts.isPastorUser || opts.isAdminUser) && authorRole !== 'all') {
+        const isPastoral = isPastoralGraceAuthorRole(n.authorRole);
+        if (authorRole === 'member' && isPastoral) return false;
+        if (authorRole === 'pastor' && !isPastoral) return false;
+      }
+
+      if ((opts.isPastorUser || opts.isAdminUser) && authorQuery.trim()) {
+        const authorLabel = resolveGraceNoteAuthorDisplay(n).label.toLowerCase();
+        if (!authorLabel.includes(authorQuery.trim().toLowerCase())) {
+          return false;
+        }
+      }
+    }
+
+    if (opts.planFilter && n.planId !== opts.planFilter) return false;
+    if (!isRecordWithinPeriod(n.createdAt, applied.period)) return false;
+
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      const authorLabel = resolveGraceNoteAuthorDisplay(n).label;
+      const searchable = [
+        authorLabel, n.graceTitle, n.planName, n.sermonTitle,
+        n.sermonPreacher, n.bibleReference, n.graceContent, n.memorableVerse,
+      ].filter(Boolean).join(' ').toLowerCase();
+      if (!searchable.includes(q)) return false;
+    }
+    return true;
+  });
+
+  return sortGraceNotesForMemberView(list, opts.user, 'newest');
+}
+
+function cloneFilter(f: GraceListFilterState): GraceListFilterState {
+  return {
+    ...f,
+    organizationIds: [...f.organizationIds],
+    selectedPastorIds: [...f.selectedPastorIds],
+    period: { ...f.period },
+  };
+}
+
 export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPlanId, initialType, isRootPage, resetToMineSignal }: {
   onBack: () => void;
   onWrite?: () => void;
@@ -272,32 +371,58 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
   const { isMobile } = useBreakpoint();
   const [tab, setTab] = useState<GraceCollectTab>('mine');
   const [collectionView, setCollectionView] = useState<'list' | 'filter'>('list');
-  const [applied, setApplied] = useState<GraceListFilterState>({
-    ...EMPTY_FILTER,
-    typeFilter: initialType ?? '',
+  const [appliedByTab, setAppliedByTab] = useState<Record<GraceCollectTab, GraceListFilterState>>(() => ({
+    mine: cloneFilter({ ...EMPTY_FILTER, typeFilter: initialType ?? '' }),
+    shared: cloneFilter(EMPTY_FILTER),
+  }));
+  const [searchByTab, setSearchByTab] = useState<Record<GraceCollectTab, string>>({
+    mine: '',
+    shared: '',
   });
-  const [draft, setDraft] = useState<GraceListFilterState>({
-    ...EMPTY_FILTER,
-    typeFilter: initialType ?? '',
-  });
-  const [search, setSearch] = useState('');
+  const [draft, setDraft] = useState<GraceListFilterState>(() =>
+    cloneFilter({ ...EMPTY_FILTER, typeFilter: initialType ?? '' }),
+  );
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [notes, setNotes] = useState(() => getAllGraceNotes());
   const [periodError, setPeriodError] = useState<string | null>(null);
-  /** 탭별 기간 조건 유지 */
-  const periodByTabRef = useRef<{ mine: PeriodFilter; shared: PeriodFilter }>({
-    mine: { ...EMPTY_PERIOD_FILTER },
-    shared: { ...EMPTY_PERIOD_FILTER },
-  });
+
+  const applied = appliedByTab[tab];
+  const search = searchByTab[tab];
+
+  const setApplied = useCallback((
+    updater: GraceListFilterState | ((prev: GraceListFilterState) => GraceListFilterState),
+  ) => {
+    setAppliedByTab(prev => {
+      const current = prev[tab];
+      const next = typeof updater === 'function' ? updater(current) : updater;
+      return { ...prev, [tab]: next };
+    });
+  }, [tab]);
+
+  const setSearch = useCallback((value: string) => {
+    setSearchByTab(prev => ({ ...prev, [tab]: value }));
+  }, [tab]);
 
   const planFilter = initialPlanId ?? '';
   const isAdminUser = isSuperAdmin(user);
   const isPastorUser = user?.role === 'pastor' && !isAdminUser;
   const isMemberUser = !isAdminUser && !isPastorUser;
 
-  const tabNotes = useMemo(
-    () => getGraceNotesForCollectTab(notes, user, tab),
-    [notes, user, tab],
+  const filterOpts = useMemo(() => ({
+    planFilter,
+    isAdminUser,
+    isPastorUser,
+    isMemberUser,
+    user,
+  }), [planFilter, isAdminUser, isPastorUser, isMemberUser, user]);
+
+  const mineNotes = useMemo(
+    () => getGraceNotesForCollectTab(notes, user, 'mine'),
+    [notes, user],
+  );
+  const sharedNotes = useMemo(
+    () => getGraceNotesForCollectTab(notes, user, 'shared'),
+    [notes, user],
   );
 
   const showShareTypeFilter = tab === 'shared';
@@ -374,7 +499,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
   }, [draftFlags.showPastorPicker, draft.selectedPastorIds.length]);
 
   const openFilter = () => {
-    setDraft({ ...applied, period: { ...applied.period } });
+    setDraft(cloneFilter(applied));
     setPeriodError(null);
     setCollectionView('filter');
   };
@@ -386,9 +511,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
       return;
     }
     setPeriodError(null);
-    const next = { ...draft, period: { ...draft.period } };
-    periodByTabRef.current[tab] = { ...next.period };
-    setApplied(next);
+    setApplied(cloneFilter(draft));
     setCollectionView('list');
   };
 
@@ -411,80 +534,17 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
     }));
   };
 
-  const filtered = useMemo(() => {
-    const {
-      typeFilter,
-      visibilityFilter,
-      shareType,
-      organizationIds,
-      selectedPastorIds,
-      authorRole,
-      authorQuery,
-    } = applied;
-    const { showOrgTree, showPastorPicker } = appliedFlags;
-
-    let list = tabNotes.filter(n => {
-      if (tab === 'mine') {
-        if (typeFilter && n.type !== typeFilter) return false;
-        if (visibilityFilter !== 'all' && migrateVisibility(n.visibility) !== visibilityFilter) {
-          return false;
-        }
-
-        if (visibilityFilter === 'pastor_share' && selectedPastorIds.length > 0) {
-          if (!matchesSharedPastorFilter(n, selectedPastorIds)) return false;
-        }
-        if (visibilityFilter === 'organization_share' && organizationIds.length > 0) {
-          if (!matchesOrganizationFilterForRecord(n, organizationIds)) return false;
-        }
-      }
-
-      if (tab === 'shared') {
-        if (typeFilter && n.type !== typeFilter) return false;
-        if (showShareTypeFilter && !matchesShareTypeFilter(n, shareType)) return false;
-
-        if (showOrgTree && organizationIds.length > 0 && shareType === 'organization_share') {
-          if (!matchesOrganizationFilterForRecord(n, organizationIds)) return false;
-        }
-
-        if (showPastorPicker && selectedPastorIds.length > 0) {
-          if (!matchesSharedPastorFilter(n, selectedPastorIds)) return false;
-        }
-
-        if ((isPastorUser || isAdminUser) && authorRole !== 'all') {
-          const isPastoral = isPastoralGraceAuthorRole(n.authorRole);
-          if (authorRole === 'member' && isPastoral) return false;
-          if (authorRole === 'pastor' && !isPastoral) return false;
-        }
-
-        if ((isPastorUser || isAdminUser) && authorQuery.trim()) {
-          const authorLabel = resolveGraceNoteAuthorDisplay(n).label.toLowerCase();
-          if (!authorLabel.includes(authorQuery.trim().toLowerCase())) {
-            return false;
-          }
-        }
-      }
-
-      if (planFilter && n.planId !== planFilter) return false;
-
-      if (!isRecordWithinPeriod(n.createdAt, applied.period)) return false;
-
-      if (search.trim()) {
-        const q = search.toLowerCase();
-        const authorLabel = resolveGraceNoteAuthorDisplay(n).label;
-        const searchable = [
-          authorLabel, n.graceTitle, n.planName, n.sermonTitle,
-          n.sermonPreacher, n.bibleReference, n.graceContent, n.memorableVerse,
-        ].filter(Boolean).join(' ').toLowerCase();
-        if (!searchable.includes(q)) return false;
-      }
-      return true;
-    });
-    list = sortGraceNotesForMemberView(list, user, 'newest');
-    return list;
-  }, [
-    tabNotes, tab, applied, appliedFlags, planFilter, showShareTypeFilter,
-    isPastorUser, isAdminUser, search, user,
-  ]);
+  const filteredMine = useMemo(
+    () => filterGraceNotesForTab(mineNotes, 'mine', appliedByTab.mine, searchByTab.mine, filterOpts),
+    [mineNotes, appliedByTab.mine, searchByTab.mine, filterOpts],
+  );
+  const filteredShared = useMemo(
+    () => filterGraceNotesForTab(sharedNotes, 'shared', appliedByTab.shared, searchByTab.shared, filterOpts),
+    [sharedNotes, appliedByTab.shared, searchByTab.shared, filterOpts],
+  );
+  const filtered = tab === 'mine' ? filteredMine : filteredShared;
+  const mineTabCount = filteredMine.length;
+  const sharedTabCount = filteredShared.length;
 
   const activeChips = useMemo(() => {
     const chips: { key: string; label: string; clear: () => void }[] = [];
@@ -568,7 +628,6 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
         key: 'period',
         label: periodLabel,
         clear: () => {
-          periodByTabRef.current[tab] = { ...EMPTY_PERIOD_FILTER };
           setApplied(prev => ({
             ...prev,
             period: { ...EMPTY_PERIOD_FILTER },
@@ -577,50 +636,17 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
       });
     }
     return chips;
-  }, [tab, applied, appliedFlags, showShareTypeFilter, pastorLookupFlat, user, shareTypeChipVariant, hidePastorShareTypeOption]);
+  }, [tab, applied, appliedFlags, showShareTypeFilter, pastorLookupFlat, user, shareTypeChipVariant, hidePastorShareTypeOption, setApplied]);
 
   const resetAppliedFilters = () => {
-    periodByTabRef.current[tab] = { ...EMPTY_PERIOD_FILTER };
-    setApplied({ ...EMPTY_FILTER, typeFilter: '', period: { ...EMPTY_PERIOD_FILTER } });
+    setApplied(cloneFilter({ ...EMPTY_FILTER, typeFilter: '' }));
   };
 
   const isMineMode = tab === 'mine';
 
-  const mineTabCount = useMemo(
-    () => getGraceNotesForCollectTab(notes, user, 'mine').length,
-    [notes, user],
-  );
-  const sharedTabCount = useMemo(
-    () => getGraceNotesForCollectTab(notes, user, 'shared').length,
-    [notes, user],
-  );
-
   const switchCollectionMode = (mode: GraceCollectTab) => {
     if (mode === tab) return;
-    periodByTabRef.current[tab] = { ...applied.period };
-    const nextPeriod = { ...periodByTabRef.current[mode] };
-    if (mode === 'mine') {
-      setTab('mine');
-      setApplied(prev => ({
-        ...prev,
-        shareType: 'all',
-        organizationIds: [],
-        selectedPastorIds: [],
-        authorRole: 'all',
-        authorQuery: '',
-        period: nextPeriod,
-      }));
-    } else {
-      setTab('shared');
-      setApplied(prev => ({
-        ...prev,
-        visibilityFilter: 'all',
-        typeFilter: '',
-        selectedPastorIds: [],
-        organizationIds: [],
-        period: nextPeriod,
-      }));
-    }
+    setTab(mode);
   };
 
   const hasAppliedFilters =
@@ -864,7 +890,9 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
         <span className="hidden sm:inline">내 기록 보기</span>
         <span className="sm:hidden">내 기록</span>
         {' '}
-        <span className={isMineMode ? 'text-white/90' : 'text-gray-400'}>{mineTabCount}</span>
+        <span className={`tabular-nums min-w-[1.5ch] inline-block ${isMineMode ? 'text-white/90' : 'text-gray-400'}`}>
+          {mineTabCount}
+        </span>
       </button>
       <button
         type="button"
@@ -882,7 +910,9 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
         <span className="hidden sm:inline">공유받은 기록 보기</span>
         <span className="sm:hidden">공유받은 기록</span>
         {' '}
-        <span className={!isMineMode ? 'text-white/90' : 'text-gray-400'}>{sharedTabCount}</span>
+        <span className={`tabular-nums min-w-[1.5ch] inline-block ${!isMineMode ? 'text-white/90' : 'text-gray-400'}`}>
+          {sharedTabCount}
+        </span>
       </button>
     </div>
   );
@@ -892,15 +922,6 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
       <Plus className="w-5 h-5" /> 작성
     </button>
   ) : undefined;
-
-  const headerAction = isRootPage ? (
-    <div className="flex items-center gap-3">
-      <span className="text-sm text-gray-400 font-medium tabular-nums shrink-0">
-        {filtered.length}개
-      </span>
-      {writeBtn}
-    </div>
-  ) : writeBtn;
 
   const listBody = (
     <div
@@ -982,7 +1003,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
           <PageHeaderBar
             title={GRACE_MENU_LABEL}
             description={pageDescription}
-            action={headerAction}
+            action={writeBtn}
           />
           {/* 모바일: Layout 헤더는 고정 안내 — 탭별 안내 문구는 본문에 표시 */}
           <p className="md:hidden text-sm text-gray-500 mb-3 leading-relaxed">
@@ -998,11 +1019,6 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
           title={GRACE_MENU_LABEL}
           description={pageDescription}
           onBack={onBack}
-          saveButton={
-            <span className="text-xs text-gray-400 font-medium px-2 shrink-0">
-              {filtered.length}개
-            </span>
-          }
         >
           {listBody}
         </MobileFullScreenPage>
