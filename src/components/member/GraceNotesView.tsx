@@ -77,7 +77,8 @@ import {
   formatGraceNoteAuthorLine,
   resolveGraceNoteAuthorDisplay,
 } from '../../services/graceNoteAuthorDisplay';
-import { CommentAuthorMeta } from './CommentAuthorMeta';
+import { GracePrayerCommentItem } from './CommentAuthorMeta';
+import { resolveCommentAuthorId } from '../../services/graceCommentAuthorMeta';
 import {
   getGraceNoteListTitle,
   graceRecordTypeLabel,
@@ -1363,31 +1364,28 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
                         {visibleComments.length === 0 ? (
                           <p className="text-xs text-gray-400 py-2">아직 댓글이 없습니다.</p>
                         ) : visibleComments.map(c => {
+                          const resolvedAuthorId = resolveCommentAuthorId(c, {
+                            allowSeedNameLookup: true,
+                          });
                           const canManage = Boolean(
-                            isAdmin || (user?.id && c.authorId && c.authorId === user.id),
+                            isAdmin || (user?.id && resolvedAuthorId && resolvedAuthorId === user.id),
                           );
                           return (
-                            <div key={c.id} className="py-2.5 first:pt-0">
-                              <div className="flex items-start justify-between gap-2 mb-0.5">
-                                <CommentAuthorMeta
-                                  authorId={c.authorId}
-                                  authorName={c.authorName}
-                                  createdAt={c.createdAt}
-                                  relatedOrganizationIds={relatedOrganizationIds}
-                                />
-                                {canManage && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteComment(c.id)}
-                                    className="shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 touch-target"
-                                    aria-label="댓글 삭제"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                )}
-                              </div>
-                              <p className="text-sm text-gray-600 whitespace-pre-wrap break-words">{c.content}</p>
-                            </div>
+                            <GracePrayerCommentItem
+                              key={c.id}
+                              comment={c}
+                              relatedOrganizationIds={relatedOrganizationIds}
+                              deleteButton={canManage ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteComment(c.id)}
+                                  className="shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 touch-target"
+                                  aria-label="댓글 삭제"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              ) : undefined}
+                            />
                           );
                         })}
                       </div>

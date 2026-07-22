@@ -39,8 +39,17 @@ export type GraceNoteCommentType = 'comment' | 'prayer' | 'amen';
 export type GraceNoteComment = {
   id: string;
   authorName: string;
-  /** 댓글 작성자 userId — 본인 삭제 판별용 (레거시 없음) */
+  /** 댓글 작성자 userId — 본인 삭제 판별·표시용 (레거시 없음) */
   authorId?: string;
+  /** 스냅샷 직분 (authorId 조회 실패 시) */
+  authorPosition?: string;
+  /** 퇴사·이동 등 — 현재 사용자 없을 때 표시용 */
+  authorSnapshot?: {
+    name?: string;
+    position?: string;
+    organizationPath?: string;
+    departmentName?: string;
+  };
   content: string;
   type: GraceNoteCommentType;
   createdAt: string;
@@ -510,7 +519,8 @@ export function deleteGraceNoteComment(
   const list = notes[idx].comments ?? [];
   const target = list.find(c => c.id === commentId);
   if (!target) return false;
-  const isOwner = Boolean(actor.userId && target.authorId && target.authorId === actor.userId);
+  const resolvedAuthorId = target.authorId;
+  const isOwner = Boolean(actor.userId && resolvedAuthorId && resolvedAuthorId === actor.userId);
   if (!isOwner && !actor.isAdmin) return false;
   notes[idx].comments = list.filter(c => c.id !== commentId);
   save(notes);

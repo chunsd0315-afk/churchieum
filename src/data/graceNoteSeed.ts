@@ -38,6 +38,7 @@ import { ensureSeedGraceNoteCopyRefreshed } from '../services/graceNoteSeedCopyR
 import { formatOrganizationShareDisplayLabels } from '../services/graceNoteShareScope';
 import { readOrgSettings } from '../contexts/OrgSettingsContext';
 import { migrateVisibility } from '../types/sharedContent';
+import { migrateGraceCommentAuthorIds } from '../services/graceCommentAuthorMigration';
 
 const LS_PROGRESS_SEEDED = 'graceNotes_reading_progress_seeded';
 
@@ -116,29 +117,34 @@ function seedHash(id: string): number {
   return h >>> 0;
 }
 
-function makeComments(count: number, baseDate: string, names: string[], seed: number): GraceNoteComment[] {
+function makeComments(
+  count: number,
+  baseDate: string,
+  authors: SeedAuthor[],
+  seed: number,
+): GraceNoteComment[] {
   const result: GraceNoteComment[] = [];
   const base = new Date(baseDate).getTime();
-  const demoAuthors: { name: string; id: string }[] = [
-    { name: '정재명', id: 'demo-pastor01' },
-    { name: '이변우', id: 'demo-pastor02' },
-    { name: '천성대', id: 'demo-member60' },
-  ];
+  const pool = authors.length > 0
+    ? authors
+    : [
+        { id: 'demo-pastor01', name: '정재명', role: '목사', gender: '남' as const, districtId: 'd1', zoneId: 'z1', departmentIds: ['dep1'] },
+        { id: 'demo-pastor02', name: '이변우', role: '목사', gender: '남' as const, districtId: 'd2', zoneId: 'z3', departmentIds: ['dep1'] },
+        { id: 'demo-member60', name: '천성대', role: '장로', gender: '남' as const, districtId: 'd1', zoneId: 'z1', departmentIds: ['dep3', 'dep5'] },
+      ];
+
   for (let i = 0; i < count; i++) {
     // 대부분 comment. prayer·amen은 호환 테스트용으로 소수만 유지(화면 미표시)
     const typeRoll = (seed + i) % 20;
     const type = typeRoll === 0 ? 'prayer' as const
       : typeRoll === 1 ? 'amen' as const
         : 'comment' as const;
-    const demo = demoAuthors[(seed + i) % demoAuthors.length];
-    const useDemo = (seed + i) % 3 === 0;
-    const authorName = useDemo ? demo.name : names[(seed + i) % names.length];
-    const authorId = useDemo ? demo.id : undefined;
+    const author = pool[(seed + i) % pool.length];
     const createdAt = new Date(base + (i + 1) * 3600000).toISOString();
     result.push({
       id: `gnc-seed-${seed}-${i}`,
-      authorName,
-      authorId,
+      authorName: author.name,
+      authorId: author.id,
       content: type === 'prayer' ? '기도합니다' : type === 'amen' ? '아멘' : pick(COMMENT_SAMPLES),
       type,
       createdAt,
@@ -357,7 +363,12 @@ function pickVisibilityForAuthor(author: SeedAuthor, index: number): {
   };
 }
 
-function baseEngagement(visibility: GraceNoteVisibility, createdAt: string, names: string[], seed: number) {
+function baseEngagement(
+  visibility: GraceNoteVisibility,
+  createdAt: string,
+  authors: SeedAuthor[],
+  seed: number,
+) {
   const open = visibility !== 'private';
   /** 나만 보기: false / 공유: 약 80% 허용 */
   const allowComments = open ? seed % 5 !== 0 : false;
@@ -366,7 +377,7 @@ function baseEngagement(visibility: GraceNoteVisibility, createdAt: string, name
   let commentCount = 0;
   if (open && allowComments) commentCount = seed % 6;
   else if (open && !allowComments && seed % 7 === 0) commentCount = 1 + (seed % 3);
-  const comments = makeComments(commentCount, createdAt, names, seed);
+  const comments = makeComments(commentCount, createdAt, authors, seed);
   return {
     allowComments,
     likeCount,
@@ -391,7 +402,7 @@ function seedMeta(index: number): Pick<GraceNote, 'isSeed' | 'isDemo' | 'source'
   };
 }
 
-function generateSermonNotes(count: number, authors: SeedAuthor[], names: string[]): GraceNote[] {
+function generateSermonNotes(count: number, authors: SeedAuthor[]): GraceNote[] {
   const sermons = getAllSermons();
   const notes: GraceNote[] = [];
   for (let i = 0; i < count; i++) {
@@ -399,7 +410,7 @@ function generateSermonNotes(count: number, authors: SeedAuthor[], names: string
     const id = `gn-demo-s-${i}`;
     const createdAt = randomPastDate(i);
     const share = pickVisibilityForAuthor(author, i);
-    const eng = baseEngagement(share.visibility, createdAt, names, i);
+    const eng = baseEngagement(share.visibility, createdAt, authors, i);
     const sermon = sermons[i % Math.max(sermons.length, 1)];
     const copy = buildGraceCopyForSeedNote('sermon', id, seedHash(id));
     const preacher = getAllClergy().find(c => c.id === 'cl1') ?? getAllClergy()[0];
@@ -430,7 +441,7 @@ function generateSermonNotes(count: number, authors: SeedAuthor[], names: string
   return notes;
 }
 
-function generateReadingNotes(count: number, authors: SeedAuthor[], names: string[]): GraceNote[] {
+function generateReadingNotes(count: number, authors: SeedAuthor[]): GraceNote[] {
   const plans = READING_PLANS.filter(p => ['1year', 'mccheyne', '30day-nt'].includes(p.id));
   const notes: GraceNote[] = [];
   for (let i = 0; i < count; i++) {
@@ -438,7 +449,7 @@ function generateReadingNotes(count: number, authors: SeedAuthor[], names: strin
     const id = `gn-demo-r-${i}`;
     const createdAt = randomPastDate(i + 50);
     const share = pickVisibilityForAuthor(author, i + 100);
-    const eng = baseEngagement(share.visibility, createdAt, names, i + 50);
+    const eng = baseEngagement(share.visibility, createdAt, authors, i + 50);
     const plan = plans[i % Math.max(plans.length, 1)] ?? READING_PLANS[0];
     const passage = READING_PASSAGES[i % READING_PASSAGES.length];
     const copy = buildGraceCopyForSeedNote('reading', id, seedHash(id));
@@ -471,14 +482,14 @@ function generateReadingNotes(count: number, authors: SeedAuthor[], names: strin
   return notes;
 }
 
-function generatePrayerNotes(count: number, authors: SeedAuthor[], names: string[]): GraceNote[] {
+function generatePrayerNotes(count: number, authors: SeedAuthor[]): GraceNote[] {
   const notes: GraceNote[] = [];
   for (let i = 0; i < count; i++) {
     const author = pickAuthor(authors, i + 11);
     const id = `gn-demo-p-${i}`;
     const createdAt = randomPastDate(i + 120);
     const share = pickVisibilityForAuthor(author, i + 220);
-    const eng = baseEngagement(share.visibility, createdAt, names, i + 120);
+    const eng = baseEngagement(share.visibility, createdAt, authors, i + 120);
     const copy = buildGraceCopyForSeedNote('prayer', id, seedHash(id));
     notes.push(normalizeSeedGraceRecord({
       id,
@@ -549,10 +560,9 @@ export function prepareDemoSeedAuthors(): SeedAuthor[] {
 
 export function generateGraceNoteDemoData(): GraceNote[] {
   const authors = prepareDemoSeedAuthors();
-  const names = authors.map(a => a.name);
-  const sermon = generateSermonNotes(SEED_SERMON_COUNT, authors, names);
-  const reading = generateReadingNotes(SEED_READING_COUNT, authors, names);
-  const personal = generatePrayerNotes(SEED_PRAYER_COUNT, authors, names);
+  const sermon = generateSermonNotes(SEED_SERMON_COUNT, authors);
+  const reading = generateReadingNotes(SEED_READING_COUNT, authors);
+  const personal = generatePrayerNotes(SEED_PRAYER_COUNT, authors);
   const all = [...sermon, ...reading, ...personal];
 
   const pushFixture = (
@@ -578,7 +588,7 @@ export function generateGraceNoteDemoData(): GraceNote[] {
       sharedPastorAll: shareExtra.sharedPastorAll ?? false,
       sharedGroupAll: shareExtra.sharedGroupAll ?? false,
     };
-    const eng = baseEngagement(finalVis, createdAt, names, index);
+    const eng = baseEngagement(finalVis, createdAt, authors, index);
     all.push(normalizeSeedGraceRecord({
       id,
       userId: author.id,
@@ -682,17 +692,23 @@ export function ensureGraceNoteDemoData(): void {
   ensureDemoReadingProgresses();
   if (isDemoGraceNotesSeeded() && isGraceSeedFormatCurrent()) {
     ensureSeedGraceNoteCopyRefreshed();
+    prepareDemoSeedAuthors();
+    migrateGraceCommentAuthorIds();
     return;
   }
 
   if (isDemoGraceNotesSeeded() && !isGraceSeedFormatCurrent()) {
     migrateDemoGraceRecordsToUnifiedFormat(() => generateGraceNoteDemoData());
     ensureSeedGraceNoteCopyRefreshed();
+    prepareDemoSeedAuthors();
+    migrateGraceCommentAuthorIds(true);
     return;
   }
 
   generateGraceRecordSeeds({ count: 300, replaceExistingSeed: true });
   ensureSeedGraceNoteCopyRefreshed();
+  prepareDemoSeedAuthors();
+  migrateGraceCommentAuthorIds(true);
 }
 
 export function resetGraceNoteDemoData(): void {
