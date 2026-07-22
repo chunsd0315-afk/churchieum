@@ -1,6 +1,7 @@
 /**
  * 은혜와 기도 공통 작성/수정 화면
- * 성경통독·설교·기도 — 동일 필드 순서, 관련 기록 영역만 유형별 분기
+ * 신규 작성: 상단 고정 탭(기도·설교·성경통독)으로 유형 전환
+ * 수정: 유형 잠금 + 기존 필드 유지
  */
 
 import { useState, useEffect, useMemo, useRef } from 'react';
@@ -9,9 +10,10 @@ import {
   getGraceNote, createGraceNote, updateGraceNote,
   type GraceNoteInput, type GraceNoteType,
 } from '../../data/graceNotes';
-import { getPlanColor, type PlanId } from '../../data/readingPlans';
+import { getAllProgresses, getPlanColor, type PlanId } from '../../data/readingPlans';
 import { GraceNoteShareSelector, defaultShareState, shareStateToInput, type GraceNoteShareState } from './GraceNoteShareSelector';
 import { GraceRelatedSourceSelector } from './GraceRelatedSourceSelector';
+import { ReadingProgressList, buildReadingFormCtx } from './ReadingProgressPicker';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../common/ui';
 import ContentEditorLayout, { ContentFormCard } from '../layout/ContentEditorLayout';
@@ -55,6 +57,12 @@ export type GraceNoteEditorProps = {
   confirmLeaveWhenDirty?: boolean;
 };
 
+const WRITE_TABS: { id: GraceNoteType; label: string }[] = [
+  { id: 'prayer', label: '기도' },
+  { id: 'sermon', label: '설교' },
+  { id: 'reading', label: '성경통독' },
+];
+
 const TYPE_OPTIONS: {
   id: GraceNoteType;
   label: string;
@@ -65,28 +73,40 @@ const TYPE_OPTIONS: {
   { id: 'prayer', label: '기도', icon: HandHeart },
 ];
 
-const EDITOR_META: Record<GraceNoteType, { title: string; editTitle: string; description: string; titlePlaceholder: string; contentPlaceholder: string }> = {
+const EDITOR_META: Record<GraceNoteType, {
+  title: string;
+  editTitle: string;
+  description: string;
+  titlePlaceholder: string;
+  contentPlaceholder: string;
+}> = {
   reading: {
-    title: '성경통독',
+    title: GRACE_MENU_LABEL,
     editTitle: '성경통독 수정',
-    description: '오늘 읽은 말씀의 은혜를 기록해 보세요.',
+    description: '성경통독을 통해 받은 은혜를 기록합니다.',
     titlePlaceholder: '제목을 입력하세요',
     contentPlaceholder: '받은 은혜와 삶의 적용을 기록해 주세요.',
   },
   sermon: {
-    title: '설교',
+    title: GRACE_MENU_LABEL,
     editTitle: '설교 수정',
-    description: '설교를 통해 받은 은혜를 기록해 보세요.',
+    description: '설교를 통해 받은 은혜를 기록합니다.',
     titlePlaceholder: '제목을 입력하세요',
     contentPlaceholder: '받은 은혜와 삶의 적용을 기록해 주세요.',
   },
   prayer: {
-    title: '기도',
+    title: GRACE_MENU_LABEL,
     editTitle: '기도 수정',
-    description: '기도 제목과 내용을 기록해 보세요.',
+    description: '기도를 작성합니다.',
     titlePlaceholder: '기도 제목을 입력하세요',
     contentPlaceholder: '기도하고 싶은 내용을 자연스럽게 작성해 주세요.',
   },
+};
+
+const TYPE_SWITCH_LABEL: Record<GraceNoteType, string> = {
+  prayer: '기도',
+  sermon: '설교',
+  reading: '성경통독',
 };
 
 function persistGraceNote(input: GraceNoteInput, editId: string | undefined, userId?: string): string {
@@ -117,6 +137,10 @@ function shareInputWithSnapshots(
   };
 }
 
+function emptyShare(): GraceNoteShareState {
+  return defaultShareState(undefined);
+}
+
 export function GraceNoteEditor({
   onSave,
   onBack,
@@ -131,6 +155,8 @@ export function GraceNoteEditor({
   const { user } = useAuth();
   const toast = useToast();
   const existing = editId ? getGraceNote(editId) : null;
+  const isCreate = !editId;
+  const showWriteTabs = isCreate && !lockType;
 
   const [noteType, setNoteType] = useState<GraceNoteType>(
     existing?.type ?? initialType ?? 'prayer',
@@ -140,6 +166,11 @@ export function GraceNoteEditor({
   const [share, setShare] = useState<GraceNoteShareState>(() => defaultShareState(existing ?? undefined));
   const [saved, setSaved] = useState(false);
   const [leaveConfirm, setLeaveConfirm] = useState(false);
+  const [tabConfirm, setTabConfirm] = useState<GraceNoteType | null>(null);
+
+  const [activeReadingCtx, setActiveReadingCtx] = useState<ReadingEditorCtx | null>(
+    readingCtx ?? null,
+  );
 
   const [readingRef, setReadingRef] = useState(
     existing?.bibleReference ?? readingCtx?.readingReferences ?? '',
@@ -188,6 +219,23 @@ export function GraceNoteEditor({
     readingRef, editSermonTitle, editPreacher, editSermonDate, editBibleRef,
   ]);
 
+  const createDraftDirty = useMemo(() => {
+    if (!isCreate || saved) return false;
+    return (
+      graceTitle.trim().length > 0
+      || graceContent.trim().length > 0
+      || readingRef.trim().length > 0
+      || editSermonTitle.trim().length > 0
+      || editPreacher.trim().length > 0
+      || editBibleRef.trim().length > 0
+      || JSON.stringify(share) !== JSON.stringify(emptyShare())
+      || Boolean(activeReadingCtx)
+    );
+  }, [
+    isCreate, saved, graceTitle, graceContent, readingRef,
+    editSermonTitle, editPreacher, editBibleRef, share, activeReadingCtx,
+  ]);
+
   const handleBack = () => {
     if (isDirty) {
       setLeaveConfirm(true);
@@ -197,23 +245,63 @@ export function GraceNoteEditor({
   };
 
   useEffect(() => {
-    if (initialType && !editId) setNoteType(initialType);
-  }, [initialType, editId]);
+    if (initialType && !editId && lockType) setNoteType(initialType);
+  }, [initialType, editId, lockType]);
 
   useEffect(() => {
-    if (readingCtx?.readingReferences && !readingRef) {
-      setReadingRef(readingCtx.readingReferences);
+    if (readingCtx) {
+      setActiveReadingCtx(readingCtx);
+      if (readingCtx.readingReferences) {
+        setReadingRef(readingCtx.readingReferences);
+      }
     }
-  }, [readingCtx, readingRef]);
+  }, [readingCtx]);
+
+  const resetFormForType = (next: GraceNoteType) => {
+    setNoteType(next);
+    setGraceTitle('');
+    setGraceContent('');
+    setShare(emptyShare());
+    setReadingRef('');
+    setEditSermonTitle(sermonCtx?.sermonTitle ?? '');
+    setEditPreacher(sermonCtx?.sermonPreacher ?? '');
+    setEditSermonDate(sermonCtx?.sermonDate ?? new Date().toISOString().slice(0, 10));
+    setEditBibleRef(sermonCtx?.bibleReference ?? '');
+    setActiveReadingCtx(null);
+    setSaved(false);
+  };
+
+  const requestTypeChange = (next: GraceNoteType) => {
+    if (next === noteType) return;
+    if (createDraftDirty) {
+      setTabConfirm(next);
+      return;
+    }
+    resetFormForType(next);
+  };
+
+  const confirmTypeChange = () => {
+    if (!tabConfirm) return;
+    resetFormForType(tabConfirm);
+    setTabConfirm(null);
+  };
+
+  const readingProgresses = useMemo(
+    () => getAllProgresses().filter(p => p.status === 'active' || p.status === 'paused'),
+    [],
+  );
+
+  const needsReadingPick = noteType === 'reading' && isCreate && !activeReadingCtx && !existing?.sourceId;
 
   const buildInput = (): GraceNoteInput => {
     const shareFields = shareInputWithSnapshots(share, user, existing?.sharedPastorSnapshots);
     const legacyEmpty = { memorableVerse: '', application: '', prayer: '' };
     /** 수정 시 기존 값 보존 · 신규는 false (UI 없음) */
     const isFavorite = existing?.isFavorite ?? false;
+    const ctx = activeReadingCtx;
 
     if (noteType === 'reading') {
-      const planColor = readingCtx?.planColor
+      const planColor = ctx?.planColor
         ?? existing?.planColor
         ?? (existing?.planId ? getPlanColor(existing.planId as PlanId) : 'from-primary-500 to-primary-700');
       return {
@@ -221,12 +309,12 @@ export function GraceNoteEditor({
         authorName: existing?.authorName ?? user?.name,
         authorRole: existing?.authorRole ?? user?.position,
         ...shareFields,
-        sourceId: readingCtx?.progressId ?? existing?.sourceId,
-        sourceTitle: readingCtx?.planName ?? existing?.planName,
-        planId: readingCtx?.planId ?? existing?.planId,
-        planName: readingCtx?.planName ?? existing?.planName,
+        sourceId: ctx?.progressId ?? existing?.sourceId,
+        sourceTitle: ctx?.planName ?? existing?.planName,
+        planId: ctx?.planId ?? existing?.planId,
+        planName: ctx?.planName ?? existing?.planName,
         planColor,
-        day: readingCtx?.day ?? existing?.day,
+        day: ctx?.day ?? existing?.day,
         bibleReference: readingRef.trim() || existing?.bibleReference,
         graceTitle: graceTitle.trim(),
         graceContent: graceContent.trim(),
@@ -275,8 +363,14 @@ export function GraceNoteEditor({
 
   const meta = EDITOR_META[noteType];
   const contentLabel = graceContentFieldLabel(noteType);
+  const headerTitle = editId ? meta.editTitle : meta.title;
+  const headerDescription = meta.description;
 
   const handleSave = () => {
+    if (needsReadingPick) {
+      toast.error('관련 성경통독을 선택해 주세요.');
+      return;
+    }
     if (!graceTitle.trim()) {
       toast.error('제목을 입력해 주세요.');
       return;
@@ -285,7 +379,7 @@ export function GraceNoteEditor({
       toast.error(`${contentLabel}을 입력해 주세요.`);
       return;
     }
-    if (noteType === 'reading' && !readingCtx && !existing?.sourceId) {
+    if (noteType === 'reading' && !activeReadingCtx && !existing?.sourceId) {
       onNeedReadingPick?.();
       return;
     }
@@ -299,10 +393,14 @@ export function GraceNoteEditor({
     }
   };
 
-  const canSave = graceTitle.trim().length > 0 && graceContent.trim().length > 0 && !saved;
+  const canSave =
+    !needsReadingPick
+    && graceTitle.trim().length > 0
+    && graceContent.trim().length > 0
+    && !saved;
   const saveLabel = editId ? '수정사항 저장' : '저장';
 
-  const saveBtn = (
+  const saveBtn = needsReadingPick ? undefined : (
     <button
       type="button"
       onClick={handleSave}
@@ -319,13 +417,53 @@ export function GraceNoteEditor({
     </button>
   );
 
+  const writeTabs = showWriteTabs ? (
+    <div className="flex items-center gap-2" role="tablist" aria-label="작성 유형">
+      {WRITE_TABS.map(tab => {
+        const active = noteType === tab.id;
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => requestTypeChange(tab.id)}
+            className={`flex-1 h-11 min-h-[44px] rounded-[12px] text-sm font-semibold transition-colors touch-target ${
+              active
+                ? 'bg-primary-500 text-white border border-primary-500 shadow-sm'
+                : 'bg-white text-gray-700 border border-gray-200 hover:border-primary-200 hover:text-primary-700'
+            }`}
+          >
+            {tab.label}
+          </button>
+        );
+      })}
+    </div>
+  ) : undefined;
+
+  const handlePickReadingInline = (progress: Parameters<typeof buildReadingFormCtx>[0]) => {
+    const ctx = buildReadingFormCtx(progress);
+    setActiveReadingCtx(ctx);
+    setReadingRef(ctx.readingReferences ?? '');
+  };
+
+  const handleNeedReadingPick = () => {
+    if (isCreate && showWriteTabs) {
+      setActiveReadingCtx(null);
+      setReadingRef('');
+      return;
+    }
+    onNeedReadingPick?.();
+  };
+
   return (
     <ContentEditorLayout
-      title={editId ? meta.editTitle : meta.title}
-      description={meta.description}
+      title={headerTitle}
+      description={headerDescription}
       onBack={handleBack}
       saveButton={saveBtn}
       mobileHeaderVariant="subpage"
+      belowHeader={writeTabs}
     >
       {leaveConfirm && (
         <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -354,89 +492,127 @@ export function GraceNoteEditor({
           </div>
         </div>
       )}
-      <ContentFormCard className="space-y-5">
-        {/* 기록유형 — 수정 시에만 읽기 전용 표시 */}
-        {editId && (
-          <div>
-            <p className="text-sm font-bold text-gray-800 mb-3">기록유형</p>
-            <div className="grid grid-cols-3 gap-2">
-              {TYPE_OPTIONS.map(opt => {
-                const active = noteType === opt.id;
-                const Icon = opt.icon;
-                return (
-                  <div
-                    key={opt.id}
-                    className={`flex flex-col items-center gap-1.5 px-2 py-3 rounded-2xl border-2 ${
-                      active
-                        ? 'border-primary-500 bg-primary-50 text-primary-700'
-                        : 'border-gray-100 bg-gray-50 text-gray-300'
-                    }`}
-                  >
-                    <Icon className="w-5 h-5" />
-                    <span className="text-xs font-bold">{opt.label}</span>
-                  </div>
-                );
-              })}
+
+      {tabConfirm && (
+        <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl">
+            <h3 className="font-bold text-gray-900 mb-2">
+              {TYPE_SWITCH_LABEL[tabConfirm]} 작성으로 변경하시겠습니까?
+            </h3>
+            <p className="text-sm text-gray-500 mb-5">작성 중인 내용은 저장되지 않습니다.</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setTabConfirm(null)}
+                className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-2xl text-sm font-bold touch-target"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={confirmTypeChange}
+                className="flex-1 py-3 bg-primary-500 text-white rounded-2xl text-sm font-bold touch-target"
+              >
+                변경
+              </button>
             </div>
           </div>
-        )}
-
-        {/* 제목 */}
-        <div>
-          <label className="text-sm font-bold text-gray-800 mb-2 block">
-            제목 <span className="text-rose-500">*</span>
-          </label>
-          <input
-            type="text"
-            value={graceTitle}
-            onChange={e => setGraceTitle(e.target.value)}
-            placeholder={meta.titlePlaceholder}
-            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-2xl text-sm focus:outline-none focus:border-primary-400"
-          />
         </div>
+      )}
 
-        {/* 은혜/기도 내용 */}
-        <div>
-          <label className="text-sm font-bold text-gray-800 mb-2 block">
-            {contentLabel} <span className="text-rose-500">*</span>
-          </label>
-          <textarea
-            value={graceContent}
-            onChange={e => setGraceContent(e.target.value.slice(0, GRACE_CONTENT_MAX_LENGTH))}
-            placeholder={meta.contentPlaceholder}
-            rows={6}
-            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-2xl text-sm text-gray-800 focus:outline-none focus:border-primary-400 resize-none placeholder-gray-300"
+      {needsReadingPick ? (
+        <ContentFormCard>
+          <p className="text-sm font-bold text-gray-800 mb-3">진행 중인 성경통독</p>
+          <ReadingProgressList
+            progresses={readingProgresses}
+            onSelect={handlePickReadingInline}
           />
-          <p className="text-xs text-gray-400 mt-1 text-right">
-            {graceContent.length} / {GRACE_CONTENT_MAX_LENGTH}
-          </p>
-        </div>
+        </ContentFormCard>
+      ) : (
+        <ContentFormCard className="space-y-5">
+          {/* 기록유형 — 수정 시에만 읽기 전용 표시 */}
+          {editId && (
+            <div>
+              <p className="text-sm font-bold text-gray-800 mb-3">기록유형</p>
+              <div className="grid grid-cols-3 gap-2">
+                {TYPE_OPTIONS.map(opt => {
+                  const active = noteType === opt.id;
+                  const Icon = opt.icon;
+                  return (
+                    <div
+                      key={opt.id}
+                      className={`flex flex-col items-center gap-1.5 px-2 py-3 rounded-2xl border-2 ${
+                        active
+                          ? 'border-primary-500 bg-primary-50 text-primary-700'
+                          : 'border-gray-100 bg-gray-50 text-gray-300'
+                      }`}
+                    >
+                      <Icon className="w-5 h-5" />
+                      <span className="text-xs font-bold">{opt.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
-        {/* 관련 기록 (기도 유형은 표시하지 않음) */}
-        {noteType !== 'prayer' && (
-          <GraceRelatedSourceSelector
-          noteType={noteType}
-          existing={existing}
-          readingCtx={readingCtx}
-          readingRef={readingRef}
-          onReadingRefChange={setReadingRef}
-          onPickReading={onNeedReadingPick}
-          sermonCtx={sermonCtx}
-          linked={linked}
-          editSermonTitle={editSermonTitle}
-          editPreacher={editPreacher}
-          editSermonDate={editSermonDate}
-          editBibleRef={editBibleRef}
-          onEditSermonTitle={setEditSermonTitle}
-          onEditPreacher={setEditPreacher}
-          onEditSermonDate={setEditSermonDate}
-          onEditBibleRef={setEditBibleRef}
-          />
-        )}
+          {/* 제목 */}
+          <div>
+            <label className="text-sm font-bold text-gray-800 mb-2 block">
+              제목 <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={graceTitle}
+              onChange={e => setGraceTitle(e.target.value)}
+              placeholder={meta.titlePlaceholder}
+              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-2xl text-sm focus:outline-none focus:border-primary-400"
+            />
+          </div>
 
-        {/* 5. 공개범위 */}
-        <GraceNoteShareSelector value={share} onChange={setShare} />
-      </ContentFormCard>
+          {/* 은혜/기도 내용 */}
+          <div>
+            <label className="text-sm font-bold text-gray-800 mb-2 block">
+              {contentLabel} <span className="text-rose-500">*</span>
+            </label>
+            <textarea
+              value={graceContent}
+              onChange={e => setGraceContent(e.target.value.slice(0, GRACE_CONTENT_MAX_LENGTH))}
+              placeholder={meta.contentPlaceholder}
+              rows={6}
+              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-2xl text-sm text-gray-800 focus:outline-none focus:border-primary-400 resize-none placeholder-gray-300"
+            />
+            <p className="text-xs text-gray-400 mt-1 text-right">
+              {graceContent.length} / {GRACE_CONTENT_MAX_LENGTH}
+            </p>
+          </div>
+
+          {/* 관련 기록 (기도 유형은 표시하지 않음) */}
+          {noteType !== 'prayer' && (
+            <GraceRelatedSourceSelector
+              noteType={noteType}
+              existing={existing}
+              readingCtx={activeReadingCtx}
+              readingRef={readingRef}
+              onReadingRefChange={setReadingRef}
+              onPickReading={handleNeedReadingPick}
+              sermonCtx={sermonCtx}
+              linked={linked}
+              editSermonTitle={editSermonTitle}
+              editPreacher={editPreacher}
+              editSermonDate={editSermonDate}
+              editBibleRef={editBibleRef}
+              onEditSermonTitle={setEditSermonTitle}
+              onEditPreacher={setEditPreacher}
+              onEditSermonDate={setEditSermonDate}
+              onEditBibleRef={setEditBibleRef}
+            />
+          )}
+
+          {/* 공개범위 */}
+          <GraceNoteShareSelector value={share} onChange={setShare} />
+        </ContentFormCard>
+      )}
     </ContentEditorLayout>
   );
 }
@@ -507,19 +683,19 @@ export const PersonalGraceFormView = PrayerGraceFormView;
 
 export const GRACE_FORM_HEADERS = {
   reading: {
-    title: `${GRACE_MENU_LABEL} 작성`,
+    title: GRACE_MENU_LABEL,
     editTitle: '성경통독 수정',
-    description: '오늘 읽은 말씀의 은혜를 기록해 보세요.',
+    description: '성경통독을 통해 받은 은혜를 기록합니다.',
   },
   sermon: {
-    title: `${GRACE_MENU_LABEL} 작성`,
+    title: GRACE_MENU_LABEL,
     editTitle: '설교 수정',
-    description: '설교를 통해 받은 은혜를 기록해 보세요.',
+    description: '설교를 통해 받은 은혜를 기록합니다.',
   },
   prayer: {
-    title: `${GRACE_MENU_LABEL} 작성`,
+    title: GRACE_MENU_LABEL,
     editTitle: '기도 수정',
-    description: '기도 제목과 내용을 기록해 보세요.',
+    description: '기도를 작성합니다.',
   },
   write: {
     title: GRACE_MENU_LABEL,

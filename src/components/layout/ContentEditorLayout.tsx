@@ -19,6 +19,8 @@ export type ContentEditorLayoutProps = {
   mobileHeaderVariant?: 'editor' | 'subpage';
   /** 하단 고정 액션 바 (공감·기도 등). 모바일 safe-area 반영 */
   footer?: ReactNode;
+  /** 헤더 바로 아래 고정 영역 (탭 등) — 본문 스크롤과 분리 */
+  belowHeader?: ReactNode;
 };
 
 const FORM_CARD_CLASS = 'bg-white rounded-[20px] p-5 md:p-6';
@@ -47,6 +49,7 @@ export default function ContentEditorLayout({
   saveButton,
   mobileHeaderVariant = 'editor',
   footer,
+  belowHeader,
 }: ContentEditorLayoutProps) {
   const { isPc } = useBreakpoint();
 
@@ -86,6 +89,14 @@ export default function ContentEditorLayout({
       ? <MobileSubPageHeader {...headerProps} />
       : <MobileEditorPageHeader {...headerProps} />;
 
+  const stickyTabs = belowHeader ? (
+    <div className="shrink-0 bg-white border-b border-gray-100">
+      <div className="w-full max-w-[900px] mx-auto px-4 py-2.5">
+        {belowHeader}
+      </div>
+    </div>
+  ) : null;
+
   const contentPadBottom = footer
     ? '24px'
     : 'calc(24px + env(safe-area-inset-bottom, 0px))';
@@ -118,7 +129,10 @@ export default function ContentEditorLayout({
         style={{ background: '#F8FAFC', margin: '-24px -24px -40px' }}
       >
         <div className="w-full max-w-[900px] mx-auto">
-          {header}
+          <div className="sticky top-0 z-20 bg-[#F8FAFC]">
+            {header}
+            {stickyTabs}
+          </div>
           {content}
           {footerBar}
         </div>
@@ -126,7 +140,7 @@ export default function ContentEditorLayout({
     );
   }
 
-  /* 모바일: Full Screen — 헤더 고정, 본문만 세로 스크롤 */
+  /* 모바일: Full Screen — 헤더·탭 고정, 본문만 세로 스크롤 */
   return (
     <div
       className="fixed inset-0 flex flex-col bg-white overflow-hidden"
@@ -138,6 +152,7 @@ export default function ContentEditorLayout({
       }}
     >
       <div className="shrink-0">{header}</div>
+      {stickyTabs}
       <div
         className="min-h-0 flex-1 overflow-y-auto"
         style={{ WebkitOverflowScrolling: 'touch' }}

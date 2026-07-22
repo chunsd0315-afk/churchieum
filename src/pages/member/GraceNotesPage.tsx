@@ -17,7 +17,6 @@ import {
   GraceNoteListView, GraceNoteDetailView,
   type ReadingEditorCtx, type SermonEditorCtx,
 } from '../../components/member/GraceNotesView';
-import { GraceNoteWritePicker } from '../../components/member/GraceNoteWritePicker';
 import { GraceNoteListRow } from '../../components/member/GraceNoteListRow';
 import { ReadingProgressPicker, buildReadingFormCtx } from '../../components/member/ReadingProgressPicker';
 import { getAllProgresses } from '../../data/readingPlans';
@@ -27,7 +26,6 @@ import { ensurePrayersMigratedToGraceNotes } from '../../services/prayerGraceNot
 
 type SubView =
   | 'today'
-  | 'write-pick'
   | 'write'
   | 'reading-pick'
   | 'all-list'
@@ -85,7 +83,7 @@ export default function GraceNotesPage() {
   const [lockWriteType, setLockWriteType] = useState(false);
   const [readingCtx, setReadingCtx] = useState<ReadingEditorCtx | null>(null);
   const [sermonCtx, setSermonCtx] = useState<SermonEditorCtx | null>(null);
-  const [pickReturn, setPickReturn] = useState<SubView>('write-pick');
+  const [pickReturn, setPickReturn] = useState<SubView>('write');
 
   const allNotes = getAllGraceNotes();
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -247,20 +245,15 @@ export default function GraceNotesPage() {
     lockType?: boolean;
     reading?: ReadingEditorCtx | null;
     sermon?: SermonEditorCtx | null;
-    skipPicker?: boolean;
   }) => {
-    // 신규 작성 — 상세와 무관, 목록으로 복귀
+    // 신규 작성 — 유형 선택 화면 없이 바로 작성 (기본: 기도)
     setDetailId(null);
     setEditId(undefined);
-    setWriteType(opts?.type);
-    setLockWriteType(Boolean(opts?.lockType ?? Boolean(opts?.type)));
+    setWriteType(opts?.type ?? 'prayer');
+    setLockWriteType(Boolean(opts?.lockType));
     setReadingCtx(opts?.reading ?? null);
     setSermonCtx(opts?.sermon ?? null);
-    if (opts?.skipPicker || opts?.type || opts?.reading || opts?.sermon) {
-      setView('write');
-    } else {
-      setView('write-pick');
-    }
+    setView('write');
   };
 
   const startReadingPick = (from: SubView) => {
@@ -287,17 +280,6 @@ export default function GraceNotesPage() {
     );
   }
 
-  if (view === 'write-pick') {
-    return (
-      <GraceNoteWritePicker
-        onBack={() => setView('all-list')}
-        onSelectReading={() => startReadingPick('write-pick')}
-        onSelectSermon={() => openWrite({ type: 'sermon', lockType: true, skipPicker: true })}
-        onSelectPrayer={() => openWrite({ type: 'prayer', lockType: true, skipPicker: true })}
-      />
-    );
-  }
-
   // 신규 작성 (editId 없음) — 목록 언마운트 허용
   if (view === 'write' && !editId) {
     return (
@@ -309,9 +291,9 @@ export default function GraceNotesPage() {
         }}
         onBack={() => {
           clearWriteState();
-          setView('write-pick');
+          setView('all-list');
         }}
-        initialType={writeType}
+        initialType={writeType ?? 'prayer'}
         lockType={lockWriteType}
         readingCtx={readingCtx}
         sermonCtx={sermonCtx}
