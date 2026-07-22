@@ -47,6 +47,10 @@ import {
   getGraceShareTypeFilterOptions,
 } from '../../services/graceShareTypeFilterLabels';
 import {
+  buildSharedContentUserTitle,
+  normalizeShareTypeForUser,
+} from '../../services/sharedContentShareTypeFilterLabels';
+import {
   SharedContentSegmentButtons,
   SharedContentListToolbar,
   SharedContentDetailSettingsPage,
@@ -530,9 +534,46 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
       shareType: draft.shareType,
       isAdmin: isAdminUser,
       isPastor: isPastorUser,
+      userTitle: user ? buildSharedContentUserTitle(user) : undefined,
     }),
-    [draft.authorRole, draft.shareType, isAdminUser, isPastorUser],
+    [draft.authorRole, draft.shareType, isAdminUser, isPastorUser, user],
   );
+
+  /** 역할 전환 시 pastor_share 등 잘못된 선택값 정규화 */
+  useEffect(() => {
+    if (!user) return;
+    setDraft(prev => {
+      const nextShare = normalizeShareTypeForUser(user, prev.shareType);
+      if (nextShare === prev.shareType && !(isMemberUser && prev.selectedPastorIds.length > 0)) {
+        return prev;
+      }
+      return {
+        ...prev,
+        shareType: nextShare,
+        selectedPastorIds: isMemberUser ? [] : prev.selectedPastorIds,
+        selectedAuthorIds: nextShare === prev.shareType ? prev.selectedAuthorIds : [],
+      };
+    });
+    setAppliedByTab(prev => {
+      let changed = false;
+      const next = { ...prev };
+      for (const key of ['mine', 'shared'] as const) {
+        const f = prev[key];
+        const nextShare = normalizeShareTypeForUser(user, f.shareType);
+        const clearPastors = isMemberUser && f.selectedPastorIds.length > 0;
+        if (nextShare !== f.shareType || clearPastors) {
+          changed = true;
+          next[key] = {
+            ...f,
+            shareType: nextShare,
+            selectedPastorIds: isMemberUser ? [] : f.selectedPastorIds,
+            selectedAuthorIds: nextShare === f.shareType ? f.selectedAuthorIds : [],
+          };
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [user?.id, user?.role, isMemberUser]);
 
   const openFilter = () => {
     setDraft(cloneFilter(applied));

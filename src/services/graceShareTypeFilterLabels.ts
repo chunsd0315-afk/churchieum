@@ -1,5 +1,5 @@
 /**
- * @deprecated Use sharedContentShareTypeFilterLabels with domain 'grace'
+ * @deprecated Prefer sharedContentShareTypeFilterLabels with domain 'grace'
  * 은혜기록 전용 — domain 'grace'를 고정해 호출합니다.
  */
 
@@ -9,8 +9,17 @@ import {
   buildSharedContentUserTitle,
   getSharedContentShareTypeFilterOptions,
   getSharedContentShareTypeFilterLabel,
+  getReceivedShareOptions,
+  normalizeShareTypeForUser,
   type SharedContentShareTypeFilterOption,
 } from './sharedContentShareTypeFilterLabels';
+
+export {
+  buildSharedContentUserTitle,
+  getReceivedShareOptions,
+  normalizeShareTypeForUser,
+};
+export type { SharedContentShareTypeFilterOption };
 
 export const buildGraceShareUserTitle = buildSharedContentUserTitle;
 export type GraceShareTypeFilterOption = SharedContentShareTypeFilterOption;

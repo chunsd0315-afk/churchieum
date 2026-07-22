@@ -45,7 +45,7 @@ export function SharedContentShareTypeFilterSection({
 }) {
   return (
     <SharedContentSegmentButtons
-      title="공유 유형"
+      title="공유유형"
       options={options.map(o => ({
         id: o.id,
         label: o.label,
