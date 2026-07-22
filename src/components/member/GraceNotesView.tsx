@@ -9,7 +9,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import {
-  Heart, BookOpen, Edit3, Trash2, Copy,
+  Heart, BookOpen, Edit3, Trash2,
   ChevronDown, Sparkles,
   Mic, Lock, Users, Eye, MessageCircle, HandHeart, Plus,
 } from 'lucide-react';
@@ -1054,7 +1054,6 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
   const { isMobile } = useBreakpoint();
   const [note, setNote] = useState(() => getGraceNote(noteId));
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [liked, setLiked] = useState(() => isGraceNoteLikedByMe(noteId));
   const [likeCount, setLikeCount] = useState(() => getGraceNote(noteId)?.likeCount ?? 0);
   const [prayCount, setPrayCount] = useState(() => getGraceNote(noteId)?.prayCount ?? 0);
@@ -1120,16 +1119,6 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
     if (fresh) setNote(fresh);
   };
 
-  const handleCopy = () => {
-    const text = [
-      listTitle,
-      note.createdAt.slice(0, 10),
-      '',
-      note.graceContent,
-    ].filter(Boolean).join('\n');
-    navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
-  };
-
   const handleDelete = () => {
     deleteGraceNote(noteId);
     setNote(null);
@@ -1159,40 +1148,26 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
     refreshNote();
   };
 
-  const headerActions = (
+  const headerActions = isOwn ? (
     <div className="flex items-center gap-1">
       <button
         type="button"
-        onClick={handleCopy}
-        className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold touch-target ${
-          copied ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-600'
-        }`}
-        aria-label="복사"
+        onClick={onEdit}
+        className="px-2.5 py-1.5 bg-primary-50 text-primary-600 rounded-xl text-xs font-semibold touch-target"
+        aria-label="기록 수정"
       >
-        {copied ? '복사됨' : <Copy className="w-3.5 h-3.5" />}
+        <Edit3 className="w-3.5 h-3.5" />
       </button>
-      {isOwn && (
-        <>
-          <button
-            type="button"
-            onClick={onEdit}
-            className="px-2.5 py-1.5 bg-primary-50 text-primary-600 rounded-xl text-xs font-semibold touch-target"
-            aria-label="수정"
-          >
-            <Edit3 className="w-3.5 h-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setConfirmDelete(true)}
-            className="p-2 rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 touch-target"
-            aria-label="삭제"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        </>
-      )}
+      <button
+        type="button"
+        onClick={() => setConfirmDelete(true)}
+        className="p-2 rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 touch-target"
+        aria-label="기록 삭제"
+      >
+        <Trash2 className="w-4 h-4" />
+      </button>
     </div>
-  );
+  ) : undefined;
 
   const engagementFooter = isPublic && isMobile ? (
     <div className="flex items-center gap-2">
