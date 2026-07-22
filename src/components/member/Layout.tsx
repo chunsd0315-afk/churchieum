@@ -2,7 +2,7 @@
 import { useAuth } from '../../contexts/AuthContext';
 import {
   Bell, ChevronLeft, Settings,
-  Home, Heart, BookOpen, Megaphone, User,
+  Home, BookHeart, BookOpen, Megaphone, User,
 } from 'lucide-react';
 import { getProfileImage, resolveProfileImage } from '../../services/profileImage';
 import { UserProfileAvatar } from '../common/ui/UserProfileAvatar';
@@ -22,7 +22,6 @@ export type Page =
   | 'home'
   | 'sermon'
   | 'grace-notes'
-  | 'prayer'
   | 'announcement'
   | 'album'
   | 'profile'
@@ -38,7 +37,7 @@ const SIDEBAR_NAV_ITEMS = buildSidebarNavItems<Page>(MEMBER_ROLE_MENUS);
 
 const BOTTOM_NAV_ITEMS = [
   { page: 'home' as const, label: '홈', icon: Home },
-  { page: 'prayer' as const, label: HOME_MENU_CATALOG.prayer.label, icon: Heart },
+  { page: 'grace-notes' as const, label: HOME_MENU_CATALOG.grace.label, icon: BookHeart },
   { page: 'sermon' as const, label: HOME_MENU_CATALOG.sermon.label, icon: BookOpen },
   { page: 'announcement' as const, label: HOME_MENU_CATALOG.announcement.label, icon: Megaphone },
   { page: 'profile' as const, label: HOME_MENU_CATALOG.profile.label, icon: User },

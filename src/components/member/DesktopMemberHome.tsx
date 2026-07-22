@@ -54,7 +54,6 @@ const CARD_ROWS: MenuItem[][] = [
   ],
   [
     { id: 'grace-notes',          label: '은혜와 기도', icon: BookHeart,      bg: 'bg-primary-50', iconColor: 'text-primary-500' },
-    { id: 'prayer',               label: '기도',     icon: Heart,          bg: 'bg-rose-50',    iconColor: 'text-rose-500' },
     { id: 'bulletin',             label: '주보',     icon: BookMarked,     bg: 'bg-cyan-50',    iconColor: 'text-cyan-500' },
     { id: 'schedule',             label: '일정',     icon: Calendar,       bg: 'bg-emerald-50', iconColor: 'text-emerald-500' },
   ],

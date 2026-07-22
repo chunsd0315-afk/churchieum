@@ -20,7 +20,6 @@ const MENUS: MenuItem[] = [
   { id: 'bible',                label: '성경',     icon: Book,           bg: 'bg-amber-50',   iconColor: 'text-amber-500' },
   { id: 'bible-reading-center', label: '성경통독', icon: Target,         bg: 'bg-green-50',   iconColor: 'text-green-500' },
   { id: 'grace-notes',          label: '은혜와 기도', icon: BookHeart,      bg: 'bg-primary-50', iconColor: 'text-primary-500' },
-  { id: 'prayer',               label: '기도',     icon: Heart,          bg: 'bg-rose-50',    iconColor: 'text-rose-500' },
   { id: 'bulletin',             label: '주보',     icon: BookMarked,     bg: 'bg-cyan-50',    iconColor: 'text-cyan-500' },
   { id: 'schedule',             label: '일정',     icon: Calendar,       bg: 'bg-emerald-50', iconColor: 'text-emerald-500' },
   { id: 'album',                label: '앨범',     icon: Image,          bg: 'bg-pink-50',    iconColor: 'text-pink-500' },

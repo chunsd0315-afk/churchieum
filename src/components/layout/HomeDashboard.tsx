@@ -53,8 +53,6 @@ const MENUS: MenuCard[] = [
   { id: 'bible',         label: '성경',        icon: BookMarked,     bg: 'bg-amber-50',   ic: 'text-amber-500',   roles: ['admin', 'pastor', 'member'] },
   { id: 'bible-plans',   label: '성경통독',    icon: Target,         bg: 'bg-green-50',   ic: 'text-green-500',   roles: ['admin', 'pastor', 'member'] },
   { id: 'qt',            label: '은혜와 기도',    icon: BookHeart,      bg: 'bg-primary-50', ic: 'text-primary-500', roles: ['admin', 'pastor', 'member'] },
-  { id: 'prayers', label: '기도', icon: Heart, bg: 'bg-rose-50', ic: 'text-rose-500', roles: ['admin'] },
-  { id: 'prayer',  label: '기도', icon: Heart, bg: 'bg-rose-50', ic: 'text-rose-500', roles: ['pastor', 'member'] },
   { id: 'bulletins',     label: '주보',        icon: FileText,       bg: 'bg-cyan-50',    ic: 'text-cyan-500',    roles: ['admin', 'pastor', 'member'] },
   { id: 'events',        label: '일정',        icon: Calendar,       bg: 'bg-emerald-50', ic: 'text-emerald-500', roles: ['admin', 'pastor', 'member'] },
   { id: 'albums',        label: '앨범',        icon: Image,          bg: 'bg-pink-50',    ic: 'text-pink-500',    roles: ['admin', 'pastor', 'member'] },
@@ -387,7 +385,7 @@ function PrayerRequests({ onNavigate, prayerPage }: { onNavigate: SimpleNav; pra
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function HomeDashboard({ role, onNavigate }: HomeDashboardProps) {
-  const prayerPage = role === 'admin' ? 'prayers' : 'prayer';
+  const prayerPage = 'grace-notes';
   const nav = (id: string) => (onNavigate as (p: string) => void)(resolveId(id, role));
 
   return (

@@ -45,7 +45,7 @@ export default function PrayerNotificationSheet({
   const handleSelect = (n: PrayerNotification) => {
     markNotificationRead(n.id);
     refresh();
-    onNavigate?.('prayer');
+    onNavigate?.('grace-notes');
     onClose();
   };
 

@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import {
-  Bell, ChevronLeft, Home, BookOpen, Heart, User,
+  Bell, ChevronLeft, Home, BookOpen, BookHeart, User,
 } from 'lucide-react';
 import { getProfileImage, resolveProfileImage } from '../../services/profileImage';
 import { UserProfileAvatar } from '../common/ui/UserProfileAvatar';
@@ -22,7 +22,6 @@ import { HOME_MENU_CATALOG } from '../common/home/homeMenuCatalog';
 export type PastorPage =
   | 'home'
   | 'members'
-  | 'prayers'
   | 'visits'
   | 'announcements'
   | 'events'
@@ -43,7 +42,7 @@ const SIDEBAR_NAV_ITEMS = buildSidebarNavItems<PastorNavId>(PASTOR_ROLE_MENUS);
 const BOTTOM_NAV_ITEMS = [
   { page: 'home' as const, label: '홈', icon: Home },
   { page: 'sermons' as const, label: HOME_MENU_CATALOG.sermon.label, icon: BookOpen },
-  { page: 'prayers' as const, label: HOME_MENU_CATALOG.prayer.label, icon: Heart },
+  { page: 'grace-notes' as const, label: HOME_MENU_CATALOG.grace.label, icon: BookHeart },
   { page: 'profile' as const, label: HOME_MENU_CATALOG.profile.label, icon: User },
 ];
 
@@ -173,7 +172,7 @@ export function PastorLayout({ children, currentPage, onNavigate }: Props) {
           <PrayerNotificationSheet
             userId={user.id}
             onClose={() => setShowNotifications(false)}
-            onNavigate={p => onNavigate(p === 'prayer' ? 'prayers' : 'home')}
+            onNavigate={() => onNavigate('grace-notes')}
             onChanged={() => setNotifTick(t => t + 1)}
           />
         )}

@@ -22,7 +22,6 @@ const HOME_MENUS: HomeMenuItem[] = [
   { id: 'bible',         label: '성경',        icon: BookMarked,     bg: 'bg-amber-50',   ic: 'text-amber-500' },
   { id: 'bible-plans',   label: '성경통독',    icon: Book,           bg: 'bg-green-50',   ic: 'text-green-500' },
   { id: 'qt',            label: '은혜와 기도',    icon: BookHeart,      bg: 'bg-primary-50', ic: 'text-primary-500' },
-  { id: 'prayers',       label: '기도',        icon: Heart,          bg: 'bg-rose-50',    ic: 'text-rose-500' },
   { id: 'bulletins',     label: '주보',        icon: FileText,       bg: 'bg-cyan-50',    ic: 'text-cyan-500' },
   { id: 'events',        label: '일정',        icon: Calendar,       bg: 'bg-emerald-50', ic: 'text-emerald-500' },
   { id: 'albums',        label: '앨범',        icon: Image,          bg: 'bg-pink-50',    ic: 'text-pink-500' },

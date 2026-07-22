@@ -116,7 +116,9 @@ export type GraceNote = {
   /** seed·demo 식별 — 실제 사용자 기록과 구분 */
   isSeed?: boolean;
   isDemo?: boolean;
-  source?: 'seed' | 'user';
+  source?: 'seed' | 'user' | 'migrated_prayer';
+  /** 기도 메뉴 통합 — 원본 prayer.id */
+  migratedFromPrayerId?: string;
 };
 
 export type GraceNoteInput = Omit<GraceNote, 'id' | 'createdAt' | 'updatedAt'>;

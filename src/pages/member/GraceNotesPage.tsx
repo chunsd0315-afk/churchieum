@@ -1,6 +1,6 @@
 ﻿/**
  * 은혜기록 페이지
- * 말씀을 삶으로 이어가는 신앙 기록 공간
+ * 은혜와 기도 — 말씀·기도 기록 공간
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -18,13 +18,16 @@ import {
   type ReadingEditorCtx, type SermonEditorCtx,
 } from '../../components/member/GraceNotesView';
 import { GraceNoteWritePicker } from '../../components/member/GraceNoteWritePicker';
+import { GraceNotesHomeView } from '../../components/member/GraceNotesHomeView';
 import { GraceNoteListRow } from '../../components/member/GraceNoteListRow';
 import { ReadingProgressPicker, buildReadingFormCtx } from '../../components/member/ReadingProgressPicker';
 import { getAllProgresses } from '../../data/readingPlans';
 import { useAuth } from '../../contexts/AuthContext';
 import { getGraceListBadge } from '../../services/graceNoteShareScope';
+import { ensurePrayersMigratedToGraceNotes } from '../../services/prayerGraceNoteMigration';
 
 type SubView =
+  | 'home'
   | 'today'
   | 'write-pick'
   | 'write'
@@ -42,12 +45,13 @@ function formatDate(iso: string) {
 
 export default function GraceNotesPage() {
   const { user } = useAuth();
-  const [view, setView] = useState<SubView>('all-list');
+  const [view, setView] = useState<SubView>('home');
   const [, setRefresh] = useState(0);
   const [listMineReset, setListMineReset] = useState(0);
 
   useEffect(() => {
     ensureGraceNoteDemoData();
+    ensurePrayersMigratedToGraceNotes();
     setRefresh(n => n + 1);
   }, []);
 
@@ -104,7 +108,7 @@ export default function GraceNotesPage() {
     from?: SubView;
     skipPicker?: boolean;
   }) => {
-    setBackView(opts?.from ?? 'all-list');
+    setBackView(opts?.from ?? 'home');
     setEditId(opts?.editId);
     setWriteType(opts?.type);
     setLockWriteType(Boolean(opts?.lockType ?? Boolean(opts?.type)));
@@ -122,6 +126,7 @@ export default function GraceNotesPage() {
       editId: note.id,
       type: note.type,
       from,
+      skipPicker: true,
     });
   };
 
@@ -129,6 +134,15 @@ export default function GraceNotesPage() {
     setPickReturn(from);
     setView('reading-pick');
   };
+
+  if (view === 'home') {
+    return (
+      <GraceNotesHomeView
+        onViewRecords={() => setView('all-list')}
+        onWrite={() => openWrite({ from: 'home' })}
+      />
+    );
+  }
 
   if (view === 'reading-pick') {
     const readingProgresses = getAllProgresses().filter(
@@ -152,15 +166,18 @@ export default function GraceNotesPage() {
   if (view === 'write-pick') {
     return (
       <GraceNoteWritePicker
-        onBack={() => setView('all-list')}
+        onBack={() => setView(backViewRef.current === 'all-list' ? 'all-list' : 'home')}
         onSelectReading={() => startReadingPick('write-pick')}
-        onSelectSermon={() => openWrite({ type: 'sermon', lockType: true, from: 'all-list', skipPicker: true })}
-        onSelectPrayer={() => openWrite({ type: 'prayer', lockType: true, from: 'all-list', skipPicker: true })}
+        onSelectSermon={() => openWrite({ type: 'sermon', lockType: true, from: backView, skipPicker: true })}
+        onSelectPrayer={() => openWrite({ type: 'prayer', lockType: true, from: backView, skipPicker: true })}
       />
     );
   }
 
   if (view === 'write') {
+    const writeBackTarget = editId
+      ? (backView === 'detail' ? 'detail' : 'all-list')
+      : 'write-pick';
     return (
       <GraceNoteEditor
         onSave={() => {
@@ -176,7 +193,7 @@ export default function GraceNotesPage() {
           setReadingCtx(null);
           setSermonCtx(null);
           setWriteType(undefined);
-          setView(editId ? 'all-list' : 'write-pick');
+          setView(writeBackTarget);
         }}
         editId={editId}
         initialType={writeType}
@@ -200,8 +217,8 @@ export default function GraceNotesPage() {
             aria-hidden={view === 'detail'}
           >
             <GraceNoteListView
-              isRootPage
-              onBack={() => {}}
+              isRootPage={false}
+              onBack={() => setView('home')}
               resetToMineSignal={listMineReset}
               onWrite={() => openWrite({ from: 'all-list' })}
               onDetail={id => navToDetail(id, 'all-list')}

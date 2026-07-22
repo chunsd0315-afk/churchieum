@@ -2,7 +2,7 @@
 import { useAuth } from '../../contexts/AuthContext';
 import {
   Home, Bell, ChevronLeft, Settings,
-  BookOpen, Heart, User,
+  BookOpen, BookHeart, User,
 } from 'lucide-react';
 import { getProfileImage, resolveProfileImage } from '../../services/profileImage';
 import { UserProfileAvatar } from '../common/ui/UserProfileAvatar';
@@ -22,7 +22,7 @@ export type AdminPage =
   | 'home' | 'church' | 'org' | 'districts' | 'zones' | 'departments'
   | 'clergy' | 'members' | 'invitations' | 'contents'
   | 'sermons' | 'qt' | 'announcements' | 'bulletins'
-  | 'events' | 'prayers' | 'visits' | 'new-family'
+  | 'events' | 'visits' | 'new-family'
   | 'bible-plans' | 'albums' | 'statistics'
   | 'verification' | 'staff' | 'profile' | 'sharing'
   | 'bible' | 'church-info';
@@ -42,7 +42,7 @@ const SIDEBAR_NAV_ITEMS = buildSidebarNavItems<AdminNavId>(ADMIN_ROLE_MENUS);
 const BOTTOM_NAV_ITEMS = [
   { id: 'home' as const, label: '홈', icon: Home },
   { id: 'sermons' as const, label: HOME_MENU_CATALOG.sermon.label, icon: BookOpen },
-  { id: 'prayers' as const, label: HOME_MENU_CATALOG.prayer.label, icon: Heart },
+  { id: 'qt' as const, label: HOME_MENU_CATALOG.grace.label, icon: BookHeart },
   { id: 'profile' as const, label: HOME_MENU_CATALOG.profile.label, icon: User },
   { id: 'settings' as const, label: HOME_MENU_CATALOG.settings.label, icon: Settings },
 ];

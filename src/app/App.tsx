@@ -8,7 +8,6 @@ import { MemberLayout, type Page } from '../components/member/Layout';
 import MemberHome from '../components/member/MemberHome';
 import SermonPage from '../pages/member/SermonPage';
 import GraceNotesPage from '../pages/member/GraceNotesPage';
-import PrayerPage from '../pages/member/PrayerPage';
 import AnnouncementPage from '../pages/member/AnnouncementPage';
 import AlbumPage from '../pages/member/AlbumPage';
 import ProfilePage from '../pages/member/ProfilePage';
@@ -27,7 +26,6 @@ import MemberManagementPage from '../pages/admin/MemberManagementPage';
 import DepartmentManagementPage from '../pages/admin/DepartmentManagementPage';
 import SermonManagementPage from '../pages/admin/SermonManagementPage';
 import AnnouncementManagementPage from '../pages/admin/AnnouncementManagementPage';
-import PrayerManagementPage from '../pages/admin/PrayerManagementPage';
 import VisitManagementPage from '../pages/admin/VisitManagementPage';
 import StatisticsPage from '../pages/admin/StatisticsPage';
 import ChurchVerificationPage from '../pages/admin/ChurchVerificationPage';
@@ -174,7 +172,6 @@ function AppContent() {
         {memberPage === 'home' && <SafePage><MemberHome onNavigate={setMemberPage} /></SafePage>}
         {memberPage === 'sermon' && <SafePage><SermonPage /></SafePage>}
         {memberPage === 'grace-notes' && <SafePage><GraceNotesPage /></SafePage>}
-        {memberPage === 'prayer' && <SafePage><PrayerPage /></SafePage>}
         {memberPage === 'announcement' && <SafePage><AnnouncementPage /></SafePage>}
         {memberPage === 'album' && <SafePage><AlbumPage /></SafePage>}
         {memberPage === 'departments' && <SafePage><DepartmentsPage /></SafePage>}
@@ -221,7 +218,6 @@ function AppContent() {
             />
           </SafePage>
         )}
-        {pastorPage === 'prayers' && <SafePage><PrayerPage /></SafePage>}
         {pastorPage === 'visits' && <SafePage><VisitManagementPage /></SafePage>}
         {pastorPage === 'announcements' && <SafePage><AnnouncementManagementPage /></SafePage>}
         {pastorPage === 'events' && <SafePage><EventManagementPage /></SafePage>}
@@ -273,7 +269,6 @@ function AppContent() {
         {adminPage === 'announcements' && <SafePage><AnnouncementManagementPage /></SafePage>}
         {adminPage === 'bulletins' && <SafePage><BulletinManagementPage /></SafePage>}
         {adminPage === 'events' && <SafePage><EventManagementPage /></SafePage>}
-        {adminPage === 'prayers' && <SafePage><PrayerManagementPage /></SafePage>}
         {adminPage === 'visits' && <SafePage><VisitManagementPage /></SafePage>}
         {adminPage === 'bible-plans' && <SafePage><BiblePlanManagementPage /></SafePage>}
         {adminPage === 'albums' && <SafePage><AlbumManagementPage /></SafePage>}
