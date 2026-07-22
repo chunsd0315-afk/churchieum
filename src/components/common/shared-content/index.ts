@@ -31,5 +31,7 @@ export {
 export { PeriodFilterSection } from './PeriodFilterSection';
 export { SharedContentCollectionTabs } from './SharedContentCollectionTabs';
 export type { SharedContentCollectionTab } from './SharedContentCollectionTabs';
+export { AuthorOrgFilterSelector } from './AuthorOrgFilterSelector';
+export type { AuthorOrgFilterSelectorProps } from './AuthorOrgFilterSelector';
 export { SharedContentAuthorSelector } from './SharedContentAuthorSelector';
 export type { SharedContentAuthorOption } from './SharedContentAuthorSelector';

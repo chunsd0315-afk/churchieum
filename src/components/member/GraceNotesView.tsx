@@ -33,6 +33,8 @@ import {
   getGraceNotesForCollectTab,
   getGraceListBadge,
   sortGraceNotesForMemberView,
+  matchesAuthorOrganizationFilter,
+  UNASSIGNED_AUTHOR_ORG_ID,
   GRACE_COLLECTION_UI_TABS,
   type GraceCollectTab,
 } from '../../services/graceNoteShareScope';
@@ -53,6 +55,12 @@ import {
   normalizeShareTypeForUser,
 } from '../../services/sharedContentShareTypeFilterLabels';
 import {
+  buildAuthorOrganizationGroups,
+  buildAuthorsWithOrganizationIds,
+  filterAuthorsBySelectedOrganizations,
+  pruneSelectedAuthorIds,
+} from '../../services/graceShareAuthorOrgGroups';
+import {
   SharedContentSegmentButtons,
   SharedContentListToolbar,
   SharedContentDetailSettingsPage,
@@ -60,6 +68,7 @@ import {
   SharedContentShareTypeFilterSection,
   SharedContentAuthorRoleFilterSection,
   SharedContentAuthorSelector,
+  AuthorOrgFilterSelector,
   PeriodFilterSection,
 } from '../common/shared-content';
 import {
@@ -181,6 +190,8 @@ type GraceListFilterState = {
   shareType: ReceivedShareType;
   organizationIds: string[];
   selectedPastorIds: string[];
+  /** 교역자 pastor_share — 작성자 소속 조직 */
+  selectedAuthorOrganizationIds: string[];
   selectedAuthorIds: string[];
   authorRole: 'all' | 'member' | 'pastor';
   authorQuery: string;
@@ -201,6 +212,7 @@ function createEmptyFilter(
     ),
     organizationIds: [],
     selectedPastorIds: [],
+    selectedAuthorOrganizationIds: [],
     selectedAuthorIds: [],
     authorRole: 'all',
     authorQuery: '',
@@ -212,6 +224,7 @@ function hasSharedTabSecondaryFilters(applied: GraceListFilterState): boolean {
   return (
     applied.organizationIds.length > 0 ||
     applied.selectedPastorIds.length > 0 ||
+    applied.selectedAuthorOrganizationIds.length > 0 ||
     applied.selectedAuthorIds.length > 0 ||
     applied.authorRole !== 'all' ||
     applied.authorQuery.trim() !== '' ||
@@ -252,6 +265,12 @@ function deriveGraceListShowFlags(
     (tab === 'mine' && f.visibilityFilter === 'pastor_share') ||
     (tab === 'shared' && isAdminUser && f.shareType === 'pastor_share');
 
+  /** 교역자: 본인에게 직접 공유한 작성자를 조직별로 선택 */
+  const showAuthorOrgPicker =
+    tab === 'shared'
+    && isPastorUser
+    && f.shareType === 'pastor_share';
+
   const orgTreeDefaultScope =
     isAdminUser &&
     ((tab === 'mine' && f.visibilityFilter === 'organization_share') ||
@@ -271,6 +290,7 @@ function deriveGraceListShowFlags(
     showSharedOrgTree,
     showOrgTree,
     showPastorPicker,
+    showAuthorOrgPicker,
     orgTreeDefaultScope,
     orgTreeSectionTitle,
   };
@@ -296,10 +316,12 @@ function filterGraceNotesForTab(
     shareType,
     organizationIds,
     selectedPastorIds,
+    selectedAuthorOrganizationIds,
     selectedAuthorIds,
     authorRole,
     authorQuery,
   } = applied;
+  const authorOrgIds = selectedAuthorOrganizationIds ?? [];
   const flags = deriveGraceListShowFlags(
     applied,
     tab,
@@ -334,6 +356,10 @@ function filterGraceNotesForTab(
 
       if (flags.showPastorPicker && selectedPastorIds.length > 0) {
         if (!matchesSharedPastorFilter(n, selectedPastorIds)) return false;
+      }
+
+      if (flags.showAuthorOrgPicker && authorOrgIds.length > 0) {
+        if (!matchesAuthorOrganizationFilter(n, authorOrgIds)) return false;
       }
 
       if ((opts.isPastorUser || opts.isAdminUser) && authorRole !== 'all') {
@@ -379,6 +405,7 @@ function cloneFilter(f: GraceListFilterState): GraceListFilterState {
     ...f,
     organizationIds: [...f.organizationIds],
     selectedPastorIds: [...f.selectedPastorIds],
+    selectedAuthorOrganizationIds: [...(f.selectedAuthorOrganizationIds ?? [])],
     selectedAuthorIds: [...f.selectedAuthorIds],
     period: { ...f.period },
   };
@@ -515,6 +542,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
         ...prev,
         shareType: 'organization_share',
         selectedPastorIds: [],
+        selectedAuthorOrganizationIds: [],
         selectedAuthorIds: [],
       }));
     }
@@ -532,6 +560,12 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
     }
   }, [draftFlags.showPastorPicker, draft.selectedPastorIds.length]);
 
+  useEffect(() => {
+    if (!draftFlags.showAuthorOrgPicker && draft.selectedAuthorOrganizationIds.length > 0) {
+      setDraft(prev => ({ ...prev, selectedAuthorOrganizationIds: [] }));
+    }
+  }, [draftFlags.showAuthorOrgPicker, draft.selectedAuthorOrganizationIds.length]);
+
   const draftAuthorPool = useMemo(
     () => buildGraceSharedAuthorPool(sharedNotes, {
       typeFilter: draft.typeFilter,
@@ -543,6 +577,29 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
     }),
     [sharedNotes, draft, draftFlags.showPastorPicker, draftFlags.showSharedOrgTree],
   );
+
+  const draftAuthorOrgGroups = useMemo(() => {
+    if (!draftFlags.showAuthorOrgPicker) return [];
+    const authors = buildAuthorsWithOrganizationIds(
+      sharedNotes,
+      {
+        typeFilter: draft.typeFilter,
+        shareType: draft.shareType,
+        organizationIds: [],
+        selectedPastorIds: [],
+        showPastorPicker: false,
+        showOrgTree: false,
+      },
+      draft.authorRole,
+    );
+    return buildAuthorOrganizationGroups(authors);
+  }, [
+    draftFlags.showAuthorOrgPicker,
+    sharedNotes,
+    draft.typeFilter,
+    draft.shareType,
+    draft.authorRole,
+  ]);
 
   const authorRoleHint = useMemo(
     () => getGraceAuthorRoleHint({
@@ -624,6 +681,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
       shareType: normalized,
       organizationIds: [],
       selectedPastorIds: [],
+      selectedAuthorOrganizationIds: [],
       selectedAuthorIds: [],
       ...(normalized !== 'pastor_share' ? { authorRole: 'all' as const } : {}),
     }));
@@ -691,6 +749,21 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
           clear: () => setApplied(prev => ({
             ...prev,
             organizationIds: prev.organizationIds.filter(x => x !== id),
+            selectedAuthorIds: [],
+          })),
+        });
+      }
+    }
+    if (appliedFlags.showAuthorOrgPicker) {
+      for (const id of applied.selectedAuthorOrganizationIds) {
+        chips.push({
+          key: `authorOrg:${id}`,
+          label: id === UNASSIGNED_AUTHOR_ORG_ID
+            ? '소속 미지정'
+            : getOrganizationPathLabel(id),
+          clear: () => setApplied(prev => ({
+            ...prev,
+            selectedAuthorOrganizationIds: prev.selectedAuthorOrganizationIds.filter(x => x !== id),
             selectedAuthorIds: [],
           })),
         });
@@ -976,12 +1049,44 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
               }))}
               description={authorRoleHint}
             />
-            <SharedContentAuthorSelector
-              authors={draftAuthorPool}
-              selectedIds={draft.selectedAuthorIds}
-              onChange={ids => setDraft(prev => ({ ...prev, selectedAuthorIds: ids }))}
-              roleFilter={draft.authorRole}
-            />
+            {draftFlags.showAuthorOrgPicker ? (
+              <AuthorOrgFilterSelector
+                groups={draftAuthorOrgGroups}
+                selectedOrganizationIds={draft.selectedAuthorOrganizationIds}
+                selectedAuthorIds={draft.selectedAuthorIds}
+                onChangeOrganizations={ids => {
+                  const authors = buildAuthorsWithOrganizationIds(
+                    sharedNotes,
+                    {
+                      typeFilter: draft.typeFilter,
+                      shareType: draft.shareType,
+                      organizationIds: [],
+                      selectedPastorIds: [],
+                      showPastorPicker: false,
+                      showOrgTree: false,
+                    },
+                    draft.authorRole,
+                  );
+                  const scoped = filterAuthorsBySelectedOrganizations(authors, ids);
+                  setDraft(prev => ({
+                    ...prev,
+                    selectedAuthorOrganizationIds: ids,
+                    selectedAuthorIds: pruneSelectedAuthorIds(prev.selectedAuthorIds, scoped),
+                  }));
+                }}
+                onChangeAuthors={ids => setDraft(prev => ({
+                  ...prev,
+                  selectedAuthorIds: [...new Set(ids)],
+                }))}
+              />
+            ) : (
+              <SharedContentAuthorSelector
+                authors={draftAuthorPool}
+                selectedIds={draft.selectedAuthorIds}
+                onChange={ids => setDraft(prev => ({ ...prev, selectedAuthorIds: ids }))}
+                roleFilter={draft.authorRole}
+              />
+            )}
           </>
         )}
 

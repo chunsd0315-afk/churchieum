@@ -147,6 +147,12 @@ function preferDeepestOrg(
   return scored[0]?.id ?? null;
 }
 
+/** 사용자 ID 기준 소속·담당 조직 ID */
+export function getOrganizationIdsForUserId(userId: string): string[] {
+  if (!userId.trim()) return [];
+  return resolveOrgBucketsForUserId(userId).all;
+}
+
 /**
  * 대표 조직 경로 (상위 → 하위).
  * relatedOrganizationIds 가 있으면 기록 공유 조직과 맞는 소속을 우선한다.

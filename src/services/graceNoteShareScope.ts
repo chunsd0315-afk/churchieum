@@ -23,12 +23,16 @@ import {
 import type { GraceNoteVisibility } from '../data/graceNotes';
 import { readOrgSettings } from '../contexts/OrgSettingsContext';
 import { migrateVisibility, isLegacyPublic } from '../types/sharedContent';
-import { getAllOrganizations } from './organizationStorage';
+import { getAllOrganizations, getAncestorIds, getDescendantIds } from './organizationStorage';
 import {
   flattenOrgFilterTree,
   getUserOrganizationTree,
   resolveOrgTreeMode,
 } from './userOrganizationTree';
+import { getOrganizationIdsForUserId } from './userOrganizationPath';
+
+/** 소속 미지정 작성자 그룹 ID */
+export const UNASSIGNED_AUTHOR_ORG_ID = '_unassigned';
 
 const PASTORAL_POSITIONS = new Set([
   '담임목사', '부목사', '목사', '전도사', '교육전도사', '선교사', '간사',
@@ -1231,15 +1235,20 @@ export function getAuthorOrganizationIds(note: {
   authorDepartmentIds?: string[];
 }): string[] {
   const m = resolveMembershipForAuthor(note);
-  if (!m) return [];
-  const ids: string[] = [];
-  if (m.districtId) ids.push(m.districtId);
-  if (m.zoneId) ids.push(m.zoneId);
-  for (const id of m.departmentIds) ids.push(id);
-  return uniqueIds(ids);
+  if (m) {
+    const ids: string[] = [];
+    if (m.districtId) ids.push(m.districtId);
+    if (m.zoneId) ids.push(m.zoneId);
+    for (const id of m.departmentIds) ids.push(id);
+    if (ids.length > 0) return uniqueIds(ids);
+  }
+  if (note.userId?.trim()) {
+    return getOrganizationIdsForUserId(note.userId.trim());
+  }
+  return [];
 }
 
-/** 작성자 소속 조직 OR 필터 ([] = 전체) */
+/** 작성자 소속 조직 OR 필터 ([] = 전체). 상위 선택 시 하위 소속 작성자 포함 */
 export function matchesAuthorOrganizationFilter(
   note: {
     userId?: string;
@@ -1250,11 +1259,32 @@ export function matchesAuthorOrganizationFilter(
   },
   selectedOrganizationIds: string[] | undefined | null,
 ): boolean {
-  const selected = selectedOrganizationIds ?? [];
+  const selected = (selectedOrganizationIds ?? []).filter(Boolean);
   if (selected.length === 0) return true;
+
+  if (selected.includes(UNASSIGNED_AUTHOR_ORG_ID)) {
+    const onlyUnassigned = selected.length === 1;
+    const authorOrgs = getAuthorOrganizationIds(note);
+    if (authorOrgs.length === 0) return true;
+    if (onlyUnassigned) return false;
+  }
+
   const authorOrgs = getAuthorOrganizationIds(note);
-  if (authorOrgs.length === 0) return false;
-  return authorOrgs.some(id => selected.includes(id));
+  if (authorOrgs.length === 0) {
+    return selected.includes(UNASSIGNED_AUTHOR_ORG_ID);
+  }
+
+  const selectedSet = new Set<string>();
+  for (const id of selected) {
+    if (id === UNASSIGNED_AUTHOR_ORG_ID) continue;
+    selectedSet.add(id);
+    for (const d of getDescendantIds(id)) selectedSet.add(d);
+  }
+
+  return authorOrgs.some(id => {
+    if (selectedSet.has(id)) return true;
+    return getAncestorIds(id).some(a => selectedSet.has(a));
+  });
 }
 
 /** @deprecated alias */
