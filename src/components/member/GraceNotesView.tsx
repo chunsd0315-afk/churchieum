@@ -768,7 +768,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
         onClick={() => switchCollectionMode('mine')}
         className={`min-h-[44px] px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors touch-target ${
           isMineMode
-            ? 'bg-[#2F8F62] text-white shadow-sm'
+            ? 'bg-primary-500 text-white shadow-sm'
             : 'bg-white text-gray-600 border border-[#E5E7EB]'
         }`}
       >
@@ -786,7 +786,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
         onClick={() => switchCollectionMode('shared')}
         className={`min-h-[44px] px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors touch-target ${
           !isMineMode
-            ? 'bg-[#2F8F62] text-white shadow-sm'
+            ? 'bg-primary-500 text-white shadow-sm'
             : 'bg-white text-gray-600 border border-[#E5E7EB]'
         }`}
       >
@@ -803,6 +803,15 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
       <Plus className="w-5 h-5" /> 작성
     </button>
   ) : undefined;
+
+  const headerAction = isRootPage ? (
+    <div className="flex items-center gap-3">
+      <span className="text-sm text-gray-400 font-medium tabular-nums shrink-0">
+        {filtered.length}개
+      </span>
+      {writeBtn}
+    </div>
+  ) : writeBtn;
 
   const listBody = (
     <div
@@ -884,9 +893,13 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
           <PageHeaderBar
             title={GRACE_MENU_LABEL}
             description={pageDescription}
-            action={writeBtn}
+            action={headerAction}
           />
-          <div className="pt-4">{listBody}</div>
+          {/* 모바일: Layout 헤더는 고정 안내 — 탭별 안내 문구는 본문에 표시 */}
+          <p className="md:hidden text-sm text-gray-500 mb-3 leading-relaxed">
+            {pageDescription}
+          </p>
+          <div className="pt-1 md:pt-4">{listBody}</div>
           {onWrite && user && (
             <MobileFab label="작성" onClick={onWrite} />
           )}

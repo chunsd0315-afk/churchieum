@@ -1,6 +1,6 @@
 ﻿/**
- * 은혜기록 페이지
- * 은혜와 기도 — 말씀·기도 기록 공간
+ * 은혜와 기도 페이지
+ * 메뉴 진입 시 바로 내 기록 목록(collection / mine)을 표시합니다.
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -18,7 +18,6 @@ import {
   type ReadingEditorCtx, type SermonEditorCtx,
 } from '../../components/member/GraceNotesView';
 import { GraceNoteWritePicker } from '../../components/member/GraceNoteWritePicker';
-import { GraceNotesHomeView } from '../../components/member/GraceNotesHomeView';
 import { GraceNoteListRow } from '../../components/member/GraceNoteListRow';
 import { ReadingProgressPicker, buildReadingFormCtx } from '../../components/member/ReadingProgressPicker';
 import { getAllProgresses } from '../../data/readingPlans';
@@ -27,7 +26,6 @@ import { getGraceListBadge } from '../../services/graceNoteShareScope';
 import { ensurePrayersMigratedToGraceNotes } from '../../services/prayerGraceNoteMigration';
 
 type SubView =
-  | 'home'
   | 'today'
   | 'write-pick'
   | 'write'
@@ -45,7 +43,8 @@ function formatDate(iso: string) {
 
 export default function GraceNotesPage() {
   const { user } = useAuth();
-  const [view, setView] = useState<SubView>('home');
+  /** 메뉴 진입 기본: 내 기록 목록 */
+  const [view, setView] = useState<SubView>('all-list');
   const [, setRefresh] = useState(0);
   const [listMineReset, setListMineReset] = useState(0);
 
@@ -108,7 +107,7 @@ export default function GraceNotesPage() {
     from?: SubView;
     skipPicker?: boolean;
   }) => {
-    setBackView(opts?.from ?? 'home');
+    setBackView(opts?.from ?? 'all-list');
     setEditId(opts?.editId);
     setWriteType(opts?.type);
     setLockWriteType(Boolean(opts?.lockType ?? Boolean(opts?.type)));
@@ -135,15 +134,6 @@ export default function GraceNotesPage() {
     setView('reading-pick');
   };
 
-  if (view === 'home') {
-    return (
-      <GraceNotesHomeView
-        onViewRecords={() => setView('all-list')}
-        onWrite={() => openWrite({ from: 'home' })}
-      />
-    );
-  }
-
   if (view === 'reading-pick') {
     const readingProgresses = getAllProgresses().filter(
       p => p.status === 'active' || p.status === 'paused',
@@ -166,7 +156,7 @@ export default function GraceNotesPage() {
   if (view === 'write-pick') {
     return (
       <GraceNoteWritePicker
-        onBack={() => setView(backViewRef.current === 'all-list' ? 'all-list' : 'home')}
+        onBack={() => setView('all-list')}
         onSelectReading={() => startReadingPick('write-pick')}
         onSelectSermon={() => openWrite({ type: 'sermon', lockType: true, from: backView, skipPicker: true })}
         onSelectPrayer={() => openWrite({ type: 'prayer', lockType: true, from: backView, skipPicker: true })}
@@ -217,8 +207,8 @@ export default function GraceNotesPage() {
             aria-hidden={view === 'detail'}
           >
             <GraceNoteListView
-              isRootPage={false}
-              onBack={() => setView('home')}
+              isRootPage
+              onBack={() => setView('all-list')}
               resetToMineSignal={listMineReset}
               onWrite={() => openWrite({ from: 'all-list' })}
               onDetail={id => navToDetail(id, 'all-list')}
