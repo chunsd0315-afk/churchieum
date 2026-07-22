@@ -1,4 +1,3 @@
-import { Star } from 'lucide-react';
 import type { GraceNote } from '../../data/graceNotes';
 import { formatGraceNoteAuthorLine } from '../../services/graceNoteAuthorDisplay';
 import {
@@ -26,8 +25,8 @@ type Props = {
 };
 
 /**
- * 은혜기록 목록 공통 행
- * 배지 → 제목 → 내용 미리보기 → 작성자·작성일 → (우측) 즐겨찾기·더보기
+ * 은혜와 기도 목록 공통 행
+ * 배지 → 제목 → 내용 미리보기 → 작성자·작성일 → (우측) 더보기
  */
 export function GraceNoteListRow({
   note,
@@ -81,25 +80,19 @@ export function GraceNoteListRow({
           </p>
         </div>
 
-        <div
-          className="flex flex-col items-center gap-1 shrink-0 pt-0.5"
-          onClick={e => e.stopPropagation()}
-          onKeyDown={e => e.stopPropagation()}
-        >
-          <span
-            className={`touch-target flex items-center justify-center w-10 h-10 ${
-              note.isFavorite ? 'text-amber-500' : 'text-gray-300'
-            }`}
-            aria-label={note.isFavorite ? '즐겨찾기 선택됨' : '즐겨찾기'}
+        {menuItems && menuItems.length > 0 && (
+          <div
+            className="flex items-center shrink-0 self-center"
+            onClick={e => e.stopPropagation()}
+            onKeyDown={e => e.stopPropagation()}
           >
-            <Star
-              className={`w-5 h-5 ${note.isFavorite ? 'fill-amber-400 text-amber-500' : ''}`}
+            <ChurchDropdownMenu
+              items={menuItems}
+              layer="belowPlayer"
+              ariaLabel="기록 더보기"
             />
-          </span>
-          {menuItems && menuItems.length > 0 && (
-            <ChurchDropdownMenu items={menuItems} layer="belowPlayer" />
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

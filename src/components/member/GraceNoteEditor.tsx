@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { BookOpen, Mic, HandHeart, Star } from 'lucide-react';
+import { BookOpen, Mic, HandHeart } from 'lucide-react';
 import {
   getGraceNote, createGraceNote, updateGraceNote,
   type GraceNoteInput, type GraceNoteType,
@@ -134,7 +134,6 @@ export function GraceNoteEditor({
   );
   const [graceTitle, setGraceTitle] = useState(existing?.graceTitle ?? '');
   const [graceContent, setGraceContent] = useState(existing?.graceContent ?? '');
-  const [isFavorite, setIsFavorite] = useState(existing?.isFavorite ?? false);
   const [share, setShare] = useState<GraceNoteShareState>(() => defaultShareState(existing ?? undefined));
   const [saved, setSaved] = useState(false);
 
@@ -169,6 +168,8 @@ export function GraceNoteEditor({
   const buildInput = (): GraceNoteInput => {
     const shareFields = shareInputWithSnapshots(share, user, existing?.sharedPastorSnapshots);
     const legacyEmpty = { memorableVerse: '', application: '', prayer: '' };
+    /** 수정 시 기존 값 보존 · 신규는 false (UI 없음) */
+    const isFavorite = existing?.isFavorite ?? false;
 
     if (noteType === 'reading') {
       const planColor = readingCtx?.planColor
@@ -367,22 +368,6 @@ export function GraceNoteEditor({
 
         {/* 5. 공개범위 */}
         <GraceNoteShareSelector value={share} onChange={setShare} />
-
-        {/* 6. 즐겨찾기 */}
-        <label className="flex items-center gap-3 touch-target cursor-pointer py-2">
-          <button
-            type="button"
-            onClick={() => setIsFavorite(v => !v)}
-            className={`w-10 h-10 rounded-xl flex items-center justify-center border-2 transition-colors ${
-              isFavorite ? 'border-amber-400 bg-amber-50 text-amber-500' : 'border-gray-200 text-gray-400'
-            }`}
-          >
-            <Star className={`w-5 h-5 ${isFavorite ? 'fill-amber-400' : ''}`} />
-          </button>
-          <span className="text-sm font-semibold text-gray-700">
-            {isFavorite ? '즐겨찾기에 추가됨' : '즐겨찾기에 추가'}
-          </span>
-        </label>
       </ContentFormCard>
     </ContentEditorLayout>
   );

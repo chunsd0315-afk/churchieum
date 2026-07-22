@@ -368,7 +368,7 @@ function seedMeta(index: number): Pick<GraceNote, 'isSeed' | 'isDemo' | 'source'
     isSeed: true,
     isDemo: true,
     source: 'seed',
-    isFavorite: index % 5 === 0,
+    isFavorite: false,
   };
 }
 

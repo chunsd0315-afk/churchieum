@@ -1277,7 +1277,6 @@ const VIEW_KIND_PRIORITY: Record<GraceNoteViewKind, number> = {
 export type GraceNoteListSort =
   | 'newest'
   | 'oldest'
-  | 'favorites'
   | 'own_first'
   | 'received_first';
 
@@ -1287,11 +1286,6 @@ export function sortGraceNotesForMemberView<T extends GraceNoteVisibilityInput &
   sortOrder: GraceNoteListSort = 'newest',
 ): T[] {
   return [...notes].sort((a, b) => {
-    if (sortOrder === 'favorites') {
-      const fa = a.isFavorite ? 0 : 1;
-      const fb = b.isFavorite ? 0 : 1;
-      if (fa !== fb) return fa - fb;
-    }
     if (sortOrder === 'own_first' || sortOrder === 'received_first') {
       const ia = getGraceNoteViewInfo(a, viewer);
       const ib = getGraceNoteViewInfo(b, viewer);

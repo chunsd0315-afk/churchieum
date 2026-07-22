@@ -1240,11 +1240,6 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
               <span className={`text-[11px] px-2.5 py-1 rounded-full font-semibold flex items-center gap-1 ${vm.color}`}>
                 {vm.icon} {vm.label}
               </span>
-              {note.isFavorite && (
-                <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold bg-amber-50 text-amber-700">
-                  ★ 즐겨찾기
-                </span>
-              )}
             </div>
 
             <h2 className="text-xl font-bold text-gray-900 leading-snug">{listTitle}</h2>

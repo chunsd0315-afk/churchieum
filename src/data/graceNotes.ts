@@ -261,7 +261,7 @@ export function getSharedGraceNotesForPastor(viewer?: AppUser | null): GraceNote
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
-/** 즐겨찾기 은혜기록 */
+/** @deprecated 은혜와 기도 UI에서 즐겨찾기 제거 — 데이터 호환용으로만 유지 */
 export function getFavoriteGraceNotes(): GraceNote[] {
   return load().filter(n => n.isFavorite).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }

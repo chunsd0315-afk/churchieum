@@ -189,13 +189,13 @@ function normalizeShareArrays(
   };
 }
 
-function normalizeFavorite(note: Partial<GraceNote>, index: number): boolean {
+function normalizeFavorite(note: Partial<GraceNote>, _index: number): boolean {
   if (typeof note.isFavorite === 'boolean') return note.isFavorite;
   const legacy = (note as { favorite?: boolean }).favorite
     ?? (note as { bookmarked?: boolean }).bookmarked
     ?? (note as { isBookmarked?: boolean }).isBookmarked;
   if (typeof legacy === 'boolean') return legacy;
-  return index % 5 === 0;
+  return false;
 }
 
 /** 단일 seed 기록을 통일 형식으로 정규화 */
