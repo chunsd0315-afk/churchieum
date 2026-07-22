@@ -1,17 +1,18 @@
 /**
  * 은혜기록·기도 공통 — 공유받은 기록 상세설정 공유 유형 동적 문구
+ * (공유유형 "전체" 없음)
  */
 
-import type { AppUser } from './permissions';
+import type { AppUser, UserRole } from './permissions';
 import { isSuperAdmin } from './permissions';
 import { getClergyByEmail, positionLabel } from './clergyData';
-import type { ShareTypeFilter } from '../types/sharedContent';
+import type { ReceivedShareType, ShareTypeFilter } from '../types/sharedContent';
 import { SHARE_TYPE_FILTER_LABELS } from '../types/sharedContent';
 
 export type SharedContentDomain = 'grace' | 'prayer';
 
 export type SharedContentShareTypeFilterOption = {
-  id: ShareTypeFilter;
+  id: ReceivedShareType;
   label: string;
   chipLabel: string;
   description: string;
@@ -19,9 +20,8 @@ export type SharedContentShareTypeFilterOption = {
   visible?: boolean;
 };
 
-/** @deprecated alias — getSharedContentShareTypeFilterOptions 와 동일 구조 */
 export type ReceivedShareOption = SharedContentShareTypeFilterOption & {
-  value: ShareTypeFilter;
+  value: ReceivedShareType;
   title: string;
   visible: boolean;
 };
@@ -79,9 +79,60 @@ function isMemberRole(user: AppUser): boolean {
   return !isSuperAdmin(user) && user.role !== 'pastor';
 }
 
+function resolveRole(user: AppUser | null): UserRole | 'guest' {
+  if (!user) return 'guest';
+  if (isSuperAdmin(user)) return 'super_admin';
+  if (user.role === 'pastor') return 'pastor';
+  return 'member';
+}
+
+/** 역할별 기본 공유유형 — 전체(all) 없음 */
+export function getDefaultReceivedShareType(
+  userOrRole: AppUser | UserRole | null | undefined,
+): ReceivedShareType {
+  const role =
+    typeof userOrRole === 'string'
+      ? userOrRole
+      : userOrRole
+        ? resolveRole(userOrRole)
+        : 'guest';
+  if (role === 'member') return 'organization_share';
+  return 'pastor_share';
+}
+
 /**
- * 역할별 공유유형 옵션 (제목·설명·칩·노출)
- * — 고정 이름 문자열 금지, currentUser 이름·직분 반영
+ * 레거시 all 및 잘못된 값 → 역할 기본 공유유형
+ */
+export function normalizeReceivedShareType(
+  value: unknown,
+  userOrRole: AppUser | UserRole | null | undefined,
+): ReceivedShareType {
+  const role =
+    typeof userOrRole === 'string'
+      ? userOrRole
+      : userOrRole
+        ? resolveRole(userOrRole)
+        : 'guest';
+  const fallback = getDefaultReceivedShareType(role);
+
+  if (value === 'organization_share') return 'organization_share';
+  if (value === 'pastor_share') {
+    return role === 'member' ? 'organization_share' : 'pastor_share';
+  }
+  // all / undefined / 기타 → 기본값
+  return fallback;
+}
+
+/** @deprecated use normalizeReceivedShareType */
+export function normalizeShareTypeForUser(
+  user: AppUser | null,
+  shareType: ShareTypeFilter,
+): ReceivedShareType {
+  return normalizeReceivedShareType(shareType, user);
+}
+
+/**
+ * 역할별 공유유형 옵션 (전체 제외)
  */
 export function getSharedContentShareTypeFilterOptions(
   user: AppUser | null,
@@ -89,31 +140,21 @@ export function getSharedContentShareTypeFilterOptions(
   options?: { includePastorShare?: boolean },
 ): SharedContentShareTypeFilterOption[] {
   const noun = contentNoun(domain);
-  const obj = objectParticle(noun);
   const includePastorShare = options?.includePastorShare ?? true;
 
   if (!user) {
     return [{
-      id: 'all',
-      label: '전체',
-      chipLabel: '전체',
-      description: `공유받은 ${noun}${obj} 모두 봅니다.`,
-      ariaLabel: `공유받은 ${noun} 전체 보기`,
+      id: 'organization_share',
+      label: '내 교구·부서에 공유한 기록',
+      chipLabel: '내 교구·부서 공유',
+      description: `내가 속한 교구·부서에 공유된 ${noun}입니다.`,
+      ariaLabel: `내 교구·부서에 공유한 ${noun} 보기`,
       visible: true,
     }];
   }
 
   if (isSuperAdmin(user)) {
-    const opts: SharedContentShareTypeFilterOption[] = [
-      {
-        id: 'all',
-        label: '전체',
-        chipLabel: '전체',
-        description: `교역자에게 직접 공유되거나 교구·부서에 공유된 ${noun}${obj} 모두 봅니다.`,
-        ariaLabel: `공유된 ${noun} 전체 보기`,
-        visible: true,
-      },
-    ];
+    const opts: SharedContentShareTypeFilterOption[] = [];
     if (includePastorShare) {
       opts.push({
         id: 'pastor_share',
@@ -136,39 +177,19 @@ export function getSharedContentShareTypeFilterOptions(
   }
 
   if (isMemberRole(user)) {
-    return [
-      {
-        id: 'all',
-        label: '전체',
-        chipLabel: '전체',
-        description: `내가 속한 교구·부서에 공유된 ${noun}${obj} 모두 봅니다.`,
-        ariaLabel: `내 교구·부서에 공유된 ${noun} 전체 보기`,
-        visible: true,
-      },
-      {
-        id: 'organization_share',
-        label: '내 교구·부서에 공유한 기록',
-        chipLabel: '내 교구·부서 공유',
-        description: `내가 속한 교구·부서에 공유된 ${noun}입니다.`,
-        ariaLabel: `내 교구·부서에 공유한 ${noun} 보기`,
-        visible: true,
-      },
-    ];
+    return [{
+      id: 'organization_share',
+      label: '내 교구·부서에 공유한 기록',
+      chipLabel: '내 교구·부서 공유',
+      description: `내가 속한 교구·부서에 공유된 ${noun}입니다.`,
+      ariaLabel: `내 교구·부서에 공유한 ${noun} 보기`,
+      visible: true,
+    }];
   }
 
   // 교역자
   const userTitle = buildSharedContentUserTitle(user);
-  const opts: SharedContentShareTypeFilterOption[] = [
-    {
-      id: 'all',
-      label: '전체',
-      chipLabel: '전체',
-      description:
-        `나에게 직접 공유되거나 내가 속하거나 담당하는 교구·부서에 공유된 ${noun}${obj} 모두 봅니다.`,
-      ariaLabel: `${userTitle} 공유받은 ${noun} 전체 보기`,
-      visible: true,
-    },
-  ];
+  const opts: SharedContentShareTypeFilterOption[] = [];
 
   if (includePastorShare) {
     opts.push({
@@ -195,7 +216,6 @@ export function getSharedContentShareTypeFilterOptions(
   return opts;
 }
 
-/** 사용자 요청 인터페이스 형태 — UI·문서용 래퍼 */
 export function getReceivedShareOptions(
   currentUser: AppUser | null,
   domain: SharedContentDomain = 'grace',
@@ -217,32 +237,15 @@ export function getSharedContentShareTypeFilterLabel(
   variant: 'full' | 'chip' = 'full',
   includePastorShare = true,
 ): string {
-  if (shareType === 'all') return '전체';
+  const normalized = normalizeReceivedShareType(shareType, user);
   const opt = getSharedContentShareTypeFilterOptions(user, domain, { includePastorShare }).find(
-    o => o.id === shareType,
+    o => o.id === normalized,
   );
-  if (!opt) return SHARE_TYPE_FILTER_LABELS[shareType];
+  if (!opt) return SHARE_TYPE_FILTER_LABELS[normalized];
   return variant === 'chip' ? opt.chipLabel : opt.label;
 }
 
-/**
- * 역할 변경·로그인 전환 시 공유유형 정규화
- * — 성도에게 pastor_share 가 남아 있으면 all 로 되돌림
- */
-export function normalizeShareTypeForUser(
-  user: AppUser | null,
-  shareType: ShareTypeFilter,
-): ShareTypeFilter {
-  if (!user) return 'all';
-  if (isMemberRole(user) && shareType === 'pastor_share') return 'all';
-  const allowed = new Set(
-    getSharedContentShareTypeFilterOptions(user, 'grace').map(o => o.id),
-  );
-  if (!allowed.has(shareType)) return 'all';
-  return shareType;
-}
-
-/** 활성 상세설정 개수 */
+/** 활성 상세설정 개수 — shareType 은 항상 선택되어 있으므로 칩·카운트에서 별도 취급 */
 export function countSharedContentDetailFilters(state: {
   contentType?: string;
   shareType?: string;
@@ -256,7 +259,7 @@ export function countSharedContentDetailFilters(state: {
 }): number {
   let count = 0;
   if (state.contentType) count += 1;
-  if (state.shareType && state.shareType !== 'all') count += 1;
+  if (state.shareType === 'pastor_share' || state.shareType === 'organization_share') count += 1;
   if (state.visibility && state.visibility !== 'all') count += 1;
   if (state.prayerStatus && state.prayerStatus !== 'all') count += 1;
   if (state.organizationIds && state.organizationIds.length > 0) count += state.organizationIds.length;

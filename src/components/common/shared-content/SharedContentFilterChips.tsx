@@ -3,7 +3,8 @@ import { X } from 'lucide-react';
 export type SharedContentFilterChip = {
   key: string;
   label: string;
-  onClear: () => void;
+  /** 없으면 제거 버튼 숨김 (성도 공유유형 등) */
+  onClear?: () => void;
 };
 
 export function SharedContentFilterChips({
@@ -18,27 +19,34 @@ export function SharedContentFilterChips({
   if (chips.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
+    <div className="flex flex-wrap items-center gap-2">
       {chips.map(chip => (
-        <button
-          key={chip.key + chip.label}
-          type="button"
-          onClick={chip.onClear}
-          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-semibold bg-primary-50 text-primary-700 touch-target"
+        <span
+          key={chip.key}
+          className="inline-flex items-center gap-1 max-w-full px-2.5 py-1.5 rounded-full bg-primary-50 text-primary-700 text-xs font-semibold"
         >
-          {chip.label}
-          <X className="w-3 h-3" aria-hidden />
-        </button>
+          <span className="truncate">{chip.label}</span>
+          {chip.onClear ? (
+            <button
+              type="button"
+              onClick={chip.onClear}
+              className="shrink-0 p-0.5 rounded-full hover:bg-primary-100 touch-target"
+              aria-label={`${chip.label} 조건 제거`}
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          ) : null}
+        </span>
       ))}
-      {onResetAll && (
+      {onResetAll ? (
         <button
           type="button"
           onClick={onResetAll}
-          className="text-[11px] text-gray-500 font-medium px-2 py-1.5 touch-target"
+          className="text-xs font-semibold text-gray-500 hover:text-gray-700 underline-offset-2 hover:underline touch-target px-1 py-1"
         >
           {resetLabel}
         </button>
-      )}
+      ) : null}
     </div>
   );
 }

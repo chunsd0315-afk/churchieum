@@ -10,7 +10,7 @@ import {
 } from '../../services/prayerStorage';
 import type { Prayer } from '../../types/prayer';
 import { CHURCH_WIDE_SCOPE } from '../../types/prayer';
-import type { ShareTypeFilter, VisibilityFilter } from '../../types/sharedContent';
+import type { ReceivedShareType, VisibilityFilter } from '../../types/sharedContent';
 import { migrateVisibility, VISIBILITY_LABELS } from '../../types/sharedContent';
 import {
   filterSharedContentByTab,
@@ -36,8 +36,10 @@ import {
   type SharedContentAuthorOption,
 } from '../../components/common/shared-content';
 import {
+  getDefaultReceivedShareType,
   getSharedContentShareTypeFilterLabel,
   getSharedContentShareTypeFilterOptions,
+  normalizeReceivedShareType,
 } from '../../services/sharedContentShareTypeFilterLabels';
 import {
   getFilterPastorsForUser,
@@ -63,21 +65,25 @@ type PrayerPageView = 'collection' | 'filter' | 'write' | 'detail';
 
 type PrayerCollectionFilterState = {
   visibilityFilter: VisibilityFilter;
-  shareType: ShareTypeFilter;
+  shareType: ReceivedShareType;
   organizationIds: string[];
   selectedPastorIds: string[];
   authorRole: 'all' | 'member' | 'pastor';
   selectedAuthorIds: string[];
 };
 
-const EMPTY_PRAYER_FILTER: PrayerCollectionFilterState = {
-  visibilityFilter: 'all',
-  shareType: 'all',
-  organizationIds: [],
-  selectedPastorIds: [],
-  authorRole: 'all',
-  selectedAuthorIds: [],
-};
+function createEmptyPrayerFilter(
+  user: ReturnType<typeof useAuth>['user'] | null,
+): PrayerCollectionFilterState {
+  return {
+    visibilityFilter: 'all',
+    shareType: getDefaultReceivedShareType(user),
+    organizationIds: [],
+    selectedPastorIds: [],
+    authorRole: 'all',
+    selectedAuthorIds: [],
+  };
+}
 
 function formatDate(iso: string) {
   const d = new Date(iso);
@@ -162,8 +168,8 @@ export default function PrayerPage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<PrayerCollectTab>('mine');
   const [search, setSearch] = useState('');
-  const [applied, setApplied] = useState<PrayerCollectionFilterState>(EMPTY_PRAYER_FILTER);
-  const [draft, setDraft] = useState<PrayerCollectionFilterState>(EMPTY_PRAYER_FILTER);
+  const [applied, setApplied] = useState<PrayerCollectionFilterState>(() => createEmptyPrayerFilter(null));
+  const [draft, setDraft] = useState<PrayerCollectionFilterState>(() => createEmptyPrayerFilter(null));
   const [selectedPrayer, setSelectedPrayer] = useState<Prayer | null>(null);
   const [commentTick, setCommentTick] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -230,13 +236,39 @@ export default function PrayerPage() {
     setLoading(false);
   }, [refreshPrayers]);
 
+  useEffect(() => {
+    setApplied(prev => {
+      const nextShare = normalizeReceivedShareType(prev.shareType, user);
+      if (nextShare === prev.shareType && !(isMemberUser && prev.selectedPastorIds.length > 0)) {
+        return prev;
+      }
+      return {
+        ...prev,
+        shareType: nextShare,
+        selectedPastorIds: isMemberUser ? [] : prev.selectedPastorIds,
+        selectedAuthorIds: nextShare === prev.shareType ? prev.selectedAuthorIds : [],
+      };
+    });
+    setDraft(prev => {
+      const nextShare = normalizeReceivedShareType(prev.shareType, user);
+      if (nextShare === prev.shareType && !(isMemberUser && prev.selectedPastorIds.length > 0)) {
+        return prev;
+      }
+      return {
+        ...prev,
+        shareType: nextShare,
+        selectedPastorIds: isMemberUser ? [] : prev.selectedPastorIds,
+        selectedAuthorIds: nextShare === prev.shareType ? prev.selectedAuthorIds : [],
+      };
+    });
+  }, [user?.id, user?.role, isMemberUser]);
+
   const switchTab = (next: PrayerCollectTab) => {
     if (next === tab) return;
     setTab(next);
     if (next === 'mine') {
       setApplied(prev => ({
         ...prev,
-        shareType: 'all',
         organizationIds: [],
         selectedPastorIds: [],
         authorRole: 'all',
@@ -246,6 +278,7 @@ export default function PrayerPage() {
       setApplied(prev => ({
         ...prev,
         visibilityFilter: 'all',
+        shareType: normalizeReceivedShareType(prev.shareType, user),
         organizationIds: [],
         selectedPastorIds: [],
       }));
@@ -264,8 +297,9 @@ export default function PrayerPage() {
   };
 
   const resetAppliedFilters = () => {
-    setApplied(EMPTY_PRAYER_FILTER);
-    setDraft(EMPTY_PRAYER_FILTER);
+    const empty = createEmptyPrayerFilter(user);
+    setApplied(empty);
+    setDraft(empty);
   };
 
   const handleDraftVisibilityChange = (next: VisibilityFilter) => {
@@ -277,7 +311,7 @@ export default function PrayerPage() {
     }));
   };
 
-  const handleDraftShareTypeChange = (next: ShareTypeFilter) => {
+  const handleDraftShareTypeChange = (next: ReceivedShareType) => {
     setDraft(prev => ({
       ...prev,
       shareType: next,
@@ -290,6 +324,7 @@ export default function PrayerPage() {
   const filtered = useMemo(() => {
     const bucket = getPrayersForCollectTab(prayers, user, tab);
     const { showSharedOrgTree, showPastorPickerShared } = appliedFlags;
+    const shareTypeNorm = normalizeReceivedShareType(applied.shareType, user);
 
     return bucket
       .filter(p => {
@@ -312,7 +347,7 @@ export default function PrayerPage() {
         }
 
         if (tab === 'shared') {
-          if (!matchesShareTypeFilter(p, applied.shareType)) return false;
+          if (!matchesShareTypeFilter(p, shareTypeNorm)) return false;
           if (showSharedOrgTree && applied.organizationIds.length > 0) {
             if (!matchesOrganizationFilterForRecord(p, applied.organizationIds)) return false;
           }
@@ -336,10 +371,26 @@ export default function PrayerPage() {
     () => getPrayersForCollectTab(prayers, user, 'mine').length,
     [prayers, user],
   );
-  const sharedCount = useMemo(
-    () => getPrayersForCollectTab(prayers, user, 'shared').length,
-    [prayers, user],
-  );
+  const sharedCount = useMemo(() => {
+    const bucket = getPrayersForCollectTab(prayers, user, 'shared');
+    const shareTypeNorm = normalizeReceivedShareType(applied.shareType, user);
+    const { showSharedOrgTree, showPastorPickerShared } = appliedFlags;
+    return bucket.filter(p => {
+      if (!matchesShareTypeFilter(p, shareTypeNorm)) return false;
+      if (showSharedOrgTree && applied.organizationIds.length > 0) {
+        if (!matchesOrganizationFilterForRecord(p, applied.organizationIds)) return false;
+      }
+      if (showPastorPickerShared && applied.selectedPastorIds.length > 0) {
+        if (!matchesSharedPastorFilter(p, applied.selectedPastorIds)) return false;
+      }
+      if (applied.authorRole === 'member' && isPastoralPrayerAuthor(p.authorRole)) return false;
+      if (applied.authorRole === 'pastor' && !isPastoralPrayerAuthor(p.authorRole)) return false;
+      if (applied.selectedAuthorIds.length > 0 && !applied.selectedAuthorIds.includes(p.authorId)) {
+        return false;
+      }
+      return true;
+    }).length;
+  }, [prayers, user, applied, appliedFlags]);
 
   const activeChips = useMemo((): SharedContentFilterChip[] => {
     const chips: SharedContentFilterChip[] = [];
@@ -357,7 +408,7 @@ export default function PrayerPage() {
       });
     }
 
-    if (tab === 'shared' && applied.shareType !== 'all') {
+    if (tab === 'shared') {
       chips.push({
         key: 'shareType',
         label: getSharedContentShareTypeFilterLabel(
@@ -367,12 +418,11 @@ export default function PrayerPage() {
           'chip',
           !hidePastorShareTypeOption,
         ),
-        onClear: () => setApplied(prev => ({
-          ...prev,
-          shareType: 'all',
-          organizationIds: [],
-          selectedPastorIds: [],
-        })),
+        ...(isMemberUser
+          ? {}
+          : {
+              onClear: () => setApplied(createEmptyPrayerFilter(user)),
+            }),
       });
     }
 
@@ -422,9 +472,10 @@ export default function PrayerPage() {
     }
 
     return chips;
-  }, [tab, applied, appliedFlags, user, hidePastorShareTypeOption, pastorLookupFlat, authorPool]);
+  }, [tab, applied, appliedFlags, user, hidePastorShareTypeOption, pastorLookupFlat, authorPool, isMemberUser]);
 
-  const hasAppliedFilters = activeChips.length > 0 || search.trim() !== '';
+  const hasAppliedFilters =
+    activeChips.some(c => c.key !== 'shareType') || search.trim() !== '';
 
   const emptyState = useMemo(() => {
     if (tab === 'mine') {
@@ -434,20 +485,50 @@ export default function PrayerPage() {
       return { title: '작성한 기도가 없습니다.', desc: '기도작성 버튼으로 첫 기도를 남겨 보세요.' };
     }
     if (hasAppliedFilters) {
-      return { title: '선택한 상세설정에 맞는 기도가 없습니다.', desc: '상세설정 조건을 바꾸거나 초기화해 보세요.' };
+      if (applied.shareType === 'pastor_share') {
+        return {
+          title: isAdminUser
+            ? '조건에 맞는 교역자 직접 공유 기도가 없습니다.'
+            : '나에게 직접 공유된 기도가 없습니다.',
+          desc: '상세설정 조건을 바꾸거나 초기화해 보세요.',
+        };
+      }
+      return {
+        title: isAdminUser
+          ? '조건에 맞는 교구·부서 공유 기도가 없습니다.'
+          : '내 교구·부서에 공유된 기도가 없습니다.',
+        desc: '상세설정 조건을 바꾸거나 초기화해 보세요.',
+      };
     }
-    if (isMemberUser) {
-      return { title: '내 교구·부서에 공유된 기도가 없습니다.', desc: '교구·부서에 공유된 기도가 이곳에 나타납니다.' };
+    if (applied.shareType === 'pastor_share') {
+      return {
+        title: isAdminUser
+          ? '조건에 맞는 교역자 직접 공유 기도가 없습니다.'
+          : isPastorUser
+            ? '나에게 직접 공유된 기도가 없습니다.'
+            : '교역자에게 직접 공유받은 기도가 없습니다.',
+        desc: '공유된 기도가 이곳에 나타납니다.',
+      };
     }
-    if (isPastorUser) {
-      return { title: '나에게 또는 담당 교구·부서에 공유된 기도가 없습니다.', desc: '공유된 기도가 이곳에 나타납니다.' };
-    }
-    return { title: '조회 가능한 공동체 기도가 없습니다.', desc: '공유된 기도가 이곳에 나타납니다.' };
-  }, [tab, hasAppliedFilters, isMemberUser, isPastorUser]);
+    return {
+      title: isAdminUser
+        ? '조건에 맞는 교구·부서 공유 기도가 없습니다.'
+        : '내 교구·부서에 공유된 기도가 없습니다.',
+      desc: '교구·부서에 공유된 기도가 이곳에 나타납니다.',
+    };
+  }, [tab, hasAppliedFilters, isMemberUser, isPastorUser, isAdminUser, applied.shareType]);
 
   const pageDescription = tab === 'mine'
     ? '내가 작성한 기도제목을 확인합니다.'
-    : '나에게 또는 내 교구·부서에 공유된 기도제목을 확인합니다.';
+    : applied.shareType === 'pastor_share'
+      ? (isAdminUser
+        ? '교역자에게 직접 공유된 기도를 봅니다.'
+        : '나에게 직접 공유된 기도를 봅니다.')
+      : (isMemberUser
+        ? '내가 속한 교구·부서에 공유된 기도를 봅니다.'
+        : isAdminUser
+          ? '교구·부서에 공유된 기도를 봅니다.'
+          : '내가 속하거나 담당하는 교구·부서에 공유된 기도를 봅니다.');
 
   const handleSavePrayer = async (payload: {
     title: string;
@@ -526,7 +607,7 @@ export default function PrayerPage() {
     return (
       <SharedContentDetailSettingsPage
         onBack={() => setView('collection')}
-        onReset={() => setDraft(EMPTY_PRAYER_FILTER)}
+        onReset={() => setDraft(createEmptyPrayerFilter(user))}
         onApply={applyFilter}
         description="조건에 맞는 기도를 찾아보세요."
       >

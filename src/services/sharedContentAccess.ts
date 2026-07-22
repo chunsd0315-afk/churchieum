@@ -304,14 +304,20 @@ export function filterSharedContentByTab<T extends SharedContentLike & { id?: st
 }
 
 /**
- * 공유 유형 필터 (전체 / 교역자 공유 / 교구·부서 공유)
- * private는 옵션에 없음 — all 이어도 private는 호출 전 탭 필터에서 제외되어야 함
+ * 공유 유형 필터 (교역자 직접 공유 / 교구·부서 공유)
+ * private는 옵션에 없음. 레거시 'all'은 호출 전 normalize 권장 — 남아 있으면 true(통과)로 두지 않고 false에 가깝게:
+ * 실제로는 normalize 후 pastor/org 만 전달.
  */
 export function matchesShareTypeFilter(
   record: SharedContentLike,
   shareTypeFilter: ShareTypeFilter | undefined | null,
 ): boolean {
-  if (!shareTypeFilter || shareTypeFilter === 'all') return true;
+  if (!shareTypeFilter || shareTypeFilter === 'all') {
+    // 레거시 all — 합산 조회 제거. 안전 통과하지 않고 false (정규화 누락 시 빈 결과 유도)
+    // 단, undefined 는 필터 미적용으로 통과
+    if (shareTypeFilter === 'all') return false;
+    return true;
+  }
   return migrateVisibility(record.visibility) === shareTypeFilter;
 }
 
@@ -319,7 +325,10 @@ export function filterByShareType<T extends SharedContentLike>(
   records: T[],
   shareTypeFilter: ShareTypeFilter | undefined | null,
 ): T[] {
-  if (!shareTypeFilter || shareTypeFilter === 'all') return records;
+  if (!shareTypeFilter || shareTypeFilter === 'all') {
+    if (shareTypeFilter === 'all') return [];
+    return records;
+  }
   return records.filter(r => matchesShareTypeFilter(r, shareTypeFilter));
 }
 

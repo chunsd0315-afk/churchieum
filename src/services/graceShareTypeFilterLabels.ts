@@ -10,6 +10,8 @@ import {
   getSharedContentShareTypeFilterOptions,
   getSharedContentShareTypeFilterLabel,
   getReceivedShareOptions,
+  getDefaultReceivedShareType,
+  normalizeReceivedShareType,
   normalizeShareTypeForUser,
   type SharedContentShareTypeFilterOption,
 } from './sharedContentShareTypeFilterLabels';
@@ -17,6 +19,8 @@ import {
 export {
   buildSharedContentUserTitle,
   getReceivedShareOptions,
+  getDefaultReceivedShareType,
+  normalizeReceivedShareType,
   normalizeShareTypeForUser,
 };
 export type { SharedContentShareTypeFilterOption };

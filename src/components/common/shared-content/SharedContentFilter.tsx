@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Filter, Search, X } from 'lucide-react';
-import type { VisibilityType, ShareTypeFilter } from '../../../types/sharedContent';
+import type { VisibilityType, ReceivedShareType, ShareTypeFilter } from '../../../types/sharedContent';
 import { VISIBILITY_LABELS, SHARE_TYPE_FILTER_LABELS } from '../../../types/sharedContent';
 import type { AppUser } from '../../../services/permissions';
 import {
@@ -8,6 +8,7 @@ import {
   resolveOrgTreeMode,
   type UserOrgTreeMode,
 } from '../../../services/userOrganizationTree';
+import { getDefaultReceivedShareType } from '../../../services/sharedContentShareTypeFilterLabels';
 import { UserOrganizationTreeSelector } from './UserOrganizationTreeSelector';
 
 export type SharedContentFilterState = {
@@ -108,11 +109,12 @@ export function SharedContentSearchFilter({
       (showShareTypeFilter && value.shareType === 'organization_share'));
 
   const chips = useMemo(() => {
-    const list: { key: string; label: string; orgId?: string }[] = [];
-    if (value.shareType && value.shareType !== 'all') {
+    const list: { key: string; label: string; orgId?: string; clearable?: boolean }[] = [];
+    if (value.shareType === 'pastor_share' || value.shareType === 'organization_share') {
       list.push({
         key: 'shareType',
         label: SHARE_TYPE_FILTER_LABELS[value.shareType],
+        clearable: value.shareType !== 'organization_share' || mode !== 'member',
       });
     }
     for (const id of organizationIds) {
@@ -161,12 +163,14 @@ export function SharedContentSearchFilter({
       list.push({ key: 'authorQuery', label: `작성자: ${value.authorQuery}` });
     }
     return list;
-  }, [value, orgOptions, organizationIds, filterOrganizations]);
+  }, [value, orgOptions, organizationIds, filterOrganizations, mode]);
 
   const clearAll = () => {
     onChange({
       visibility: 'all',
-      shareType: 'all',
+      shareType: getDefaultReceivedShareType(
+        mode === 'admin' ? 'super_admin' : mode === 'pastor' ? 'pastor' : 'member',
+      ),
       organizationIds: [],
       prayerStatus: 'all',
       authorRole: 'all',
@@ -178,7 +182,7 @@ export function SharedContentSearchFilter({
     });
   };
 
-  const setShareType = (shareType: ShareTypeFilter) => {
+  const setShareType = (shareType: ReceivedShareType) => {
     onChange({
       ...value,
       shareType,
@@ -215,6 +219,14 @@ export function SharedContentSearchFilter({
       {chips.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
           {chips.map(c => (
+            c.clearable === false ? (
+              <span
+                key={c.key + c.label}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary-50 text-primary-700 text-[12px] font-semibold border border-primary-100"
+              >
+                {c.label}
+              </span>
+            ) : (
             <Chip
               key={c.key + c.label}
               label={c.label}
@@ -224,7 +236,13 @@ export function SharedContentSearchFilter({
                 } else if (c.key === 'visibility') {
                   onChange({ ...value, visibility: 'all' });
                 } else if (c.key === 'shareType') {
-                  onChange({ ...value, shareType: 'all', organizationIds: [] });
+                  onChange({
+                    ...value,
+                    shareType: getDefaultReceivedShareType(
+                      mode === 'admin' ? 'super_admin' : mode === 'pastor' ? 'pastor' : 'member',
+                    ),
+                    organizationIds: [],
+                  });
                 } else if (c.orgId) {
                   onChange({
                     ...value,
@@ -241,6 +259,7 @@ export function SharedContentSearchFilter({
                 }
               }}
             />
+            )
           ))}
           <button
             type="button"
@@ -258,11 +277,16 @@ export function SharedContentSearchFilter({
             <div>
               <p className="text-xs font-bold text-gray-500 mb-1.5">공유 유형</p>
               <select
-                value={value.shareType ?? 'all'}
-                onChange={e => setShareType(e.target.value as ShareTypeFilter)}
+                value={
+                  value.shareType === 'pastor_share' || value.shareType === 'organization_share'
+                    ? value.shareType
+                    : getDefaultReceivedShareType(
+                        mode === 'admin' ? 'super_admin' : mode === 'pastor' ? 'pastor' : 'member',
+                      )
+                }
+                onChange={e => setShareType(e.target.value as ReceivedShareType)}
                 className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm"
               >
-                <option value="all">{SHARE_TYPE_FILTER_LABELS.all}</option>
                 {!hidePastorShareTypeOption && (
                   <option value="pastor_share">{SHARE_TYPE_FILTER_LABELS.pastor_share}</option>
                 )}

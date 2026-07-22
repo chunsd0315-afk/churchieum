@@ -1,4 +1,4 @@
-import type { ShareTypeFilter, VisibilityFilter, VisibilityType } from '../../../types/sharedContent';
+import type { ReceivedShareType, VisibilityFilter, VisibilityType } from '../../../types/sharedContent';
 import { VISIBILITY_LABELS } from '../../../types/sharedContent';
 import { SharedContentSegmentButtons } from './SharedContentSegmentButtons';
 import type { SharedContentShareTypeFilterOption } from '../../../services/sharedContentShareTypeFilterLabels';
@@ -40,8 +40,8 @@ export function SharedContentShareTypeFilterSection({
   onChange,
 }: {
   options: SharedContentShareTypeFilterOption[];
-  value: ShareTypeFilter;
-  onChange: (next: ShareTypeFilter) => void;
+  value: ReceivedShareType;
+  onChange: (next: ReceivedShareType) => void;
 }) {
   return (
     <SharedContentSegmentButtons
@@ -54,7 +54,7 @@ export function SharedContentShareTypeFilterSection({
       }))}
       value={value}
       onChange={onChange}
-      layout="grid-2"
+      layout={options.length === 1 ? 'wrap' : 'grid-2'}
       variant="share"
     />
   );

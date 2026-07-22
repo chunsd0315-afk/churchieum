@@ -155,7 +155,7 @@ export function getGraceAuthorRoleHint(params: {
     return '성도와 교역자가 작성한 공유 기록을 모두 봅니다.';
   }
 
-  if (shareType !== 'pastor_share' && shareType !== 'all') {
+  if (shareType !== 'pastor_share') {
     if (authorRole === 'member') return '성도가 작성한 공유 기록만 봅니다.';
     if (authorRole === 'pastor') return '교역자가 작성한 공유 기록만 봅니다.';
     return '성도와 교역자가 작성한 공유 기록을 모두 봅니다.';
@@ -196,8 +196,11 @@ export function buildGraceSharedListDescription(params: {
 }): string {
   const { user, applied, isAdmin, isPastor, isMember, pastorLookup } = params;
   const userTitle = user ? buildSharedContentUserTitle(user) : '';
+  const shareType = applied.shareType === 'all'
+    ? (isMember ? 'organization_share' : 'pastor_share')
+    : applied.shareType;
 
-  if (applied.shareType === 'pastor_share') {
+  if (shareType === 'pastor_share') {
     if (isAdmin) {
       const ids = applied.selectedPastorIds;
       if (ids.length === 0) {
@@ -224,34 +227,25 @@ export function buildGraceSharedListDescription(params: {
       if (applied.authorRole === 'pastor') {
         return `다른 교역자가 ${userTitle}에게 직접 공유한 기록을 봅니다.`;
       }
-      return `${userTitle}에게 직접 공유된 기록을 봅니다.`;
+      return `${userTitle}에게 직접 공유된 은혜와 기도를 봅니다.`;
     }
   }
 
-  if (applied.shareType === 'organization_share') {
-    if (isMember) {
-      return applied.organizationIds.length > 0
-        ? '선택한 내 교구·부서에 공유된 기록을 봅니다.'
-        : '내 교구·부서에 공유된 기록을 봅니다.';
-    }
-    if (isAdmin) {
-      return applied.organizationIds.length > 0
-        ? '선택한 교구·부서에 공유된 은혜와 기도를 봅니다.'
-        : '교구·부서에 공유된 은혜와 기도를 봅니다.';
-    }
-    if (isPastor && userTitle) {
-      return applied.organizationIds.length > 0
-        ? `${userTitle}${subjectParticle(userTitle)} 속하거나 담당하는 교구·부서 중 선택한 조직의 기록을 봅니다.`
-        : `${userTitle}${subjectParticle(userTitle)} 속하거나 담당하는 교구·부서의 기록을 봅니다.`;
-    }
-    return '내 교구·부서에 공유된 기록을 봅니다.';
+  // organization_share
+  if (isMember) {
+    return applied.organizationIds.length > 0
+      ? '선택한 내 교구·부서에 공유된 은혜와 기도를 봅니다.'
+      : '내가 속한 교구·부서에 공유된 은혜와 기도를 봅니다.';
   }
-
-  // shareType === 'all'
-  if (isMember) return '내 교구·부서에 공유된 기록을 봅니다.';
-  if (isPastor) {
-    return '나에게 직접 공유되거나 내 교구·부서에 공유된 기록을 봅니다.';
+  if (isAdmin) {
+    return applied.organizationIds.length > 0
+      ? '선택한 교구·부서에 공유된 은혜와 기도를 봅니다.'
+      : '교구·부서에 공유된 은혜와 기도를 봅니다.';
   }
-  if (isAdmin) return '공유된 은혜와 기도를 모두 봅니다.';
-  return '공유된 은혜와 기도를 확인합니다.';
+  if (isPastor && userTitle) {
+    return applied.organizationIds.length > 0
+      ? `${userTitle}${subjectParticle(userTitle)} 속하거나 담당하는 교구·부서 중 선택한 조직의 기록을 봅니다.`
+      : `${userTitle}${subjectParticle(userTitle)} 속하거나 담당하는 교구·부서에 공유된 기록을 봅니다.`;
+  }
+  return '내 교구·부서에 공유된 은혜와 기도를 봅니다.';
 }

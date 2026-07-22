@@ -40,7 +40,7 @@ import {
   matchesShareTypeFilter,
   matchesOrganizationFilterForRecord,
 } from '../../services/sharedContentAccess';
-import type { ShareTypeFilter, VisibilityFilter } from '../../types/sharedContent';
+import type { ReceivedShareType, VisibilityFilter } from '../../types/sharedContent';
 import { migrateVisibility, VISIBILITY_LABELS } from '../../types/sharedContent';
 import {
   getGraceShareTypeFilterLabel,
@@ -48,6 +48,8 @@ import {
 } from '../../services/graceShareTypeFilterLabels';
 import {
   buildSharedContentUserTitle,
+  getDefaultReceivedShareType,
+  normalizeReceivedShareType,
   normalizeShareTypeForUser,
 } from '../../services/sharedContentShareTypeFilterLabels';
 import {
@@ -176,7 +178,7 @@ function GraceRecordTypeFilterButtons({
 type GraceListFilterState = {
   typeFilter: GraceNoteType | '';
   visibilityFilter: VisibilityFilter;
-  shareType: ShareTypeFilter;
+  shareType: ReceivedShareType;
   organizationIds: string[];
   selectedPastorIds: string[];
   selectedAuthorIds: string[];
@@ -185,21 +187,29 @@ type GraceListFilterState = {
   period: PeriodFilter;
 };
 
-const EMPTY_FILTER: GraceListFilterState = {
-  typeFilter: '',
-  visibilityFilter: 'all',
-  shareType: 'all',
-  organizationIds: [],
-  selectedPastorIds: [],
-  selectedAuthorIds: [],
-  authorRole: 'all',
-  authorQuery: '',
-  period: { ...EMPTY_PERIOD_FILTER },
-};
+function createEmptyFilter(
+  user: { role?: string } | null | undefined,
+  typeFilter: GraceNoteType | '' = '',
+): GraceListFilterState {
+  return {
+    typeFilter,
+    visibilityFilter: 'all',
+    shareType: getDefaultReceivedShareType(
+      user?.role === 'super_admin' || user?.role === 'pastor' || user?.role === 'member'
+        ? user.role
+        : null,
+    ),
+    organizationIds: [],
+    selectedPastorIds: [],
+    selectedAuthorIds: [],
+    authorRole: 'all',
+    authorQuery: '',
+    period: { ...EMPTY_PERIOD_FILTER },
+  };
+}
 
 function hasSharedTabSecondaryFilters(applied: GraceListFilterState): boolean {
   return (
-    applied.shareType !== 'all' ||
     applied.organizationIds.length > 0 ||
     applied.selectedPastorIds.length > 0 ||
     applied.selectedAuthorIds.length > 0 ||
@@ -212,12 +222,12 @@ function hasSharedTabSecondaryFilters(applied: GraceListFilterState): boolean {
 function hasNonPeriodDetailFilters(applied: GraceListFilterState, tab: GraceCollectTab): boolean {
   if (applied.typeFilter) return true;
   if (tab === 'mine' && applied.visibilityFilter !== 'all') return true;
-  if (tab === 'shared' && applied.shareType !== 'all') return true;
-  if (applied.organizationIds.length > 0) return true;
-  if (applied.selectedPastorIds.length > 0) return true;
-  if (applied.selectedAuthorIds.length > 0) return true;
-  if (applied.authorRole !== 'all') return true;
-  if (applied.authorQuery.trim()) return true;
+  // 공유유형은 항상 선택되어 있으므로 "추가 조건"으로만 세부 필터를 본다
+  if (tab === 'shared' && hasSharedTabSecondaryFilters(applied)) return true;
+  if (tab === 'mine' && (
+    applied.organizationIds.length > 0
+    || applied.selectedPastorIds.length > 0
+  )) return true;
   return false;
 }
 
@@ -315,9 +325,10 @@ function filterGraceNotesForTab(
 
     if (tab === 'shared') {
       if (typeFilter && n.type !== typeFilter) return false;
-      if (showShareTypeFilter && !matchesShareTypeFilter(n, shareType)) return false;
+      const shareTypeNorm = normalizeReceivedShareType(shareType, opts.user ?? null);
+      if (showShareTypeFilter && !matchesShareTypeFilter(n, shareTypeNorm)) return false;
 
-      if (flags.showOrgTree && organizationIds.length > 0 && shareType === 'organization_share') {
+      if (flags.showOrgTree && organizationIds.length > 0 && shareTypeNorm === 'organization_share') {
         if (!matchesOrganizationFilterForRecord(n, organizationIds)) return false;
       }
 
@@ -390,15 +401,15 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
   const [tab, setTab] = useState<GraceCollectTab>('mine');
   const [collectionView, setCollectionView] = useState<'list' | 'filter'>('list');
   const [appliedByTab, setAppliedByTab] = useState<Record<GraceCollectTab, GraceListFilterState>>(() => ({
-    mine: cloneFilter({ ...EMPTY_FILTER, typeFilter: initialType ?? '' }),
-    shared: cloneFilter(EMPTY_FILTER),
+    mine: cloneFilter(createEmptyFilter(null, initialType ?? '')),
+    shared: cloneFilter(createEmptyFilter(null)),
   }));
   const [searchByTab, setSearchByTab] = useState<Record<GraceCollectTab, string>>({
     mine: '',
     shared: '',
   });
   const [draft, setDraft] = useState<GraceListFilterState>(() =>
-    cloneFilter({ ...EMPTY_FILTER, typeFilter: initialType ?? '' }),
+    cloneFilter(createEmptyFilter(null, initialType ?? '')),
   );
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [notes, setNotes] = useState(() => getAllGraceNotes());
@@ -500,7 +511,12 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
 
   useEffect(() => {
     if (hidePastorShareTypeOption && draft.shareType === 'pastor_share') {
-      setDraft(prev => ({ ...prev, shareType: 'all' }));
+      setDraft(prev => ({
+        ...prev,
+        shareType: 'organization_share',
+        selectedPastorIds: [],
+        selectedAuthorIds: [],
+      }));
     }
   }, [hidePastorShareTypeOption, draft.shareType]);
 
@@ -539,11 +555,11 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
     [draft.authorRole, draft.shareType, isAdminUser, isPastorUser, user],
   );
 
-  /** 역할 전환 시 pastor_share 등 잘못된 선택값 정규화 */
+  /** 역할 전환 시 all / pastor_share 등 잘못된 선택값 정규화 */
   useEffect(() => {
     if (!user) return;
     setDraft(prev => {
-      const nextShare = normalizeShareTypeForUser(user, prev.shareType);
+      const nextShare = normalizeReceivedShareType(prev.shareType, user);
       if (nextShare === prev.shareType && !(isMemberUser && prev.selectedPastorIds.length > 0)) {
         return prev;
       }
@@ -559,7 +575,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
       const next = { ...prev };
       for (const key of ['mine', 'shared'] as const) {
         const f = prev[key];
-        const nextShare = normalizeShareTypeForUser(user, f.shareType);
+        const nextShare = normalizeReceivedShareType(f.shareType, user);
         const clearPastors = isMemberUser && f.selectedPastorIds.length > 0;
         if (nextShare !== f.shareType || clearPastors) {
           changed = true;
@@ -601,14 +617,15 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
     }));
   };
 
-  const handleDraftShareTypeChange = (next: ShareTypeFilter) => {
+  const handleDraftShareTypeChange = (next: ReceivedShareType) => {
+    const normalized = normalizeReceivedShareType(next, user);
     setDraft(prev => ({
       ...prev,
-      shareType: next,
+      shareType: normalized,
       organizationIds: [],
       selectedPastorIds: [],
       selectedAuthorIds: [],
-      ...(next !== 'pastor_share' ? { authorRole: 'all' as const } : {}),
+      ...(normalized !== 'pastor_share' ? { authorRole: 'all' as const } : {}),
     }));
   };
 
@@ -625,7 +642,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
   const sharedTabCount = filteredShared.length;
 
   const activeChips = useMemo(() => {
-    const chips: { key: string; label: string; clear: () => void }[] = [];
+    const chips: { key: string; label: string; clear?: () => void }[] = [];
     if (applied.typeFilter) {
       chips.push({
         key: 'type',
@@ -645,23 +662,25 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
         })),
       });
     }
-    if (showShareTypeFilter && applied.shareType !== 'all') {
+    if (showShareTypeFilter) {
+      const shareChipLabel = getGraceShareTypeFilterLabel(
+        user,
+        applied.shareType,
+        shareTypeChipVariant,
+        !hidePastorShareTypeOption,
+      );
       chips.push({
         key: 'shareType',
-        label: getGraceShareTypeFilterLabel(
-          user,
-          applied.shareType,
-          shareTypeChipVariant,
-          !hidePastorShareTypeOption,
-        ),
-        clear: () => setApplied(prev => ({
-          ...prev,
-          shareType: 'all',
-          organizationIds: [],
-          selectedPastorIds: [],
-          selectedAuthorIds: [],
-          authorRole: 'all',
-        })),
+        label: shareChipLabel,
+        ...(isMemberUser
+          ? {}
+          : {
+              clear: () => setApplied(prev => ({
+                ...createEmptyFilter(user, prev.typeFilter),
+                period: { ...EMPTY_PERIOD_FILTER },
+                typeFilter: prev.typeFilter,
+              })),
+            }),
       });
     }
     if (appliedFlags.showMineOrgTree || appliedFlags.showSharedOrgTree) {
@@ -728,10 +747,10 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
       });
     }
     return chips;
-  }, [tab, applied, appliedFlags, showShareTypeFilter, pastorLookupFlat, user, shareTypeChipVariant, hidePastorShareTypeOption, setApplied]);
+  }, [tab, applied, appliedFlags, showShareTypeFilter, pastorLookupFlat, user, shareTypeChipVariant, hidePastorShareTypeOption, setApplied, isMemberUser]);
 
   const resetAppliedFilters = () => {
-    setApplied(cloneFilter({ ...EMPTY_FILTER, typeFilter: '' }));
+    setApplied(cloneFilter(createEmptyFilter(user, '')));
   };
 
   const isMineMode = tab === 'mine';
@@ -742,7 +761,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
   };
 
   const hasAppliedFilters =
-    activeChips.length > 0 ||
+    activeChips.some(c => c.key !== 'shareType') ||
     search.trim() !== '';
 
   const isOwn = (note: GraceNote) => Boolean(user?.id && note.userId === user.id);
@@ -811,7 +830,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
     if (applied.shareType === 'pastor_share') {
       return {
         title: isAdminUser
-          ? '교역자에게 직접 공유된 기록이 없습니다.'
+          ? '조건에 맞는 교역자 직접 공유 기록이 없습니다.'
           : isPastorUser
             ? '나에게 직접 공유된 기록이 없습니다.'
             : '교역자에게 직접 공유받은 기록이 없습니다.',
@@ -833,12 +852,14 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
           ? `${getOrganizationPathLabel(applied.organizationIds[0])}에 공유된 기록이 없습니다.`
           : applied.organizationIds.length > 1
             ? '선택한 교구·부서에 공유된 기록이 없습니다.'
-            : '내 교구·부서에 공유된 기록이 없습니다.';
+            : isAdminUser
+              ? '조건에 맞는 교구·부서 공유 기록이 없습니다.'
+              : '내 교구·부서에 공유된 기록이 없습니다.';
       return {
         title,
         desc: isMemberUser
           ? '소속 교구·부서에서 공유하면 이곳에 나타납니다.'
-          : '직접 공유되거나 소속 조직에 공유된 기록이 이곳에 나타납니다.',
+          : '소속·담당 조직에 공유된 기록이 이곳에 나타납니다.',
       };
     }
 
@@ -869,7 +890,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
         }}
         onReset={() => {
           setPeriodError(null);
-          setDraft({ ...EMPTY_FILTER, typeFilter: '', period: { ...EMPTY_PERIOD_FILTER } });
+          setDraft(createEmptyFilter(user, ''));
         }}
         onApply={applyFilter}
         description="조건에 맞는 기록을 찾아보세요."
@@ -1060,7 +1081,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
         chips={activeChips.map(c => ({
           key: c.key,
           label: c.label,
-          onClear: c.clear,
+          ...(c.clear ? { onClear: c.clear } : {}),
         }))}
         onResetFilters={resetAppliedFilters}
       />
