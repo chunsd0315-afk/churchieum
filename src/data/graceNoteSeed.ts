@@ -125,9 +125,10 @@ function makeComments(count: number, baseDate: string, names: string[], seed: nu
     { name: '천성대', id: 'demo-member60' },
   ];
   for (let i = 0; i < count; i++) {
-    const typeRoll = (seed + i) % 10;
-    const type = typeRoll < 4 ? 'prayer' as const
-      : typeRoll < 6 ? 'amen' as const
+    // 대부분 comment. prayer·amen은 호환 테스트용으로 소수만 유지(화면 미표시)
+    const typeRoll = (seed + i) % 20;
+    const type = typeRoll === 0 ? 'prayer' as const
+      : typeRoll === 1 ? 'amen' as const
         : 'comment' as const;
     const demo = demoAuthors[(seed + i) % demoAuthors.length];
     const useDemo = (seed + i) % 3 === 0;
@@ -696,6 +697,7 @@ export function ensureGraceNoteDemoData(): void {
 
 export function resetGraceNoteDemoData(): void {
   try {
+    localStorage.removeItem('graceNotesV2_demo_seeded_v7');
     localStorage.removeItem('graceNotesV2_demo_seeded_v6');
     localStorage.removeItem('graceNotesV2_demo_seeded_v5');
     localStorage.removeItem('graceNotesV2_demo_seeded_v4');

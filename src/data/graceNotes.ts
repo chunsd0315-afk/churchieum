@@ -7,8 +7,8 @@ const LS_DEMO_SEEDED = 'graceNotesV2_demo_seeded_v5';
 const LS_GRACE_SEED_FORMAT = 'churchieum_grace_seed_version';
 const LS_GRACE_SEED_COPY = 'churchieum_grace_seed_copy_version';
 const LS_LIKES = 'graceNotes_likes_by_me';
-export const DEMO_SEED_VERSION = 'v6';
-export const GRACE_SEED_FORMAT_VERSION = '6';
+export const DEMO_SEED_VERSION = 'v7';
+export const GRACE_SEED_FORMAT_VERSION = '7';
 export const GRACE_SEED_COPY_VERSION = '2';
 export const GRACE_COMMENT_MAX_LENGTH = 500;
 
@@ -417,6 +417,7 @@ export function toggleGraceNoteLike(noteId: string): { liked: boolean; likeCount
   return { liked: !wasLiked, likeCount: notes[idx].likeCount ?? 0 };
 }
 
+/** @deprecated UI에서 제거됨 — 기존 데이터 호환용으로만 유지. 신규 반응은 toggleGraceNoteLike 사용 */
 export function addGraceNotePrayer(noteId: string, authorName: string): number {
   const notes = load();
   const idx = notes.findIndex(n => n.id === noteId);
@@ -434,6 +435,7 @@ export function addGraceNotePrayer(noteId: string, authorName: string): number {
   return notes[idx].prayCount ?? 0;
 }
 
+/** @deprecated UI에서 제거됨 — 기존 데이터 호환용으로만 유지. 신규 반응은 toggleGraceNoteLike 사용 */
 export function addGraceNoteAmen(noteId: string, authorName: string): number {
   const notes = load();
   const idx = notes.findIndex(n => n.id === noteId);

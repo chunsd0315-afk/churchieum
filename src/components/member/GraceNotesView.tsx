@@ -10,13 +10,13 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Heart, BookOpen, Edit3, Trash2,
-  ChevronDown, Sparkles,
-  Mic, Lock, Users, Eye, MessageCircle, MessageCircleOff, HandHeart, Plus,
+  ChevronDown,
+  Mic, Lock, Users, Eye, MessageCircle, MessageCircleOff, Plus,
 } from 'lucide-react';
 import {
   getAllGraceNotes, getGraceNote, getGraceNotesByProgress,
   deleteGraceNote,
-  toggleGraceNoteLike, addGraceNotePrayer, addGraceNoteAmen, addGraceNoteComment,
+  toggleGraceNoteLike, addGraceNoteComment,
   deleteGraceNoteComment, resolveAllowComments, GRACE_COMMENT_MAX_LENGTH,
   isGraceNoteLikedByMe,
   type GraceNote, type GraceNoteType, type GraceNoteVisibility,
@@ -1057,8 +1057,6 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [liked, setLiked] = useState(() => isGraceNoteLikedByMe(noteId));
   const [likeCount, setLikeCount] = useState(() => getGraceNote(noteId)?.likeCount ?? 0);
-  const [prayCount, setPrayCount] = useState(() => getGraceNote(noteId)?.prayCount ?? 0);
-  const [amenCount, setAmenCount] = useState(() => getGraceNote(noteId)?.amenCount ?? 0);
   const [commentText, setCommentText] = useState('');
   const [showComments, setShowComments] = useState(false);
   const [commentSubmitting, setCommentSubmitting] = useState(false);
@@ -1068,8 +1066,6 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
     if (fresh) {
       setNote(fresh);
       setLikeCount(fresh.likeCount ?? 0);
-      setPrayCount(fresh.prayCount ?? 0);
-      setAmenCount(fresh.amenCount ?? 0);
       setLiked(isGraceNoteLikedByMe(noteId));
     }
   }, [noteId]);
@@ -1110,8 +1106,10 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
   const isPublic = note.visibility !== 'private';
   const allowComments = resolveAllowComments(note);
   const canWriteComment = isPublic && allowComments;
-  const allThreadComments = note.comments ?? [];
-  const commentCount = allThreadComments.length;
+  /** 화면 표시용 — prayer·amen 반응 댓글은 보존하되 미표시 */
+  const visibleComments = (note.comments ?? []).filter(c => c.type === 'comment');
+  const commentCount = visibleComments.length;
+  const likeLabel = likeCount.toLocaleString('ko-KR');
   const shareLabel = shareSummary(note);
   const authorName = user?.name ?? '성도';
   const vm = visibilityMeta(note.visibility ?? 'private', note.sharedGroupAll);
@@ -1135,16 +1133,6 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
     const result = toggleGraceNoteLike(noteId);
     setLiked(result.liked);
     setLikeCount(result.likeCount);
-  };
-
-  const handlePray = () => {
-    setPrayCount(addGraceNotePrayer(noteId, authorName));
-    refreshNote();
-  };
-
-  const handleAmen = () => {
-    setAmenCount(addGraceNoteAmen(noteId, authorName));
-    refreshNote();
   };
 
   const handleComment = () => {
@@ -1191,34 +1179,47 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
     </div>
   ) : undefined;
 
-  const engagementFooter = isPublic && isMobile ? (
+  const likeButton = (
+    <button
+      type="button"
+      onClick={handleLike}
+      aria-label={liked ? '공감 취소' : '공감하기'}
+      aria-pressed={liked}
+      className={`inline-flex items-center justify-center gap-1.5 px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-semibold touch-target transition-colors ${
+        liked
+          ? 'bg-rose-50 text-rose-600 border border-rose-200'
+          : 'bg-gray-50 text-gray-700 border border-gray-100'
+      }`}
+    >
+      <Heart className={`w-4 h-4 ${liked ? 'fill-rose-500' : ''}`} />
+      공감 {likeLabel}
+    </button>
+  );
+
+  const engagementFooter = isMobile ? (
     <div className="flex items-center gap-2">
       <button
         type="button"
         onClick={handleLike}
-        className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-sm font-semibold touch-target ${
+        aria-label={liked ? '공감 취소' : '공감하기'}
+        aria-pressed={liked}
+        className={`flex-1 flex items-center justify-center gap-1.5 py-3 min-h-[48px] rounded-xl text-sm font-semibold touch-target ${
           liked ? 'bg-rose-50 text-rose-600' : 'bg-gray-50 text-gray-700'
         }`}
       >
         <Heart className={`w-4 h-4 ${liked ? 'fill-rose-500' : ''}`} />
-        공감 {likeCount}
+        공감 {likeLabel}
       </button>
-      <button
-        type="button"
-        onClick={handlePray}
-        className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-sm font-semibold bg-gray-50 text-gray-700 touch-target"
-      >
-        <HandHeart className="w-4 h-4" />
-        기도 {prayCount}
-      </button>
-      <button
-        type="button"
-        onClick={() => setShowComments(true)}
-        className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-sm font-semibold bg-gray-50 text-gray-700 touch-target"
-      >
-        <MessageCircle className="w-4 h-4" />
-        댓글 {commentCount}
-      </button>
+      {isPublic && (
+        <button
+          type="button"
+          onClick={() => setShowComments(true)}
+          className="flex-1 flex items-center justify-center gap-1.5 py-3 min-h-[48px] rounded-xl text-sm font-semibold bg-gray-50 text-gray-700 touch-target"
+        >
+          <MessageCircle className="w-4 h-4" />
+          댓글 {commentCount.toLocaleString('ko-KR')}
+        </button>
+      )}
     </div>
   ) : undefined;
 
@@ -1320,43 +1321,19 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
               )}
             </section>
 
+            {/* 공감 — 댓글과 독립. PC만 본문에 표시(모바일은 하단 푸터) */}
+            {!isMobile && (
+              <section className="pt-2 border-t border-gray-100">
+                {likeButton}
+              </section>
+            )}
+
             {isPublic && (!isMobile || showComments) && (
               <section className="pt-2 border-t border-gray-100 space-y-4">
-                {!isMobile && (
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={handleLike}
-                      className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold touch-target ${
-                        liked ? 'bg-rose-50 text-rose-600 border border-rose-200' : 'bg-gray-50 text-gray-700 border border-gray-100'
-                      }`}
-                    >
-                      <Heart className={`w-4 h-4 ${liked ? 'fill-rose-500' : ''}`} />
-                      공감 {likeCount}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handlePray}
-                      className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold bg-gray-50 text-gray-700 border border-gray-100 touch-target"
-                    >
-                      <Sparkles className="w-4 h-4" />
-                      함께 기도합니다 {prayCount}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleAmen}
-                      className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold bg-gray-50 text-gray-700 border border-gray-100 touch-target"
-                    >
-                      <HandHeart className="w-4 h-4" />
-                      아멘 {amenCount}
-                    </button>
-                  </div>
-                )}
-
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="text-xs font-bold text-gray-500 flex items-center gap-1">
-                      <MessageCircle className="w-3.5 h-3.5" /> 댓글 {commentCount}
+                      <MessageCircle className="w-3.5 h-3.5" /> 댓글 {commentCount.toLocaleString('ko-KR')}
                     </h3>
                     {isMobile && (
                       <button type="button" onClick={() => setShowComments(false)} className="text-xs text-gray-400">
@@ -1365,7 +1342,7 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
                     )}
                   </div>
 
-                  {!allowComments && allThreadComments.length === 0 ? (
+                  {!allowComments && visibleComments.length === 0 ? (
                     <div className="flex items-center gap-2 py-3 px-3 rounded-xl bg-gray-50 border border-gray-100">
                       <MessageCircleOff className="w-4 h-4 text-gray-400 shrink-0" />
                       <p className="text-xs text-gray-500">작성자가 댓글을 허용하지 않은 기록입니다.</p>
@@ -1373,9 +1350,9 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
                   ) : (
                     <>
                       <div className="space-y-0 mb-3 max-h-56 overflow-y-auto divide-y divide-gray-100">
-                        {allThreadComments.length === 0 ? (
+                        {visibleComments.length === 0 ? (
                           <p className="text-xs text-gray-400 py-2">아직 댓글이 없습니다.</p>
-                        ) : allThreadComments.map(c => {
+                        ) : visibleComments.map(c => {
                           const canManage = Boolean(
                             isAdmin || (user?.id && c.authorId && c.authorId === user.id),
                           );
@@ -1387,13 +1364,8 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
                                   <span className="text-[10px] text-gray-400 ml-2">
                                     {c.createdAt.slice(0, 10).replace(/-/g, '.')}
                                   </span>
-                                  {c.type === 'prayer' || c.type === 'amen' ? (
-                                    <span className="text-[10px] text-gray-400 ml-1.5">
-                                      {c.type === 'prayer' ? '기도' : '아멘'}
-                                    </span>
-                                  ) : null}
                                 </div>
-                                {canManage && c.type === 'comment' && (
+                                {canManage && (
                                   <button
                                     type="button"
                                     onClick={() => handleDeleteComment(c.id)}
