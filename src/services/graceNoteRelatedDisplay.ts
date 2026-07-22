@@ -11,7 +11,7 @@ export type GraceRelatedReadingDisplay = {
 };
 
 export type GraceRelatedSermonDisplay = {
-  /** 설교 저장소 ID — 있으면 카드 클릭으로 이동 가능 */
+  /** 설교 저장소 ID (표시·수정 복원용, 상세 클릭 이동에는 사용하지 않음) */
   sermonId?: string;
   title: string;
   preacher: string;
@@ -23,9 +23,6 @@ export type GraceRelatedSermonDisplay = {
   /** sourceId는 있으나 설교·스냅샷을 찾을 수 없음 */
   notFound: boolean;
 };
-
-/** sessionStorage — 은혜와 기도 → 설교 메뉴 이동 시 선택 ID */
-export const PENDING_SERMON_OPEN_KEY = 'churchieum_pending_sermon_id';
 
 function verseExcerpt(verses: { text: string }[], max = 4): string {
   if (verses.length === 0) return '';

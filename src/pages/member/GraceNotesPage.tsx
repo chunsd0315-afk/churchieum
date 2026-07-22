@@ -63,11 +63,7 @@ function EditTargetMissing({ onGoList }: { onGoList: () => void }) {
   );
 }
 
-export default function GraceNotesPage({
-  onOpenSermon,
-}: {
-  onOpenSermon?: (sermonId: string) => void;
-} = {}) {
+export default function GraceNotesPage() {
   const { user } = useAuth();
   const [view, setView] = useState<SubView>('all-list');
   const [, setRefresh] = useState(0);
@@ -343,7 +339,6 @@ export default function GraceNotesPage({
                 if (note) openEdit(note, { fromDetail: true });
               }}
               onDelete={handleDetailDelete}
-              onOpenSermon={onOpenSermon}
             />
           ) : (
             <div className="p-8 text-center">

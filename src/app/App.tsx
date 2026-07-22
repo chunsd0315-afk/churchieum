@@ -171,11 +171,7 @@ function AppContent() {
       >
         {memberPage === 'home' && <SafePage><MemberHome onNavigate={setMemberPage} /></SafePage>}
         {memberPage === 'sermon' && <SafePage><SermonPage /></SafePage>}
-        {memberPage === 'grace-notes' && (
-          <SafePage>
-            <GraceNotesPage onOpenSermon={() => setMemberPage('sermon')} />
-          </SafePage>
-        )}
+        {memberPage === 'grace-notes' && <SafePage><GraceNotesPage /></SafePage>}
         {memberPage === 'announcement' && <SafePage><AnnouncementPage /></SafePage>}
         {memberPage === 'album' && <SafePage><AlbumPage /></SafePage>}
         {memberPage === 'departments' && <SafePage><DepartmentsPage /></SafePage>}
@@ -226,11 +222,7 @@ function AppContent() {
         {pastorPage === 'announcements' && <SafePage><AnnouncementManagementPage /></SafePage>}
         {pastorPage === 'events' && <SafePage><EventManagementPage /></SafePage>}
         {pastorPage === 'sermons' && <SafePage><SermonPage /></SafePage>}
-        {pastorPage === 'grace-notes' && (
-          <SafePage>
-            <GraceNotesPage onOpenSermon={() => setPastorPage('sermons')} />
-          </SafePage>
-        )}
+        {pastorPage === 'grace-notes' && <SafePage><GraceNotesPage /></SafePage>}
         {pastorPage === 'profile' && <SafePage><ProfilePage /></SafePage>}
         {pastorPage === 'bulletin' && <SafePage><BulletinPage /></SafePage>}
         {pastorPage === 'album' && <SafePage><AlbumPage /></SafePage>}
@@ -273,11 +265,7 @@ function AppContent() {
         {adminPage === 'invitations' && <SafePage><InvitationPage onNavigate={(p) => setAdminPage(p as AdminPage)} /></SafePage>}
         {adminPage === 'contents' && <SafePage><AdminContentsPage onNavigate={setAdminPage} /></SafePage>}
         {adminPage === 'sermons' && <SafePage><SermonManagementPage /></SafePage>}
-        {adminPage === 'qt' && (
-          <SafePage>
-            <GraceNotesPage onOpenSermon={() => setAdminPage('sermons')} />
-          </SafePage>
-        )}
+        {adminPage === 'qt' && <SafePage><GraceNotesPage /></SafePage>}
         {adminPage === 'announcements' && <SafePage><AnnouncementManagementPage /></SafePage>}
         {adminPage === 'bulletins' && <SafePage><BulletinManagementPage /></SafePage>}
         {adminPage === 'events' && <SafePage><EventManagementPage /></SafePage>}
