@@ -7,7 +7,7 @@
  * 작성 화면은 GraceNoteEditor.tsx 로 통합됨
  */
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Heart, BookOpen, Edit3, Trash2, Copy,
   ChevronDown, Sparkles,
@@ -53,7 +53,16 @@ import {
   SharedContentShareTypeFilterSection,
   SharedContentAuthorRoleFilterSection,
   SharedContentAuthorQueryField,
+  PeriodFilterSection,
 } from '../common/shared-content';
+import {
+  EMPTY_PERIOD_FILTER,
+  isPeriodActive,
+  isRecordWithinPeriod,
+  periodFilterChipLabel,
+  validatePeriodFilter,
+  type PeriodFilter,
+} from '../../services/periodFilter';
 import { UserOrganizationTreeSelector } from '../common/shared-content/UserOrganizationTreeSelector';
 import { PastorOrgFilterSelector } from '../common/shared-content/PastorOrgFilterSelector';
 import { PastorFlatFilterSelector } from '../common/shared-content/PastorFlatFilterSelector';
@@ -166,6 +175,7 @@ type GraceListFilterState = {
   selectedPastorIds: string[];
   authorRole: 'all' | 'member' | 'pastor';
   authorQuery: string;
+  period: PeriodFilter;
 };
 
 const EMPTY_FILTER: GraceListFilterState = {
@@ -176,6 +186,7 @@ const EMPTY_FILTER: GraceListFilterState = {
   selectedPastorIds: [],
   authorRole: 'all',
   authorQuery: '',
+  period: { ...EMPTY_PERIOD_FILTER },
 };
 
 function hasSharedTabSecondaryFilters(applied: GraceListFilterState): boolean {
@@ -184,8 +195,20 @@ function hasSharedTabSecondaryFilters(applied: GraceListFilterState): boolean {
     applied.organizationIds.length > 0 ||
     applied.selectedPastorIds.length > 0 ||
     applied.authorRole !== 'all' ||
-    applied.authorQuery.trim() !== ''
+    applied.authorQuery.trim() !== '' ||
+    isPeriodActive(applied.period)
   );
+}
+
+function hasNonPeriodDetailFilters(applied: GraceListFilterState, tab: GraceCollectTab): boolean {
+  if (applied.typeFilter) return true;
+  if (tab === 'mine' && applied.visibilityFilter !== 'all') return true;
+  if (tab === 'shared' && applied.shareType !== 'all') return true;
+  if (applied.organizationIds.length > 0) return true;
+  if (applied.selectedPastorIds.length > 0) return true;
+  if (applied.authorRole !== 'all') return true;
+  if (applied.authorQuery.trim()) return true;
+  return false;
 }
 
 function deriveGraceListShowFlags(
@@ -260,6 +283,12 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
   const [search, setSearch] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [notes, setNotes] = useState(() => getAllGraceNotes());
+  const [periodError, setPeriodError] = useState<string | null>(null);
+  /** 탭별 기간 조건 유지 */
+  const periodByTabRef = useRef<{ mine: PeriodFilter; shared: PeriodFilter }>({
+    mine: { ...EMPTY_PERIOD_FILTER },
+    shared: { ...EMPTY_PERIOD_FILTER },
+  });
 
   const planFilter = initialPlanId ?? '';
   const isAdminUser = isSuperAdmin(user);
@@ -345,12 +374,21 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
   }, [draftFlags.showPastorPicker, draft.selectedPastorIds.length]);
 
   const openFilter = () => {
-    setDraft({ ...applied });
+    setDraft({ ...applied, period: { ...applied.period } });
+    setPeriodError(null);
     setCollectionView('filter');
   };
 
   const applyFilter = () => {
-    setApplied({ ...draft });
+    const err = validatePeriodFilter(draft.period);
+    if (err) {
+      setPeriodError(err);
+      return;
+    }
+    setPeriodError(null);
+    const next = { ...draft, period: { ...draft.period } };
+    periodByTabRef.current[tab] = { ...next.period };
+    setApplied(next);
     setCollectionView('list');
   };
 
@@ -427,6 +465,8 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
       }
 
       if (planFilter && n.planId !== planFilter) return false;
+
+      if (!isRecordWithinPeriod(n.createdAt, applied.period)) return false;
 
       if (search.trim()) {
         const q = search.toLowerCase();
@@ -522,11 +562,26 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
         clear: () => setApplied(prev => ({ ...prev, authorQuery: '' })),
       });
     }
+    const periodLabel = periodFilterChipLabel(applied.period);
+    if (periodLabel) {
+      chips.push({
+        key: 'period',
+        label: periodLabel,
+        clear: () => {
+          periodByTabRef.current[tab] = { ...EMPTY_PERIOD_FILTER };
+          setApplied(prev => ({
+            ...prev,
+            period: { ...EMPTY_PERIOD_FILTER },
+          }));
+        },
+      });
+    }
     return chips;
   }, [tab, applied, appliedFlags, showShareTypeFilter, pastorLookupFlat, user, shareTypeChipVariant, hidePastorShareTypeOption]);
 
   const resetAppliedFilters = () => {
-    setApplied({ ...EMPTY_FILTER, typeFilter: '' });
+    periodByTabRef.current[tab] = { ...EMPTY_PERIOD_FILTER };
+    setApplied({ ...EMPTY_FILTER, typeFilter: '', period: { ...EMPTY_PERIOD_FILTER } });
   };
 
   const isMineMode = tab === 'mine';
@@ -542,6 +597,8 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
 
   const switchCollectionMode = (mode: GraceCollectTab) => {
     if (mode === tab) return;
+    periodByTabRef.current[tab] = { ...applied.period };
+    const nextPeriod = { ...periodByTabRef.current[mode] };
     if (mode === 'mine') {
       setTab('mine');
       setApplied(prev => ({
@@ -551,6 +608,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
         selectedPastorIds: [],
         authorRole: 'all',
         authorQuery: '',
+        period: nextPeriod,
       }));
     } else {
       setTab('shared');
@@ -560,6 +618,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
         typeFilter: '',
         selectedPastorIds: [],
         organizationIds: [],
+        period: nextPeriod,
       }));
     }
   };
@@ -590,10 +649,19 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
   }, [resetToMineSignal]);
 
   const emptyState = useMemo((): { title: string; desc: string } => {
+    const periodOnly =
+      isPeriodActive(applied.period) && !hasNonPeriodDetailFilters(applied, tab) && !search.trim();
+
     if (tab === 'mine') {
       if (hasAppliedFilters) {
+        if (periodOnly) {
+          return {
+            title: '선택한 기간에 작성한 기록이 없습니다.',
+            desc: '다른 기간을 선택하거나 상세설정을 초기화해 보세요.',
+          };
+        }
         return {
-          title: '조건에 맞는 내 기록이 없습니다.',
+          title: '설정한 조건에 맞는 기록이 없습니다.',
           desc: '상세설정 조건을 바꾸거나 초기화해 보세요.',
         };
       }
@@ -604,6 +672,12 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
     }
 
     if (hasAppliedFilters) {
+      if (periodOnly) {
+        return {
+          title: '선택한 기간에 공유받은 기록이 없습니다.',
+          desc: '다른 기간을 선택하거나 상세설정을 초기화해 보세요.',
+        };
+      }
       if (applied.typeFilter && !hasSharedTabSecondaryFilters(applied)) {
         return {
           title: `공유받은 ${graceRecordTypeLabel(applied.typeFilter)} 기록이 없습니다.`,
@@ -611,7 +685,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
         };
       }
       return {
-        title: '선택한 상세설정에 맞는 기록이 없습니다.',
+        title: '설정한 조건에 맞는 기록이 없습니다.',
         desc: '상세설정 조건을 바꾸거나 초기화해 보세요.',
       };
     }
@@ -662,13 +736,19 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
       title: '조회 가능한 공유 기록이 없습니다.',
       desc: '공유된 기록이 이곳에 나타납니다.',
     };
-  }, [tab, applied, applied.organizationIds, coreOrgIds.length, isMemberUser, isPastorUser, hasAppliedFilters]);
+  }, [tab, applied, applied.organizationIds, coreOrgIds.length, isMemberUser, isPastorUser, hasAppliedFilters, search]);
 
   if (collectionView === 'filter') {
     return (
       <SharedContentDetailSettingsPage
-        onBack={() => setCollectionView('list')}
-        onReset={() => setDraft({ ...EMPTY_FILTER, typeFilter: '' })}
+        onBack={() => {
+          setPeriodError(null);
+          setCollectionView('list');
+        }}
+        onReset={() => {
+          setPeriodError(null);
+          setDraft({ ...EMPTY_FILTER, typeFilter: '', period: { ...EMPTY_PERIOD_FILTER } });
+        }}
         onApply={applyFilter}
         description="조건에 맞는 기록을 찾아보세요."
       >
@@ -745,6 +825,15 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
             />
           </>
         )}
+
+        <PeriodFilterSection
+          value={draft.period}
+          onChange={next => {
+            setPeriodError(null);
+            setDraft(prev => ({ ...prev, period: next }));
+          }}
+          error={periodError}
+        />
       </SharedContentDetailSettingsPage>
     );
   }
