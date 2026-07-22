@@ -147,7 +147,7 @@ export function getSharedContentShareTypeFilterOptions(
       id: 'organization_share',
       label: '내 교구·부서에 공유한 기록',
       chipLabel: '내 교구·부서 공유',
-      description: `내가 속한 교구·부서에 공유된 ${noun}입니다.`,
+      description: `교구·부서에 공유한 ${noun}입니다.`,
       ariaLabel: `내 교구·부서에 공유한 ${noun} 보기`,
       visible: true,
     }];
@@ -169,7 +169,7 @@ export function getSharedContentShareTypeFilterOptions(
       id: 'organization_share',
       label: '교구·부서에 공유한 기록',
       chipLabel: '교구·부서 공유',
-      description: `교회 전체 교구·부서에 공유된 ${noun}입니다.`,
+      description: `교구·부서에 공유한 ${noun}입니다.`,
       ariaLabel: `교구·부서에 공유한 ${noun} 보기`,
       visible: true,
     });
@@ -181,7 +181,7 @@ export function getSharedContentShareTypeFilterOptions(
       id: 'organization_share',
       label: '내 교구·부서에 공유한 기록',
       chipLabel: '내 교구·부서 공유',
-      description: `내가 속한 교구·부서에 공유된 ${noun}입니다.`,
+      description: `교구·부서에 공유한 ${noun}입니다.`,
       ariaLabel: `내 교구·부서에 공유한 ${noun} 보기`,
       visible: true,
     }];
@@ -206,8 +206,7 @@ export function getSharedContentShareTypeFilterOptions(
     id: 'organization_share',
     label: `${userTitle} 교구·부서에 공유한 기록`,
     chipLabel: `${userTitle} 교구·부서`,
-    description:
-      `${userTitle}${subjectParticle(userTitle)} 속하거나 담당하는 교구·부서에 공유된 ${noun}입니다.`,
+    description: `교구·부서에 공유한 ${noun}입니다.`,
     ariaLabel: `${userTitle} 교구·부서에 공유한 ${noun} 보기`,
     visible: true,
   });
