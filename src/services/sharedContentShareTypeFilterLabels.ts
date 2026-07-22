@@ -160,7 +160,7 @@ export function getSharedContentShareTypeFilterOptions(
         id: 'pastor_share',
         label: '교역자에게 공유한 기록',
         chipLabel: '교역자 직접 공유',
-        description: `성도 또는 다른 교역자가 교역자를 선택해 직접 공유한 ${noun}입니다.`,
+        description: `교역자를 선택해 공유한 ${noun}입니다.`,
         ariaLabel: `교역자에게 공유한 ${noun} 보기`,
         visible: true,
       });
@@ -196,8 +196,7 @@ export function getSharedContentShareTypeFilterOptions(
       id: 'pastor_share',
       label: `${userTitle}에게 공유한 기록`,
       chipLabel: `${userTitle}에게 공유`,
-      description:
-        `성도 또는 다른 교역자가 ${userTitle}${objectParticle(userTitle)} 선택해 직접 공유한 ${noun}입니다.`,
+      description: `교역자를 선택해 공유한 ${noun}입니다.`,
       ariaLabel: `${userTitle}에게 공유한 ${noun} 보기`,
       visible: true,
     });
