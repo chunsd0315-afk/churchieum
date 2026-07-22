@@ -1,6 +1,7 @@
 import type { GraceNote } from '../data/graceNotes';
 import { getTodayReading, getProgressById, type PlanId } from '../data/readingPlans';
 import { getAllSermons } from './sermonStorage';
+import { WORSHIP_TYPE_LABELS, type WorshipType } from '../types/sermon';
 
 export type GraceRelatedReadingDisplay = {
   planName: string;
@@ -10,12 +11,21 @@ export type GraceRelatedReadingDisplay = {
 };
 
 export type GraceRelatedSermonDisplay = {
+  /** 설교 저장소 ID — 있으면 카드 클릭으로 이동 가능 */
+  sermonId?: string;
   title: string;
   preacher: string;
   scripture: string;
-  summary: string;
-  thumbnailUrl?: string;
+  /** 2026.07.19 형식, 없으면 null */
+  dateLabel: string | null;
+  /** 예배 구분·폴더명 */
+  worshipLabel: string | null;
+  /** sourceId는 있으나 설교·스냅샷을 찾을 수 없음 */
+  notFound: boolean;
 };
+
+/** sessionStorage — 은혜와 기도 → 설교 메뉴 이동 시 선택 ID */
+export const PENDING_SERMON_OPEN_KEY = 'churchieum_pending_sermon_id';
 
 function verseExcerpt(verses: { text: string }[], max = 4): string {
   if (verses.length === 0) return '';
@@ -24,6 +34,66 @@ function verseExcerpt(verses: { text: string }[], max = 4): string {
     .map(v => v.text.trim())
     .filter(Boolean)
     .join(' ');
+}
+
+/**
+ * 설교 날짜 표시 — YYYY-MM-DD는 타임존 밀림 없이 로컬 표기.
+ * 우선순위: sermonDate → worshipDate → preachedAt → date → createdAt → note.sermonDate
+ */
+export function formatGraceSermonDisplayDate(source?: string | null): string | null {
+  if (!source) return null;
+  const raw = String(source).trim();
+  if (!raw) return null;
+
+  const ymd = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (ymd) return `${ymd[1]}.${ymd[2]}.${ymd[3]}`;
+
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return null;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}.${m}.${day}`;
+}
+
+function pickSermonDateSource(
+  sermon: {
+    sermonDate?: string;
+    worshipDate?: string;
+    preachedAt?: string;
+    date?: string;
+    createdAt?: string;
+  } | undefined,
+  noteDate?: string,
+): string | null {
+  const candidates = [
+    sermon?.sermonDate,
+    (sermon as { worshipDate?: string } | undefined)?.worshipDate,
+    (sermon as { preachedAt?: string } | undefined)?.preachedAt,
+    (sermon as { date?: string } | undefined)?.date,
+    sermon?.createdAt,
+    noteDate,
+  ];
+  for (const c of candidates) {
+    if (c && String(c).trim()) return String(c).trim();
+  }
+  return null;
+}
+
+function resolveWorshipLabel(
+  sermon: { folderName?: string; worshipType?: WorshipType } | undefined,
+  noteWorship?: string,
+): string | null {
+  if (sermon?.folderName?.trim()) return sermon.folderName.trim();
+  if (sermon?.worshipType && WORSHIP_TYPE_LABELS[sermon.worshipType]) {
+    return WORSHIP_TYPE_LABELS[sermon.worshipType];
+  }
+  const raw = noteWorship?.trim();
+  if (!raw) return null;
+  if (raw in WORSHIP_TYPE_LABELS) {
+    return WORSHIP_TYPE_LABELS[raw as WorshipType];
+  }
+  return raw;
 }
 
 /** 연결된 성경통독 — plan·본문·통독 내용 자동 조회 */
@@ -62,7 +132,7 @@ export function resolveGraceRelatedReading(
   };
 }
 
-/** 연결된 설교 — 설교 저장소에서 자동 조회 (fallback: note snapshot) */
+/** 연결된 설교 — 설교 저장소에서 자동 조회 (fallback: note snapshot). 썸네일은 반환하지 않음 */
 export function resolveGraceRelatedSermon(
   note: GraceNote,
 ): GraceRelatedSermonDisplay | null {
@@ -75,16 +145,32 @@ export function resolveGraceRelatedSermon(
   const title = fromStore?.title ?? note.sermonTitle?.trim() ?? '';
   const preacher = fromStore?.preacher ?? note.sermonPreacher?.trim() ?? '';
   const scripture = fromStore?.scripture ?? note.bibleReference?.trim() ?? '';
-  const summary = fromStore?.summary?.trim() ?? '';
+  const dateLabel = formatGraceSermonDisplayDate(
+    pickSermonDateSource(fromStore, note.sermonDate),
+  );
+  const worshipLabel = resolveWorshipLabel(fromStore, note.worshipType);
+
+  if (note.sourceId && !fromStore && !title && !scripture && !preacher) {
+    return {
+      title: '',
+      preacher: '',
+      scripture: '',
+      dateLabel: null,
+      worshipLabel: null,
+      notFound: true,
+    };
+  }
 
   if (!title && !scripture && !note.sourceId) return null;
 
   return {
+    sermonId: fromStore?.id,
     title: title || '연결된 설교',
     preacher,
     scripture,
-    summary: summary || '설교 요약이 등록되지 않았습니다.',
-    thumbnailUrl: fromStore?.thumbnailUrl ?? note.thumbnailUrl,
+    dateLabel,
+    worshipLabel,
+    notFound: false,
   };
 }
 

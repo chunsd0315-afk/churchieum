@@ -1045,11 +1045,12 @@ const DETAIL_HEADERS: Record<GraceNoteType, { title: string; description: string
   },
 };
 
-export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
+export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete, onOpenSermon }: {
   noteId: string;
   onBack: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onOpenSermon?: (sermonId: string) => void;
 }) {
   const { user, isAdmin } = useAuth();
   const { isMobile } = useBreakpoint();
@@ -1274,7 +1275,7 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
               <p className="text-[15px] text-gray-800 leading-relaxed whitespace-pre-wrap">{note.graceContent}</p>
             </section>
 
-            <GraceRelatedSourceDetail note={note} />
+            <GraceRelatedSourceDetail note={note} onOpenSermon={onOpenSermon} />
 
             <section className="pt-2 border-t border-gray-100">
               <h3 className="text-xs font-bold text-gray-500 mb-2">공개범위</h3>

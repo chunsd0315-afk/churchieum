@@ -6,15 +6,26 @@ import { SermonGraceFormView, type SermonGraceFormCtx } from '../../components/m
 import { useToast } from '../../components/common/ui';
 import type { Sermon } from '../../types/sermon';
 import { WORSHIP_TYPE_LABELS } from '../../types/sermon';
+import { PENDING_SERMON_OPEN_KEY } from '../../services/graceNoteRelatedDisplay';
 
 type SubView = 'list' | 'grace-form';
+
+function readPendingSermonId(): string | null {
+  try {
+    const id = sessionStorage.getItem(PENDING_SERMON_OPEN_KEY);
+    if (id) sessionStorage.removeItem(PENDING_SERMON_OPEN_KEY);
+    return id;
+  } catch {
+    return null;
+  }
+}
 
 export default function SermonManagementPage() {
   const { user } = useAuth();
   const toast = useToast();
   const [subView, setSubView] = useState<SubView>('list');
   const [graceCtx, setGraceCtx] = useState<SermonGraceFormCtx | null>(null);
-  const [selectedSermonId, setSelectedSermonId] = useState<string | null>(null);
+  const [selectedSermonId, setSelectedSermonId] = useState<string | null>(() => readPendingSermonId());
 
   const openGrace = (sermon: Sermon) => {
     setSelectedSermonId(sermon.id);
