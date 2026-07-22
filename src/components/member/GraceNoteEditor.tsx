@@ -1,10 +1,10 @@
 /**
- * 은혜기록 공통 작성/수정 화면
- * 성경통독·설교·자유 — 동일 필드 순서, 관련 기록 영역만 유형별 분기
+ * 은혜와 기도 공통 작성/수정 화면
+ * 성경통독·설교·기도 — 동일 필드 순서, 관련 기록 영역만 유형별 분기
  */
 
 import { useState, useEffect } from 'react';
-import { BookOpen, Mic, PenLine, Star } from 'lucide-react';
+import { BookOpen, Mic, HandHeart, Star } from 'lucide-react';
 import {
   getGraceNote, createGraceNote, updateGraceNote,
   type GraceNoteInput, type GraceNoteType,
@@ -17,7 +17,7 @@ import { useToast } from '../common/ui';
 import ContentEditorLayout, { ContentFormCard } from '../layout/ContentEditorLayout';
 import { getEligiblePastorsForUser } from '../../services/graceNoteShareScope';
 import { buildSharedPastorSnapshots } from '../../services/graceShareFilterHelpers';
-import { GRACE_CONTENT_MAX_LENGTH } from '../../services/graceNoteDisplay';
+import { GRACE_CONTENT_MAX_LENGTH, GRACE_MENU_LABEL, graceContentFieldLabel } from '../../services/graceNoteDisplay';
 import type { AppUser } from '../../services/permissions';
 import type { SharedPastorSnapshot } from '../../data/graceNotes';
 
@@ -60,8 +60,32 @@ const TYPE_OPTIONS: {
 }[] = [
   { id: 'reading', label: '성경통독', icon: BookOpen },
   { id: 'sermon', label: '설교', icon: Mic },
-  { id: 'personal', label: '자유', icon: PenLine },
+  { id: 'prayer', label: '기도', icon: HandHeart },
 ];
+
+const EDITOR_META: Record<GraceNoteType, { title: string; editTitle: string; description: string; titlePlaceholder: string; contentPlaceholder: string }> = {
+  reading: {
+    title: '성경통독',
+    editTitle: '성경통독 수정',
+    description: '오늘 읽은 말씀의 은혜를 기록해 보세요.',
+    titlePlaceholder: '제목을 입력하세요',
+    contentPlaceholder: '받은 은혜와 삶의 적용을 기록해 주세요.',
+  },
+  sermon: {
+    title: '설교',
+    editTitle: '설교 수정',
+    description: '설교를 통해 받은 은혜를 기록해 보세요.',
+    titlePlaceholder: '제목을 입력하세요',
+    contentPlaceholder: '받은 은혜와 삶의 적용을 기록해 주세요.',
+  },
+  prayer: {
+    title: '기도',
+    editTitle: '기도 수정',
+    description: '기도 제목과 내용을 기록해 보세요.',
+    titlePlaceholder: '기도 제목을 입력하세요',
+    contentPlaceholder: '기도하고 싶은 내용을 자연스럽게 작성해 주세요.',
+  },
+};
 
 function persistGraceNote(input: GraceNoteInput, editId: string | undefined, userId?: string): string {
   const payload = { ...input, userId: input.userId ?? userId };
@@ -106,7 +130,7 @@ export function GraceNoteEditor({
   const existing = editId ? getGraceNote(editId) : null;
 
   const [noteType, setNoteType] = useState<GraceNoteType>(
-    existing?.type ?? initialType ?? 'personal',
+    existing?.type ?? initialType ?? 'prayer',
   );
   const [graceTitle, setGraceTitle] = useState(existing?.graceTitle ?? '');
   const [graceContent, setGraceContent] = useState(existing?.graceContent ?? '');
@@ -141,26 +165,6 @@ export function GraceNoteEditor({
       setReadingRef(readingCtx.readingReferences);
     }
   }, [readingCtx, readingRef]);
-
-  const canChangeType = !lockType && !editId && !linked;
-
-  const selectType = (next: GraceNoteType) => {
-    if (!canChangeType || next === noteType) return;
-    if (next === 'reading' && !readingCtx && !existing) {
-      onNeedReadingPick?.();
-      return;
-    }
-    if (next !== 'reading') {
-      setReadingRef('');
-    }
-    if (next !== 'sermon') {
-      setEditSermonTitle('');
-      setEditPreacher('');
-      setEditSermonDate(new Date().toISOString().slice(0, 10));
-      setEditBibleRef('');
-    }
-    setNoteType(next);
-  };
 
   const buildInput = (): GraceNoteInput => {
     const shareFields = shareInputWithSnapshots(share, user, existing?.sharedPastorSnapshots);
@@ -216,7 +220,7 @@ export function GraceNoteEditor({
     }
 
     return {
-      type: 'personal',
+      type: 'prayer',
       authorName: existing?.authorName ?? user?.name,
       authorRole: existing?.authorRole ?? user?.position,
       ...shareFields,
@@ -227,13 +231,16 @@ export function GraceNoteEditor({
     };
   };
 
+  const meta = EDITOR_META[noteType];
+  const contentLabel = graceContentFieldLabel(noteType);
+
   const handleSave = () => {
     if (!graceTitle.trim()) {
-      toast.error('은혜기록 제목을 입력해 주세요.');
+      toast.error('제목을 입력해 주세요.');
       return;
     }
     if (!graceContent.trim()) {
-      toast.error('은혜 내용을 입력해 주세요.');
+      toast.error(`${contentLabel}을 입력해 주세요.`);
       return;
     }
     if (noteType === 'reading' && !readingCtx && !existing?.sourceId) {
@@ -251,7 +258,7 @@ export function GraceNoteEditor({
   };
 
   const canSave = graceTitle.trim().length > 0 && graceContent.trim().length > 0 && !saved;
-  const saveLabel = editId ? '수정사항 저장' : '은혜기록 저장';
+  const saveLabel = editId ? '수정사항 저장' : '저장';
 
   const saveBtn = (
     <button
@@ -272,44 +279,40 @@ export function GraceNoteEditor({
 
   return (
     <ContentEditorLayout
-      title={editId ? '은혜기록 수정' : '은혜기록 작성'}
-      description="말씀과 삶 속에서 받은 은혜를 기록해 보세요."
+      title={editId ? meta.editTitle : meta.title}
+      description={meta.description}
       onBack={onBack}
       saveButton={saveBtn}
       mobileHeaderVariant="subpage"
     >
       <ContentFormCard className="space-y-5">
-        {/* 1. 기록유형 */}
-        <div>
-          <p className="text-sm font-bold text-gray-800 mb-3">기록유형</p>
-          <div className="grid grid-cols-3 gap-2">
-            {TYPE_OPTIONS.map(opt => {
-              const active = noteType === opt.id;
-              const Icon = opt.icon;
-              const disabled = !canChangeType && !active;
-              return (
-                <button
-                  key={opt.id}
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => selectType(opt.id)}
-                  className={`flex flex-col items-center gap-1.5 px-2 py-3 rounded-2xl border-2 transition-colors touch-target ${
-                    active
-                      ? 'border-primary-500 bg-primary-50 text-primary-700'
-                      : disabled
-                        ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
-                        : 'border-gray-100 bg-white text-gray-600 hover:border-gray-200'
-                  }`}
-                >
-                  <Icon className="w-5 h-5" />
-                  <span className="text-xs font-bold">{opt.label}</span>
-                </button>
-              );
-            })}
+        {/* 기록유형 — 수정 시에만 읽기 전용 표시 */}
+        {editId && (
+          <div>
+            <p className="text-sm font-bold text-gray-800 mb-3">기록유형</p>
+            <div className="grid grid-cols-3 gap-2">
+              {TYPE_OPTIONS.map(opt => {
+                const active = noteType === opt.id;
+                const Icon = opt.icon;
+                return (
+                  <div
+                    key={opt.id}
+                    className={`flex flex-col items-center gap-1.5 px-2 py-3 rounded-2xl border-2 ${
+                      active
+                        ? 'border-primary-500 bg-primary-50 text-primary-700'
+                        : 'border-gray-100 bg-gray-50 text-gray-300'
+                    }`}
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span className="text-xs font-bold">{opt.label}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* 2. 제목 */}
+        {/* 제목 */}
         <div>
           <label className="text-sm font-bold text-gray-800 mb-2 block">
             제목 <span className="text-rose-500">*</span>
@@ -318,20 +321,20 @@ export function GraceNoteEditor({
             type="text"
             value={graceTitle}
             onChange={e => setGraceTitle(e.target.value)}
-            placeholder="은혜기록 제목을 입력하세요"
+            placeholder={meta.titlePlaceholder}
             className="w-full px-4 py-3 bg-white border border-gray-200 rounded-2xl text-sm focus:outline-none focus:border-primary-400"
           />
         </div>
 
-        {/* 3. 은혜 내용 */}
+        {/* 은혜/기도 내용 */}
         <div>
           <label className="text-sm font-bold text-gray-800 mb-2 block">
-            은혜 내용 <span className="text-rose-500">*</span>
+            {contentLabel} <span className="text-rose-500">*</span>
           </label>
           <textarea
             value={graceContent}
             onChange={e => setGraceContent(e.target.value.slice(0, GRACE_CONTENT_MAX_LENGTH))}
-            placeholder="받은 은혜와 삶의 적용을 기록해 주세요."
+            placeholder={meta.contentPlaceholder}
             rows={6}
             className="w-full px-4 py-3 bg-white border border-gray-200 rounded-2xl text-sm text-gray-800 focus:outline-none focus:border-primary-400 resize-none placeholder-gray-300"
           />
@@ -340,8 +343,8 @@ export function GraceNoteEditor({
           </p>
         </div>
 
-        {/* 4. 관련 기록 (자유 유형은 표시하지 않음) */}
-        {noteType !== 'personal' && (
+        {/* 관련 기록 (기도 유형은 표시하지 않음) */}
+        {noteType !== 'prayer' && (
           <GraceRelatedSourceSelector
           noteType={noteType}
           existing={existing}
@@ -428,7 +431,7 @@ export function SermonGraceFormView({
   );
 }
 
-export function PersonalGraceFormView({
+export function PrayerGraceFormView({
   editId, onSave, onBack,
 }: {
   editId?: string;
@@ -440,31 +443,34 @@ export function PersonalGraceFormView({
       onSave={onSave}
       onBack={onBack}
       editId={editId}
-      initialType="personal"
+      initialType="prayer"
       lockType
     />
   );
 }
 
+/** @deprecated PrayerGraceFormView 사용 */
+export const PersonalGraceFormView = PrayerGraceFormView;
+
 export const GRACE_FORM_HEADERS = {
   reading: {
-    title: '은혜기록 작성',
-    editTitle: '은혜기록 수정',
+    title: `${GRACE_MENU_LABEL} 작성`,
+    editTitle: '성경통독 수정',
     description: '오늘 읽은 말씀의 은혜를 기록해 보세요.',
   },
   sermon: {
-    title: '은혜기록 작성',
-    editTitle: '은혜기록 수정',
+    title: `${GRACE_MENU_LABEL} 작성`,
+    editTitle: '설교 수정',
     description: '설교를 통해 받은 은혜를 기록해 보세요.',
   },
-  personal: {
-    title: '은혜기록 작성',
-    editTitle: '은혜기록 수정',
-    description: '일상 속 하나님의 은혜를 자유롭게 기록해 보세요.',
+  prayer: {
+    title: `${GRACE_MENU_LABEL} 작성`,
+    editTitle: '기도 수정',
+    description: '기도 제목과 내용을 기록해 보세요.',
   },
   write: {
-    title: '은혜기록 작성',
-    editTitle: '은혜기록 수정',
-    description: '말씀과 삶 속에서 받은 은혜를 기록해 보세요.',
+    title: GRACE_MENU_LABEL,
+    editTitle: `${GRACE_MENU_LABEL} 수정`,
+    description: '하나님의 은혜와 기도를 기록하고 함께 나눕니다.',
   },
 } as const;

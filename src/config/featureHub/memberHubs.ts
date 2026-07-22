@@ -13,7 +13,7 @@ import { HOME_MENU_CATALOG } from '../../components/common/home/homeMenuCatalog'
 export const GRACE_HUB_FEATURES: FeatureCardConfig[] = [
   {
     id: 'write',
-    title: '은혜기록 작성',
+    title: '은혜와 기도 작성',
     description: '성경통독·설교·일상에서 받은 은혜를 한곳에서 기록합니다.',
     icon: PenLine,
     iconBg: 'bg-primary-50',
@@ -21,7 +21,7 @@ export const GRACE_HUB_FEATURES: FeatureCardConfig[] = [
   },
   {
     id: 'all-list',
-    title: '은혜기록 모아보기',
+    title: '은혜와 기도 모아보기',
     description: '내 기록과 공유받은 은혜를 한곳에서 확인합니다.',
     icon: Library,
     iconBg: 'bg-amber-50',
@@ -123,7 +123,7 @@ export const PROFILE_HUB: FeatureHubPageConfig = {
   features: [
     { id: 'profile', title: '프로필', description: '나의 기본 정보를 확인·수정합니다.', icon: User, iconBg: 'bg-primary-50', iconColor: 'text-primary-600' },
     { id: 'org', title: '소속 정보', description: '소속 조직과 부서를 확인합니다.', icon: Users, iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600' },
-    { id: 'grace', title: '나의 은혜기록', description: '내가 남긴 은혜기록을 봅니다.', icon: BookOpen, iconBg: 'bg-amber-50', iconColor: 'text-amber-600' },
+    { id: 'grace', title: '나의 은혜와 기도', description: '내가 남긴 기록을 봅니다.', icon: BookOpen, iconBg: 'bg-amber-50', iconColor: 'text-amber-600' },
     { id: 'timeline', title: '신앙 성장 타임라인', description: '신앙 활동의 흐름을 봅니다.', icon: Route, iconBg: 'bg-violet-50', iconColor: 'text-violet-600' },
     { id: 'report', title: '나의 신앙 리포트', description: '나의 신앙 성장을 요약합니다.', icon: BarChart3, iconBg: 'bg-cyan-50', iconColor: 'text-cyan-600' },
   ],

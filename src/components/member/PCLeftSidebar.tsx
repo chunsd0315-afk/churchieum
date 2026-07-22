@@ -18,7 +18,7 @@ const NAV_ITEMS: { page: Page; label: string; iconKey: MenuIconKey }[] = [
   { page: 'announcement', label: '공지사항', iconKey: 'announcement' },
   { page: 'bible', label: '성경', iconKey: 'bible' },
   { page: 'bible-reading-center', label: '성경통독', iconKey: 'biblePlan' },
-  { page: 'grace-notes', label: '은혜기록', iconKey: 'grace' },
+  { page: 'grace-notes', label: '은혜와 기도', iconKey: 'grace' },
   { page: 'prayer', label: '기도', iconKey: 'prayer' },
   { page: 'bulletin', label: '주보', iconKey: 'bulletin' },
   { page: 'schedule', label: '일정', iconKey: 'schedule' },

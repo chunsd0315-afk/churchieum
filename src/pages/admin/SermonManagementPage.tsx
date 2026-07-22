@@ -39,7 +39,7 @@ export default function SermonManagementPage() {
         onSave={() => {
           setGraceCtx(null);
           setSubView('list');
-          toast.success('은혜기록이 저장되었습니다.');
+          toast.success('저장되었습니다.');
         }}
         onBack={() => { setGraceCtx(null); setSubView('list'); }}
       />

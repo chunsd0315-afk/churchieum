@@ -17,7 +17,7 @@ const CONTENT_ITEMS: ContentItem[] = [
   { id: 'sermons',       label: '설교',     description: '설교 등록과 관리',       icon: BookOpen,       bg: 'bg-blue-50',    iconColor: 'text-blue-500' },
   { id: 'announcements', label: '공지',     description: '교회 공지 작성',         icon: Megaphone,      bg: 'bg-violet-50',  iconColor: 'text-violet-500' },
   { id: 'bulletins',     label: '주보',     description: '주보 업로드와 관리',     icon: FileText,       bg: 'bg-cyan-50',    iconColor: 'text-cyan-500' },
-  { id: 'qt',            label: '은혜기록', description: '성도 은혜 기록 관리',     icon: BookHeart,      bg: 'bg-primary-50', iconColor: 'text-primary-500' },
+  { id: 'qt',            label: '은혜와 기도', description: '성도 은혜·기도 기록 관리',     icon: BookHeart,      bg: 'bg-primary-50', iconColor: 'text-primary-500' },
   { id: 'prayers',       label: '기도',     description: '기도제목 관리',           icon: Heart,          bg: 'bg-rose-50',    iconColor: 'text-rose-500' },
   { id: 'events',        label: '일정',     description: '예배·행사 일정',         icon: Calendar,       bg: 'bg-emerald-50', iconColor: 'text-emerald-500' },
   { id: 'albums',        label: '앨범',     description: '교회 앨범 관리',         icon: Image,          bg: 'bg-pink-50',    iconColor: 'text-pink-500' },

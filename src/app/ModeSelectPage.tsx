@@ -77,7 +77,7 @@ export default function ModeSelectPage({ onSelectMode, userRole }: Props) {
                     성도 모드
                   </p>
                   <p className="text-gray-500 mt-0.5" style={{ fontSize: '13px' }}>
-                    설교, 은혜기록, 기도, 공지, 성경
+                    설교, 은혜와 기도, 공지, 성경
                   </p>
                 </div>
                 <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-primary-400 group-hover:translate-x-0.5 transition-all" />

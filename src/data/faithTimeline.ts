@@ -60,7 +60,7 @@ export function getFaithTimeline(limit = 50): FaithTimelineEvent[] {
       title: n.graceTitle ?? n.graceContent.slice(0, 40),
       subtitle: n.type === 'sermon' ? n.sermonTitle
         : n.type === 'reading' ? `${n.planName ?? ''} ${n.bibleReference ?? ''}`.trim()
-          : '자유 은혜기록',
+          : '기도',
       date: n.createdAt,
       emoji: TYPE_META[type].emoji,
     });
@@ -121,7 +121,7 @@ export function getFaithReportByMonth(year: number) {
       total: monthNotes.length,
       sermon: monthNotes.filter(n => n.type === 'sermon').length,
       reading: monthNotes.filter(n => n.type === 'reading').length,
-      personal: monthNotes.filter(n => n.type === 'personal').length,
+      personal: monthNotes.filter(n => n.type === 'prayer').length,
     };
   }
   return byMonth;
@@ -156,13 +156,13 @@ export function getFaithReportSummary(year: number) {
     yearTotal: notes.length,
     sermonTotal: notes.filter(n => n.type === 'sermon').length,
     readingTotal: notes.filter(n => n.type === 'reading').length,
-    personalTotal: notes.filter(n => n.type === 'personal').length,
+    personalTotal: notes.filter(n => n.type === 'prayer').length,
     topBooks,
     topKeywords,
     streak,
     thisMonthCount,
     monthGrowth: thisMonthCount > 0
       ? `이번 달 ${thisMonthCount}개의 은혜를 기록하며 믿음의 발자취를 남기고 있습니다.`
-      : '이번 달 첫 은혜기록을 남겨보세요.',
+      : '이번 달 첫 기록을 남겨보세요.',
   };
 }

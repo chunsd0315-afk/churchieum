@@ -14,8 +14,8 @@ export const HOME_MENU_CATALOG: Record<string, HomeMenuCatalogItem> = {
     iconKey: 'sermon',
   },
   grace: {
-    label: '은혜기록',
-    description: '말씀과 삶 속에서 받은 은혜를 기록하고 나누세요.',
+    label: '은혜와 기도',
+    description: '하나님의 은혜와 기도를 기록하고 함께 나눕니다.',
     iconKey: 'grace',
   },
   announcement: {

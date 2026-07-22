@@ -44,7 +44,7 @@ const LS_PROGRESS_SEEDED = 'graceNotes_reading_progress_seeded';
 /** 본문 300건 + 권한 픽스처 */
 const SEED_READING_COUNT = 105;
 const SEED_SERMON_COUNT = 120;
-const SEED_PERSONAL_COUNT = 75;
+const SEED_PRAYER_COUNT = 75;
 
 type SeedAuthor = {
   id: string;
@@ -452,7 +452,7 @@ function generateReadingNotes(count: number, authors: SeedAuthor[], names: strin
   return notes;
 }
 
-function generatePersonalNotes(count: number, authors: SeedAuthor[], names: string[]): GraceNote[] {
+function generatePrayerNotes(count: number, authors: SeedAuthor[], names: string[]): GraceNote[] {
   const notes: GraceNote[] = [];
   for (let i = 0; i < count; i++) {
     const author = pickAuthor(authors, i + 11);
@@ -460,7 +460,7 @@ function generatePersonalNotes(count: number, authors: SeedAuthor[], names: stri
     const createdAt = randomPastDate(i + 120);
     const share = pickVisibilityForAuthor(author, i + 220);
     const eng = baseEngagement(share.visibility, createdAt, names, i + 120);
-    const copy = buildGraceCopyForSeedNote('personal', id, seedHash(id));
+    const copy = buildGraceCopyForSeedNote('prayer', id, seedHash(id));
     notes.push(normalizeSeedGraceRecord({
       id,
       userId: author.id,
@@ -469,7 +469,7 @@ function generatePersonalNotes(count: number, authors: SeedAuthor[], names: stri
       authorDistrictId: author.districtId,
       authorZoneId: author.zoneId,
       authorDepartmentIds: author.departmentIds,
-      type: 'personal',
+      type: 'prayer',
       ...share,
       graceTitle: copy.graceTitle,
       graceContent: copy.graceContent,
@@ -533,7 +533,7 @@ export function generateGraceNoteDemoData(): GraceNote[] {
   const names = authors.map(a => a.name);
   const sermon = generateSermonNotes(SEED_SERMON_COUNT, authors, names);
   const reading = generateReadingNotes(SEED_READING_COUNT, authors, names);
-  const personal = generatePersonalNotes(SEED_PERSONAL_COUNT, authors, names);
+  const personal = generatePrayerNotes(SEED_PRAYER_COUNT, authors, names);
   const all = [...sermon, ...reading, ...personal];
 
   const pushFixture = (
@@ -584,7 +584,7 @@ export function generateGraceNoteDemoData(): GraceNote[] {
   const demoAuthor = authors.find(a => a.id === 'demo-member60');
   if (demoAuthor) {
     for (let i = 0; i < 12; i++) {
-      const type: GraceNote['type'] = i % 3 === 0 ? 'sermon' : i % 3 === 1 ? 'reading' : 'personal';
+      const type: GraceNote['type'] = i % 3 === 0 ? 'sermon' : i % 3 === 1 ? 'reading' : 'prayer';
       pushFixture(
         `gn-demo-me-${i}`,
         demoAuthor,
@@ -603,8 +603,8 @@ export function generateGraceNoteDemoData(): GraceNote[] {
   const pastor01 = authors.find(a => a.id === 'demo-pastor01');
   const pastor02 = authors.find(a => a.id === 'demo-pastor02');
   if (pastor01) {
-    pushFixture('gn-fix-p01-private', pastor01, 'personal', 'private', {}, 600);
-    pushFixture('gn-fix-p01-pastor-to-cl2', pastor01, 'personal', 'pastor_share', { sharedPastorIds: ['cl2'] }, 601);
+    pushFixture('gn-fix-p01-private', pastor01, 'prayer', 'private', {}, 600);
+    pushFixture('gn-fix-p01-pastor-to-cl2', pastor01, 'prayer', 'pastor_share', { sharedPastorIds: ['cl2'] }, 601);
     pushFixture('gn-fix-p01-group-d1', pastor01, 'reading', 'organization_share', {
       sharedUpperOrganizationIds: ['d1'],
       sharedOrganizationIds: ['d1'],
@@ -614,20 +614,20 @@ export function generateGraceNoteDemoData(): GraceNote[] {
     }, 602);
   }
   if (pastor02) {
-    pushFixture('gn-fix-p02-private', pastor02, 'personal', 'private', {}, 603);
+    pushFixture('gn-fix-p02-private', pastor02, 'prayer', 'private', {}, 603);
     pushFixture('gn-fix-p02-pastor-to-cl1', pastor02, 'sermon', 'pastor_share', {
       sharedPastorIds: ['cl1'],
       sourceId: getAllSermons()[1]?.id,
       sermonTitle: '순종으로 시작하는 믿음',
     }, 604);
-    pushFixture('gn-fix-p02-group-d2', pastor02, 'personal', 'organization_share', {
+    pushFixture('gn-fix-p02-group-d2', pastor02, 'prayer', 'organization_share', {
       sharedUpperOrganizationIds: ['d2'],
       sharedOrganizationIds: ['d2'],
       sharedGroupIds: ['d2'],
     }, 605);
   }
   if (demoAuthor) {
-    pushFixture('gn-fix-m60-private', demoAuthor, 'personal', 'private', {}, 606);
+    pushFixture('gn-fix-m60-private', demoAuthor, 'prayer', 'private', {}, 606);
     pushFixture('gn-fix-m60-pastor-cl1', demoAuthor, 'reading', 'pastor_share', {
       sharedPastorIds: ['cl1'],
       sourceId: 'demo-progress-mccheyne',

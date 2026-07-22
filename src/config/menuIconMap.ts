@@ -74,7 +74,7 @@ export const menuIconAssets: Partial<Record<MenuIconKey, string>> = {
 export const menuIconLabels: Record<MenuIconKey, string> = {
   home: '홈',
   sermon: '설교',
-  grace: '은혜기록',
+  grace: '은혜와 기도',
   announcement: '공지사항',
   bulletin: '주보',
   schedule: '일정',

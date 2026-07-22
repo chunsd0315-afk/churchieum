@@ -153,7 +153,7 @@ export function formatTestDataSeedReport(report: TestDataSeedReport): string {
     .map(([k, v]) => `${k}: ${v}`)
     .join(', ');
   return [
-    `은혜기록 ${report.graceNoteCount}건`,
+    `은혜와 기도 ${report.graceNoteCount}건`,
     `기도 ${report.prayerCount}건`,
     `작성자 ${report.authorCount}명`,
     `공개범위 — ${vis}`,

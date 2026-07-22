@@ -17,6 +17,7 @@ import {
   GraceNoteListView, GraceNoteDetailView,
   type ReadingEditorCtx, type SermonEditorCtx,
 } from '../../components/member/GraceNotesView';
+import { GraceNoteWritePicker } from '../../components/member/GraceNoteWritePicker';
 import { GraceNoteListRow } from '../../components/member/GraceNoteListRow';
 import { ReadingProgressPicker, buildReadingFormCtx } from '../../components/member/ReadingProgressPicker';
 import { getAllProgresses } from '../../data/readingPlans';
@@ -25,6 +26,7 @@ import { getGraceListBadge } from '../../services/graceNoteShareScope';
 
 type SubView =
   | 'today'
+  | 'write-pick'
   | 'write'
   | 'reading-pick'
   | 'all-list'
@@ -59,7 +61,7 @@ export default function GraceNotesPage() {
   const [lockWriteType, setLockWriteType] = useState(false);
   const [readingCtx, setReadingCtx] = useState<ReadingEditorCtx | null>(null);
   const [sermonCtx, setSermonCtx] = useState<SermonEditorCtx | null>(null);
-  const [pickReturn, setPickReturn] = useState<SubView>('write');
+  const [pickReturn, setPickReturn] = useState<SubView>('write-pick');
 
   const allNotes = getAllGraceNotes();
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -100,14 +102,19 @@ export default function GraceNotesPage() {
     reading?: ReadingEditorCtx | null;
     sermon?: SermonEditorCtx | null;
     from?: SubView;
+    skipPicker?: boolean;
   }) => {
     setBackView(opts?.from ?? 'all-list');
     setEditId(opts?.editId);
     setWriteType(opts?.type);
-    setLockWriteType(Boolean(opts?.lockType));
+    setLockWriteType(Boolean(opts?.lockType ?? Boolean(opts?.type)));
     setReadingCtx(opts?.reading ?? null);
     setSermonCtx(opts?.sermon ?? null);
-    setView('write');
+    if (opts?.editId || opts?.skipPicker || opts?.type || opts?.reading || opts?.sermon) {
+      setView('write');
+    } else {
+      setView('write-pick');
+    }
   };
 
   const navToEdit = (note: GraceNote, from: SubView) => {
@@ -142,6 +149,17 @@ export default function GraceNotesPage() {
     );
   }
 
+  if (view === 'write-pick') {
+    return (
+      <GraceNoteWritePicker
+        onBack={() => setView('all-list')}
+        onSelectReading={() => startReadingPick('write-pick')}
+        onSelectSermon={() => openWrite({ type: 'sermon', lockType: true, from: 'all-list', skipPicker: true })}
+        onSelectPrayer={() => openWrite({ type: 'prayer', lockType: true, from: 'all-list', skipPicker: true })}
+      />
+    );
+  }
+
   if (view === 'write') {
     return (
       <GraceNoteEditor
@@ -158,7 +176,7 @@ export default function GraceNotesPage() {
           setReadingCtx(null);
           setSermonCtx(null);
           setWriteType(undefined);
-          setView('all-list');
+          setView(editId ? 'all-list' : 'write-pick');
         }}
         editId={editId}
         initialType={writeType}

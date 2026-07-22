@@ -44,7 +44,7 @@ export default function QtManagementPage() {
 
   return (
     <PageLayout
-      header={{ title: '은혜기록', description: '말씀과 삶 속에서 받은 은혜를 기록하고 나누세요.' }}
+      header={{ title: '은혜와 기도', description: '하나님의 은혜와 기도를 기록하고 나눕니다.' }}
       toolbar={{
         search: { value: search, onChange: setSearch, placeholder: '성도 이름 검색' },
         right: (
@@ -57,11 +57,11 @@ export default function QtManagementPage() {
           </button>
         ),
       }}
-      empty={{ icon: <BookHeart size={28} />, title: '은혜기록이 없습니다', action: hasFilter ? { label: '필터 초기화', onClick: resetFilters } : undefined }}
+      empty={{ icon: <BookHeart size={28} />, title: '기록이 없습니다', action: hasFilter ? { label: '필터 초기화', onClick: resetFilters } : undefined }}
     >
       {/* Info banner */}
       <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-2.5 text-xs text-blue-600 mb-4">
-        공개 범위가 <strong>교역자 공유</strong> 또는 <strong>전체 공개</strong>인 은혜기록만 조회됩니다.
+        공개 범위가 <strong>교역자 공유</strong> 또는 <strong>전체 공개</strong>인 기록만 조회됩니다.
       </div>
 
       {/* Filter panel toggle */}

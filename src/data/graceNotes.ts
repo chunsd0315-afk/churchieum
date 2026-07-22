@@ -11,7 +11,17 @@ export const DEMO_SEED_VERSION = 'v5';
 export const GRACE_SEED_FORMAT_VERSION = '5';
 export const GRACE_SEED_COPY_VERSION = '2';
 
-export type GraceNoteType = 'reading' | 'sermon' | 'personal';
+export type GraceNoteType = 'reading' | 'sermon' | 'prayer';
+
+/** 레거시 personal·free → prayer */
+export function normalizeGraceNoteType(raw: unknown): GraceNoteType {
+  const s = String(raw ?? '').toLowerCase().replace(/[\s-]/g, '_');
+  if (s === 'reading' || s === 'bible' || s === 'bible_reading' || s === 'biblereading') {
+    return 'reading';
+  }
+  if (s === 'sermon' || s === 'preaching' || s === 'message') return 'sermon';
+  return 'prayer';
+}
 
 /** 공통 VisibilityType — 레거시 pastor/group/public 은 normalize 시 변환 */
 export type GraceNoteVisibility = VisibilityType;
@@ -114,6 +124,7 @@ export type GraceNoteInput = Omit<GraceNote, 'id' | 'createdAt' | 'updatedAt'>;
 function normalizeNote(n: GraceNote): GraceNote {
   const rawVis = n.visibility as string | undefined;
   const visibility = migrateVisibility(rawVis);
+  const type = normalizeGraceNoteType(n.type);
   const split = splitOrganizationShareIds({
     sharedGroupIds: n.sharedGroupIds ?? n.sharedOrganizationIds,
     sharedUpperOrganizationIds: n.sharedUpperOrganizationIds,
@@ -124,6 +135,7 @@ function normalizeNote(n: GraceNote): GraceNote {
   const sharedGroupAll = n.sharedGroupAll || isLegacyPublic(rawVis) || false;
   return {
     ...n,
+    type,
     visibility,
     sharedPastorIds: Array.isArray(n.sharedPastorIds) ? n.sharedPastorIds : [],
     sharedPastorSnapshots: Array.isArray(n.sharedPastorSnapshots) ? n.sharedPastorSnapshots : [],
@@ -145,12 +157,21 @@ function normalizeNote(n: GraceNote): GraceNote {
   };
 }
 
+function needsGraceTypeMigration(notes: GraceNote[]): boolean {
+  return notes.some(n => {
+    const raw = String(n.type ?? '').toLowerCase();
+    return raw === 'personal' || raw === 'free';
+  });
+}
+
 function load(): GraceNote[] {
   try {
     const raw = localStorage.getItem(LS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as GraceNote[];
-      return parsed.map(normalizeNote);
+      const notes = parsed.map(normalizeNote);
+      if (needsGraceTypeMigration(parsed)) save(notes);
+      return notes;
     }
 
     // Migrate from v1
@@ -571,6 +592,6 @@ export function analyzeGraceNotes(notes: GraceNote[]) {
     byMonth,
     readingCount: notes.filter(n => n.type === 'reading').length,
     sermonCount: notes.filter(n => n.type === 'sermon').length,
-    personalCount: notes.filter(n => n.type === 'personal').length,
+    prayerCount: notes.filter(n => n.type === 'prayer').length,
   };
 }

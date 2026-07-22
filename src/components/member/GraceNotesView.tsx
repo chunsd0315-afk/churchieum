@@ -69,6 +69,8 @@ import {
   graceRecordTypeLabel,
   graceShareBadgeClass,
   graceTypeBadgeClass,
+  GRACE_MENU_LABEL,
+  graceContentFieldLabel,
 } from '../../services/graceNoteDisplay';
 import {
   getPastorFilterGroupsForMine,
@@ -134,7 +136,7 @@ const GRACE_RECORD_TYPE_OPTIONS = [
   { id: '' as const, label: '전체' },
   { id: 'reading' as const, label: '성경통독' },
   { id: 'sermon' as const, label: '설교' },
-  { id: 'personal' as const, label: '자유' },
+  { id: 'prayer' as const, label: '기도' },
 ] as const;
 
 function GraceRecordTypeFilterButtons({
@@ -591,12 +593,12 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
     if (tab === 'mine') {
       if (hasAppliedFilters) {
         return {
-          title: '조건에 맞는 내 은혜기록이 없습니다.',
+          title: '조건에 맞는 내 기록이 없습니다.',
           desc: '상세설정 조건을 바꾸거나 초기화해 보세요.',
         };
       }
       return {
-        title: '작성한 은혜기록이 없습니다.',
+        title: '작성한 기록이 없습니다.',
         desc: '말씀과 삶 속에서 받은 은혜를 기록해 보세요.',
       };
     }
@@ -604,19 +606,19 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
     if (hasAppliedFilters) {
       if (applied.typeFilter && !hasSharedTabSecondaryFilters(applied)) {
         return {
-          title: `공유받은 ${graceRecordTypeLabel(applied.typeFilter)} 은혜기록이 없습니다.`,
+          title: `공유받은 ${graceRecordTypeLabel(applied.typeFilter)} 기록이 없습니다.`,
           desc: '다른 상세설정을 선택하거나 초기화해 보세요.',
         };
       }
       return {
-        title: '선택한 상세설정에 맞는 은혜기록이 없습니다.',
+        title: '선택한 상세설정에 맞는 기록이 없습니다.',
         desc: '상세설정 조건을 바꾸거나 초기화해 보세요.',
       };
     }
 
     if (applied.shareType === 'pastor_share') {
       return {
-        title: '교역자에게 직접 공유받은 은혜기록이 없습니다.',
+        title: '교역자에게 직접 공유받은 기록이 없습니다.',
         desc: isMemberUser
           ? '담당 교역자가 직접 공유하면 이곳에 나타납니다.'
           : '성도·교역자가 교역자와 공유한 기록이 이곳에 나타납니다.',
@@ -632,10 +634,10 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
       }
       const title =
         applied.organizationIds.length === 1
-          ? `${getOrganizationPathLabel(applied.organizationIds[0])}에 공유된 은혜기록이 없습니다.`
+          ? `${getOrganizationPathLabel(applied.organizationIds[0])}에 공유된 기록이 없습니다.`
           : applied.organizationIds.length > 1
-            ? '선택한 교구·부서에 공유된 은혜기록이 없습니다.'
-            : '내 교구·부서에 공유된 은혜기록이 없습니다.';
+            ? '선택한 교구·부서에 공유된 기록이 없습니다.'
+            : '내 교구·부서에 공유된 기록이 없습니다.';
       return {
         title,
         desc: isMemberUser
@@ -646,19 +648,19 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
 
     if (isMemberUser) {
       return {
-        title: '내 교구·부서에 공유된 은혜기록이 없습니다.',
+        title: '내 교구·부서에 공유된 기록이 없습니다.',
         desc: '소속 교구·부서에서 공유하면 이곳에 나타납니다.',
       };
     }
     if (isPastorUser) {
       return {
-        title: '나에게 공유된 은혜기록이 없습니다.',
+        title: '나에게 공유된 기록이 없습니다.',
         desc: '직접 공유되거나 소속 조직에 공유된 기록이 이곳에 나타납니다.',
       };
     }
     return {
-      title: '조회 가능한 공유 은혜기록이 없습니다.',
-      desc: '공유된 은혜기록이 이곳에 나타납니다.',
+      title: '조회 가능한 공유 기록이 없습니다.',
+      desc: '공유된 기록이 이곳에 나타납니다.',
     };
   }, [tab, applied, applied.organizationIds, coreOrgIds.length, isMemberUser, isPastorUser, hasAppliedFilters]);
 
@@ -668,7 +670,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
         onBack={() => setCollectionView('list')}
         onReset={() => setDraft({ ...EMPTY_FILTER, typeFilter: '' })}
         onApply={applyFilter}
-        description="조건에 맞는 은혜기록을 찾아보세요."
+        description="조건에 맞는 기록을 찾아보세요."
       >
         <GraceRecordTypeFilterButtons
           value={draft.typeFilter}
@@ -748,13 +750,13 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
   }
 
   const pageDescription = isMineMode
-    ? '내가 작성한 은혜기록을 확인합니다.'
-    : '나에게 또는 내 교구·부서에 공유된 은혜기록을 확인합니다.';
+    ? '내가 작성한 기록을 확인합니다.'
+    : '나에게 또는 내 교구·부서에 공유된 기록을 확인합니다.';
 
   const collectionTabs = (
     <div
       role="tablist"
-      aria-label="은혜기록 보기"
+      aria-label={`${GRACE_MENU_LABEL} 보기`}
       className="grid grid-cols-2 gap-1 rounded-xl bg-gray-100 p-1 w-full"
     >
       <button
@@ -798,7 +800,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
 
   const writeBtn = onWrite && user ? (
     <button type="button" onClick={onWrite} className={sermonPrimaryBtnClass}>
-      <Plus className="w-5 h-5" /> 은혜기록 작성
+      <Plus className="w-5 h-5" /> 작성
     </button>
   ) : undefined;
 
@@ -867,7 +869,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
       {deleteId && (
         <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl">
-            <h3 className="font-bold text-gray-900 mb-2">은혜기록을 삭제하시겠습니까?</h3>
+            <h3 className="font-bold text-gray-900 mb-2">기록을 삭제하시겠습니까?</h3>
             <p className="text-sm text-gray-500 mb-5">삭제한 기록은 복구할 수 없습니다.</p>
             <div className="flex gap-2">
               <button type="button" onClick={() => handleDelete(deleteId)} className="flex-1 py-3 bg-red-500 text-white rounded-2xl text-sm font-bold">삭제</button>
@@ -880,18 +882,18 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
       {isRootPage ? (
         <>
           <PageHeaderBar
-            title="은혜기록"
+            title={GRACE_MENU_LABEL}
             description={pageDescription}
             action={writeBtn}
           />
           <div className="pt-4">{listBody}</div>
           {onWrite && user && (
-            <MobileFab label="은혜기록 작성" onClick={onWrite} />
+            <MobileFab label="작성" onClick={onWrite} />
           )}
         </>
       ) : (
         <MobileFullScreenPage
-          title="은혜기록"
+          title={GRACE_MENU_LABEL}
           description={pageDescription}
           onBack={onBack}
           saveButton={
@@ -911,16 +913,16 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
 
 const DETAIL_HEADERS: Record<GraceNoteType, { title: string; description: string }> = {
   reading: {
-    title: '성경통독 은혜기록',
+    title: '성경통독',
     description: '말씀을 통해 받은 은혜를 확인합니다.',
   },
   sermon: {
-    title: '설교 은혜기록',
+    title: '설교',
     description: '설교를 통해 받은 은혜를 확인합니다.',
   },
-  personal: {
-    title: '자유 은혜기록',
-    description: '일상 속에서 기록한 은혜를 확인합니다.',
+  prayer: {
+    title: '기도',
+    description: '기록한 기도를 확인합니다.',
   },
 };
 
@@ -960,7 +962,7 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
 
   const header = note
     ? DETAIL_HEADERS[note.type]
-    : { title: '은혜기록 상세', description: '기록한 은혜를 확인합니다.' };
+    : { title: `${GRACE_MENU_LABEL} 상세`, description: '기록한 내용을 확인합니다.' };
 
   if (!note) {
     return (
@@ -977,7 +979,7 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
     return (
       <MobileFullScreenPage title={header.title} description={header.description} onBack={onBack}>
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <p className="text-gray-500 text-sm font-semibold">볼 수 있는 은혜기록이 없습니다.</p>
+          <p className="text-gray-500 text-sm font-semibold">볼 수 있는 기록이 없습니다.</p>
           <p className="text-xs text-gray-400 mt-1">이 기록은 공개 범위 밖으로 조회할 수 없습니다.</p>
           <button type="button" onClick={onBack} className="mt-3 text-primary-500 text-sm font-medium">← 돌아가기</button>
         </div>
@@ -1110,7 +1112,7 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
       {confirmDelete && (
         <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl">
-            <h3 className="font-bold text-gray-900 mb-2">은혜기록을 삭제하시겠습니까?</h3>
+            <h3 className="font-bold text-gray-900 mb-2">기록을 삭제하시겠습니까?</h3>
             <p className="text-sm text-gray-500 mb-5">삭제한 기록은 복구할 수 없습니다.</p>
             <div className="flex gap-2">
               <button type="button" onClick={handleDelete} className="flex-1 py-3 bg-red-500 text-white rounded-2xl text-sm font-bold hover:bg-red-600">삭제</button>
@@ -1156,7 +1158,7 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
 
             <section>
               <h3 className="text-xs font-bold text-gray-500 mb-2 flex items-center gap-1.5">
-                <Heart className="w-3.5 h-3.5 text-rose-500" /> 은혜 내용
+                <Heart className="w-3.5 h-3.5 text-rose-500" /> {graceContentFieldLabel(note.type)}
               </h3>
               <p className="text-[15px] text-gray-800 leading-relaxed whitespace-pre-wrap">{note.graceContent}</p>
             </section>
@@ -1314,7 +1316,7 @@ export function PlanGraceNotesSummary({ progressId, planName: _planName, planCol
         className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
         <div className="flex items-center gap-2">
           <Heart className="w-4 h-4 text-rose-400" />
-          <span className="font-bold text-sm text-gray-900">은혜기록</span>
+          <span className="font-bold text-sm text-gray-900">{GRACE_MENU_LABEL}</span>
           {notes.length > 0 && (
             <span className="text-[10px] bg-rose-50 text-rose-600 px-1.5 py-0.5 rounded-full font-semibold">{notes.length}개</span>
           )}

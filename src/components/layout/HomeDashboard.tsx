@@ -52,7 +52,7 @@ const MENUS: MenuCard[] = [
   { id: 'announcements', label: '공지사항',    icon: Megaphone,      bg: 'bg-violet-50',  ic: 'text-violet-500',  roles: ['admin', 'pastor', 'member'] },
   { id: 'bible',         label: '성경',        icon: BookMarked,     bg: 'bg-amber-50',   ic: 'text-amber-500',   roles: ['admin', 'pastor', 'member'] },
   { id: 'bible-plans',   label: '성경통독',    icon: Target,         bg: 'bg-green-50',   ic: 'text-green-500',   roles: ['admin', 'pastor', 'member'] },
-  { id: 'qt',            label: '은혜기록',    icon: BookHeart,      bg: 'bg-primary-50', ic: 'text-primary-500', roles: ['admin', 'pastor', 'member'] },
+  { id: 'qt',            label: '은혜와 기도',    icon: BookHeart,      bg: 'bg-primary-50', ic: 'text-primary-500', roles: ['admin', 'pastor', 'member'] },
   { id: 'prayers', label: '기도', icon: Heart, bg: 'bg-rose-50', ic: 'text-rose-500', roles: ['admin'] },
   { id: 'prayer',  label: '기도', icon: Heart, bg: 'bg-rose-50', ic: 'text-rose-500', roles: ['pastor', 'member'] },
   { id: 'bulletins',     label: '주보',        icon: FileText,       bg: 'bg-cyan-50',    ic: 'text-cyan-500',    roles: ['admin', 'pastor', 'member'] },

@@ -7,6 +7,7 @@ import {
   GRACE_SEED_FORMAT_VERSION,
   getGraceSeedFormatVersion,
   markDemoGraceNotesSeeded,
+  normalizeGraceNoteType,
 } from '../data/graceNotes';
 import { migrateVisibility } from '../types/sharedContent';
 import {
@@ -41,7 +42,7 @@ export type GraceSeedValidationReport = {
   passed: boolean;
 };
 
-const VALID_TYPES = new Set<GraceNoteType>(['reading', 'sermon', 'personal']);
+const VALID_TYPES = new Set<GraceNoteType>(['reading', 'sermon', 'prayer']);
 const VALID_VISIBILITY = new Set<GraceNoteVisibility>([
   'private',
   'pastor_share',
@@ -49,15 +50,7 @@ const VALID_VISIBILITY = new Set<GraceNoteVisibility>([
 ]);
 
 function normalizeRecordType(raw: unknown): GraceNoteType {
-  const s = String(raw ?? '').toLowerCase().replace(/[\s-]/g, '_');
-  if (
-    s === 'bible'
-    || s === 'reading'
-    || s === 'biblereading'
-    || s === 'bible_reading'
-  ) return 'reading';
-  if (s === 'sermon' || s === 'preaching' || s === 'message') return 'sermon';
-  return 'personal';
+  return normalizeGraceNoteType(raw);
 }
 
 function normalizeVisibility(raw: unknown): GraceNoteVisibility {

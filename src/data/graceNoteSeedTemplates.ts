@@ -193,7 +193,7 @@ export const CONTENT_INSIGHTS = [
 export const DEFAULT_TITLE_BY_TYPE: Record<GraceNoteType, string> = {
   reading: '말씀을 통해 받은 은혜',
   sermon: '설교를 통해 받은 은혜',
-  personal: '오늘의 감사와 묵상',
+  prayer: '오늘의 기도',
 };
 
 export function titlesForType(type: GraceNoteType): string[] {

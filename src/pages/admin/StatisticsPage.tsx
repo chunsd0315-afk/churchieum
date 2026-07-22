@@ -173,7 +173,7 @@ export default function StatisticsPage() {
         {[
           { label: '전체 교인', value: stats.totalMembers, icon: Users, color: 'bg-primary-100', iconColor: 'text-primary-600', sub: `재직 ${stats.activeMembers}명` },
           { label: '설교 수', value: stats.sermonCount, icon: BookOpen, color: 'bg-rose-100', iconColor: 'text-rose-600', sub: '전체 등록 설교' },
-          { label: '은혜기록 수', value: stats.qtCount, icon: BookHeart, color: 'bg-violet-100', iconColor: 'text-violet-600', sub: '은혜기록 참여 현황' },
+          { label: '은혜와 기도 수', value: stats.qtCount, icon: BookHeart, color: 'bg-violet-100', iconColor: 'text-violet-600', sub: '은혜와 기도 참여 현황' },
           { label: '기도제목', value: stats.prayerCount, icon: Heart, color: 'bg-pink-100', iconColor: 'text-pink-600', sub: '등록된 기도제목' },
         ].map(s => (
           <div key={s.label} className="card text-center">
@@ -349,7 +349,7 @@ export default function StatisticsPage() {
           {[
             { label: '신규 교인 등록', value: `${stats.newMembersThisMonth}명` },
             { label: '새가족 등록', value: `${stats.newFamilyThisMonth}명` },
-            { label: '은혜기록 (이번 달)', value: `${qtTrend[qtTrend.length - 1].value}회` },
+            { label: '은혜와 기도 (이번 달)', value: `${qtTrend[qtTrend.length - 1].value}회` },
             { label: '설교 등록 (이번 달)', value: `${sermonTrend[sermonTrend.length - 1].value}편` },
             { label: '기도제목 총 수', value: `${stats.prayerCount}건` },
             { label: '주보 발행 수', value: `${stats.bulletinCount}호` },

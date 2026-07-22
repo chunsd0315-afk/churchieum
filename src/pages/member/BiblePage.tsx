@@ -709,8 +709,8 @@ function ChapterView({ book, chapter, totalChapters, highlightVerse, translation
             className="flex items-center gap-2 min-h-[44px] px-4 py-2.5 rounded-xl bg-primary-600 text-white text-sm font-bold hover:bg-primary-700 transition-colors touch-target"
           >
             <Heart className="w-4 h-4" />
-            <span className="hidden sm:inline">오늘 말씀 은혜기록 작성</span>
-            <span className="sm:hidden">은혜기록</span>
+            <span className="hidden sm:inline">말씀 은혜 작성</span>
+            <span className="sm:hidden">작성</span>
           </button>
         </div>
       )}

@@ -375,7 +375,7 @@ function SermonPlayer({
         <BookOpen className="w-12 h-12 text-gray-200 mx-auto mb-3" />
         <p className="text-[15px] font-semibold text-[#6B7280]">아래 목록에서 설교를 선택하세요</p>
         {onGraceWrite && (
-          <p className="text-[13px] text-gray-400 mt-3">은혜기록을 작성할 설교를 먼저 선택해주세요.</p>
+          <p className="text-[13px] text-gray-400 mt-3">작성할 설교를 먼저 선택해주세요.</p>
         )}
       </div>
     );
@@ -440,8 +440,8 @@ function SermonPlayer({
               className="inline-flex items-center justify-center gap-1 shrink-0 h-8 sm:h-[34px] px-2.5 sm:px-3 rounded-lg sm:rounded-[10px] text-[12px] sm:text-[13px] font-semibold bg-primary-50 text-primary-700 border border-primary-200 hover:bg-primary-100 hover:border-primary-300 transition-colors"
             >
               <PenLine className="w-3.5 h-3.5 shrink-0" />
-              <span className="hidden sm:inline">은혜기록 작성</span>
-              <span className="sm:hidden">은혜기록</span>
+              <span className="hidden sm:inline">은혜 작성</span>
+              <span className="sm:hidden">작성</span>
             </button>
           )}
         </div>
@@ -509,7 +509,7 @@ function SermonCardRow({
         </p>
         {graceCount > 0 && (
           <p className="text-[11px] text-primary-600 font-semibold mt-1 flex items-center gap-1">
-            <PenLine className="w-3 h-3" /> 은혜기록 {graceCount}개
+            <PenLine className="w-3 h-3" /> 기록 {graceCount}개
           </p>
         )}
       </div>

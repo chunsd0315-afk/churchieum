@@ -18,7 +18,7 @@ export function ReadingProgressPicker({ progresses, onSelect, onBack }: Props) {
 
   return (
     <ContentEditorLayout
-      title="은혜기록 작성"
+      title="은혜와 기도 작성"
       description="진행 중인 통독을 선택하세요"
       onBack={onBack}
       mobileHeaderVariant="subpage"

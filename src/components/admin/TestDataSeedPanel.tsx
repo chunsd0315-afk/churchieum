@@ -61,7 +61,7 @@ export default function TestDataSeedPanel() {
         <div>
           <h3 className="font-bold text-gray-900 text-base">테스트 데이터 생성</h3>
           <p className="text-sm text-gray-600 mt-1">
-            은혜기록 300건 · 기도 300건을 등록된 성도·교역자 계정으로 생성합니다.
+            은혜와 기도 300건 · 기도 300건을 등록된 성도·교역자 계정으로 생성합니다.
             localStorage 데모 데이터이며 실서비스와 분리됩니다.
           </p>
           {seeded && (

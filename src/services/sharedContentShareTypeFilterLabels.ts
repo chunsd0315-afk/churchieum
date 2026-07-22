@@ -19,7 +19,7 @@ export type SharedContentShareTypeFilterOption = {
 };
 
 const CONTENT_NOUN: Record<SharedContentDomain, string> = {
-  grace: '은혜기록',
+  grace: '은혜와 기도',
   prayer: '기도',
 };
 

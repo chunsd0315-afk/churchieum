@@ -35,7 +35,7 @@ export default function ProfilePage() {
   }, []);
 
   const settingsItems = [
-    { icon: Bell,       label: '알림 설정',    desc: '공지, 은혜기록 알림' },
+    { icon: Bell,       label: '알림 설정',    desc: '공지, 은혜와 기도 알림' },
     { icon: Lock,       label: '비밀번호 변경', desc: '계정 보안' },
     { icon: Moon,       label: '다크모드',     desc: '사용 안 함' },
     { icon: Globe,      label: '언어 설정',    desc: '한국어' },
@@ -106,7 +106,7 @@ export default function ProfilePage() {
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-gray-50 rounded-xl p-3 text-center">
               <p className="text-xl font-bold text-gray-900">{faithReport.yearTotal}</p>
-              <p className="text-[10px] text-gray-500">은혜기록</p>
+              <p className="text-[10px] text-gray-500">은혜와 기도</p>
             </div>
             <div className="bg-gray-50 rounded-xl p-3 text-center">
               <p className="text-xl font-bold text-gray-900">{faithReport.streak}일</p>
