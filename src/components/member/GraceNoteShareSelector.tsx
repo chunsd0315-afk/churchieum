@@ -3,13 +3,12 @@
  * 조직명은 조직관리(OrgSettings) 설정을 동적으로 반영한다.
  */
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrgSettings } from '../../contexts/OrgSettingsContext';
-import type { GraceNoteVisibility } from '../../data/graceNotes';
+import type { GraceNoteVisibility, SharedPastorSnapshot } from '../../data/graceNotes';
 import {
-  getEligiblePastorsForUser,
   uniqueIds,
   filterShareStateToMembership,
   composeSharedGroupIds,
@@ -21,7 +20,7 @@ import {
   type GraceShareFields,
 } from '../../services/graceNoteShareScope';
 import { VisibilitySelector } from '../common/shared-content/VisibilitySelector';
-import { PastorShareSelector } from '../common/shared-content/PastorShareSelector';
+import { DirectPastorOrgShareSelector } from '../common/shared-content/DirectPastorOrgShareSelector';
 import { UserOrganizationTreeSelector } from '../common/shared-content/UserOrganizationTreeSelector';
 import {
   flattenOrgFilterTree,
@@ -29,6 +28,8 @@ import {
   getUserOrganizationTree,
   resolveOrgTreeMode,
 } from '../../services/userOrganizationTree';
+import { buildDirectPastorShareModel } from '../../services/directPastorShare';
+import { ORG_TREE_CHANGED_EVENT } from '../../services/organizationStorage';
 
 export type UpperOrgSelectionFlag = {
   selectedDirectly: boolean;
@@ -106,14 +107,30 @@ function Chip({ label, onRemove }: { label: string; onRemove?: () => void }) {
   );
 }
 
-export function GraceNoteShareSelector({ value, onChange }: {
+export function GraceNoteShareSelector({
+  value,
+  onChange,
+  existingPastorSnapshots = [],
+}: {
   value: GraceNoteShareState;
   onChange: (v: GraceNoteShareState) => void;
+  existingPastorSnapshots?: SharedPastorSnapshot[];
 }) {
   const { user, isPastor, isAdmin } = useAuth();
   const { l1, l2, dept } = useOrgSettings();
   const labels = useMemo(() => getOrganizationLabels(), [l1, l2, dept]);
   const isPastoralViewer = isPastor || isAdmin;
+  const [orgTick, setOrgTick] = useState(0);
+
+  useEffect(() => {
+    const bump = () => setOrgTick(t => t + 1);
+    window.addEventListener(ORG_TREE_CHANGED_EVENT, bump);
+    window.addEventListener('storage', bump);
+    return () => {
+      window.removeEventListener(ORG_TREE_CHANGED_EVENT, bump);
+      window.removeEventListener('storage', bump);
+    };
+  }, []);
 
   const orgTreeMode = useMemo(() => resolveOrgTreeMode(user), [user]);
   const orgTreeDefaultScope = isAdmin ? 'all' : 'mine';
@@ -125,7 +142,8 @@ export function GraceNoteShareSelector({ value, onChange }: {
         mode: orgTreeMode,
         scope: orgTreeDefaultScope,
       }),
-    [user, orgTreeMode, orgTreeDefaultScope],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- orgTick refreshes labels/structure
+    [user, orgTreeMode, orgTreeDefaultScope, orgTick],
   );
 
   const hasOrgTree = useMemo(
@@ -133,8 +151,14 @@ export function GraceNoteShareSelector({ value, onChange }: {
     [orgTree],
   );
 
-  const eligiblePastors = useMemo(() => getEligiblePastorsForUser(user), [user]);
-  const hasPastors = eligiblePastors.length > 0;
+  const pastorModel = useMemo(
+    () => buildDirectPastorShareModel(user),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [user, orgTick],
+  );
+  const hasPastors =
+    pastorModel.pastors.length > 0
+    || (value.visibility === 'pastor_share' && value.sharedPastorIds.length > 0);
 
   const selectedOrgIds = useMemo(
     () =>
@@ -151,7 +175,7 @@ export function GraceNoteShareSelector({ value, onChange }: {
   );
 
   const setVisibility = (visibility: GraceNoteVisibility) => {
-    if (visibility === 'pastor_share' && !hasPastors) return;
+    if (visibility === 'pastor_share' && !hasPastors && pastorModel.pastors.length === 0) return;
     if (visibility === 'organization_share' && !hasOrgTree) return;
     const cleared = defaultShareState({ visibility });
     const filtered = filterShareStateToMembership(toShareFields(cleared), user);
@@ -163,12 +187,10 @@ export function GraceNoteShareSelector({ value, onChange }: {
   };
 
   const handlePastorIdsChange = (ids: string[]) => {
-    const allOn =
-      eligiblePastors.length > 0 && eligiblePastors.every(p => ids.includes(p.id));
     onChange({
       ...value,
-      sharedPastorAll: allOn,
-      sharedPastorIds: allOn ? uniqueIds(eligiblePastors.map(p => p.id)) : uniqueIds(ids),
+      sharedPastorAll: false,
+      sharedPastorIds: uniqueIds(ids),
     });
   };
 
@@ -186,7 +208,9 @@ export function GraceNoteShareSelector({ value, onChange }: {
   };
 
   const disabledOptions: GraceNoteVisibility[] = [];
-  if (!hasPastors) disabledOptions.push('pastor_share');
+  if (pastorModel.pastors.length === 0 && value.visibility !== 'pastor_share') {
+    disabledOptions.push('pastor_share');
+  }
   if (!hasOrgTree) disabledOptions.push('organization_share');
 
   return (
@@ -206,6 +230,7 @@ export function GraceNoteShareSelector({ value, onChange }: {
                 disabledHint: `현재 소속된 ${labels.upper} 또는 ${labels.department}가 없습니다.`,
               },
               pastor_share: {
+                description: '내 소속 조직의 담당 교역자를 선택해 공유합니다.',
                 disabledHint: '현재 연결된 담당 교역자가 없습니다.',
               },
             }}
@@ -215,11 +240,12 @@ export function GraceNoteShareSelector({ value, onChange }: {
 
       {value.visibility === 'pastor_share' && (
         <div className="rounded-[18px] border border-gray-200 bg-white p-4 md:p-5">
-          <PastorShareSelector
-            pastors={eligiblePastors}
+          <DirectPastorOrgShareSelector
+            user={user}
             selectedIds={value.sharedPastorIds}
             onChange={handlePastorIdsChange}
-            searchable={isAdmin}
+            existingSnapshots={existingPastorSnapshots}
+            viewerIsMember={!isPastoralViewer}
           />
         </div>
       )}

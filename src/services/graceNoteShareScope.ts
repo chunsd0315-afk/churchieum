@@ -31,6 +31,7 @@ import {
 } from './userOrganizationTree';
 import { getOrganizationIdsForUserId } from './userOrganizationPath';
 import { getDistrictDepartmentLabel } from './orgTerminology';
+import { getDirectShareablePastorsForWriter } from './directPastorShare';
 
 /** 소속 미지정 작성자 그룹 ID */
 export const UNASSIGNED_AUTHOR_ORG_ID = '_unassigned';
@@ -375,34 +376,13 @@ function assignmentMatchesMembership(
   return { matches: false, label: '' };
 }
 
-/** 내 소속 조직을 담당하는 교역자 (중복 제거) */
+/**
+ * 담당 교역자와 공유 — 선택 가능 교역자
+ * 성도/교역자: 직계 소속·담당 조직(+상위) 담당 교역자만
+ * 최고관리자: 전체 활성 교역자
+ */
 export function getEligiblePastorsForUser(user: AppUser | null): EligiblePastor[] {
-  const membership = resolveUserOrgMembership(user);
-  if (!membership) return [];
-
-  const clergyMap = new Map(
-    getAllClergy().filter(isPastoralClergy).map(c => [c.id, c]),
-  );
-  const byPastor = new Map<string, Set<string>>();
-
-  for (const assignment of getAllActiveAssignments()) {
-    const { matches, label } = assignmentMatchesMembership(assignment, membership);
-    if (!matches || !clergyMap.has(assignment.pastorId)) continue;
-    if (!byPastor.has(assignment.pastorId)) byPastor.set(assignment.pastorId, new Set());
-    if (label && label !== '-') byPastor.get(assignment.pastorId)!.add(label);
-  }
-
-  return [...byPastor.entries()]
-    .map(([id, labels]) => {
-      const c = clergyMap.get(id)!;
-      return {
-        id,
-        name: c.name,
-        position: positionLabel(c),
-        orgLabels: [...labels].sort((a, b) => a.localeCompare(b, 'ko')),
-      };
-    })
-    .sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+  return getDirectShareablePastorsForWriter(user);
 }
 
 /** 내가 속한 상위·하위 조직 및 부서 */
@@ -473,6 +453,7 @@ export function getCurrentUserFromStorage(): AppUser | null {
 export function validateGraceNoteShare(
   state: Partial<GraceShareFields>,
   user: AppUser | null,
+  options?: { previousSharedPastorIds?: string[] },
 ): GraceShareValidationResult {
   const membership = resolveUserOrgMembership(user);
   if (!membership) {
@@ -491,6 +472,9 @@ export function validateGraceNoteShare(
 
   const eligiblePastors = getEligiblePastorsForUser(user);
   const eligiblePastorIds = new Set(eligiblePastors.map(p => p.id));
+  const preservedPastorIds = new Set(
+    (options?.previousSharedPastorIds ?? []).filter(Boolean),
+  );
   const eligible = getEligibleGroupsForUser(user);
   const eligibleUpperIds = new Set(eligible.districts.map(d => d.id));
   const eligibleLowerIds = new Set(eligible.zones.map(z => z.id));
@@ -498,22 +482,24 @@ export function validateGraceNoteShare(
   const eligibleGroupIds = getAllEligibleGroupIds(user);
 
   if (visibility === 'pastor_share') {
-    if (eligiblePastors.length === 0) {
+    if (eligiblePastors.length === 0 && preservedPastorIds.size === 0) {
       return { ok: false, error: '현재 연결된 담당 교역자가 없습니다.' };
     }
 
-    const sharedPastorAll = !!state.sharedPastorAll;
+    const sharedPastorAll = !!state.sharedPastorAll && isSuperAdmin(user);
     let sharedPastorIds = uniqueIds(state.sharedPastorIds);
 
     if (sharedPastorAll) {
       sharedPastorIds = [];
     } else {
-      const invalid = sharedPastorIds.filter(id => !eligiblePastorIds.has(id));
+      const invalid = sharedPastorIds.filter(
+        id => !eligiblePastorIds.has(id) && !preservedPastorIds.has(id),
+      );
       if (invalid.length > 0) {
         return { ok: false, error: '선택할 수 없는 교역자가 포함되어 있습니다.' };
       }
       if (sharedPastorIds.length === 0) {
-        return { ok: false, error: '공유할 교역자를 선택해주세요.' };
+        return { ok: false, error: '공유할 교역자를 선택해 주세요.' };
       }
     }
 
@@ -605,9 +591,10 @@ function sanitizeShareOnRead(
 export function applyGraceShareValidation<T extends Partial<GraceShareFields>>(
   input: T,
   user?: AppUser | null,
+  options?: { previousSharedPastorIds?: string[] },
 ): T & GraceShareFields {
   const u = user ?? getCurrentUserFromStorage();
-  const result = validateGraceNoteShare(input, u);
+  const result = validateGraceNoteShare(input, u, options);
   if (!result.ok) {
     throw new Error(result.error);
   }

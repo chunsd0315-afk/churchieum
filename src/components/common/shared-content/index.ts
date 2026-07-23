@@ -1,5 +1,7 @@
 export { VisibilitySelector } from './VisibilitySelector';
 export { PastorShareSelector } from './PastorShareSelector';
+export { DirectPastorOrgShareSelector } from './DirectPastorOrgShareSelector';
+export type { DirectPastorOrgShareSelectorProps } from './DirectPastorOrgShareSelector';
 export { OrganizationShareSelector } from './OrganizationShareSelector';
 export { OrganizationFilterSelector } from './OrganizationFilterSelector';
 export type { OrganizationFilterItem } from './OrganizationFilterSelector';

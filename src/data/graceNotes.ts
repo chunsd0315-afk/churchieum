@@ -360,16 +360,20 @@ export function updateGraceNote(id: string, updates: Partial<Omit<GraceNote, 'id
 
   let finalUpdates = updates;
   if (hasShareUpdate) {
-    const share = applyGraceShareValidation({
-      visibility: merged.visibility,
-      sharedPastorAll: merged.sharedPastorAll,
-      sharedPastorIds: merged.sharedPastorIds,
-      sharedGroupAll: merged.sharedGroupAll,
-      sharedGroupIds: merged.sharedGroupIds,
-      sharedUpperOrganizationIds: merged.sharedUpperOrganizationIds,
-      sharedLowerOrganizationIds: merged.sharedLowerOrganizationIds,
-      sharedDepartmentIds: merged.sharedDepartmentIds,
-    });
+    const share = applyGraceShareValidation(
+      {
+        visibility: merged.visibility,
+        sharedPastorAll: merged.sharedPastorAll,
+        sharedPastorIds: merged.sharedPastorIds,
+        sharedGroupAll: merged.sharedGroupAll,
+        sharedGroupIds: merged.sharedGroupIds,
+        sharedUpperOrganizationIds: merged.sharedUpperOrganizationIds,
+        sharedLowerOrganizationIds: merged.sharedLowerOrganizationIds,
+        sharedDepartmentIds: merged.sharedDepartmentIds,
+      },
+      undefined,
+      { previousSharedPastorIds: notes[idx].sharedPastorIds },
+    );
     finalUpdates = { ...updates, ...share };
   }
 

@@ -637,6 +637,7 @@ export function GraceNoteEditor({
               }
               setShare(next);
             }}
+            existingPastorSnapshots={existing?.sharedPastorSnapshots}
           />
 
           {/* 댓글 설정 */}

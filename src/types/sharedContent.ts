@@ -55,13 +55,13 @@ export const VISIBILITY_LABELS_PASTOR: Record<VisibilityType, string> = {
 
 export const VISIBILITY_DESCRIPTIONS: Record<VisibilityType, string> = {
   private: '나만 볼 수 있어요.',
-  pastor_share: '담당 교역자와 함께 나눠요.',
+  pastor_share: '내 소속 조직의 담당 교역자를 선택해 공유합니다.',
   organization_share: '선택한 공동체와 함께 나눠요.',
 };
 
 export const VISIBILITY_DESCRIPTIONS_PASTOR: Record<VisibilityType, string> = {
   private: '나만 볼 수 있어요.',
-  pastor_share: '연결된 교역자와 함께 나눠요.',
+  pastor_share: '내 소속·담당 조직의 상위 담당 교역자를 선택해 공유합니다.',
   organization_share: '선택한 공동체와 함께 나눠요.',
 };
 

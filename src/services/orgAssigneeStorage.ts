@@ -17,6 +17,7 @@ import {
   defaultPermissionsForRole,
 } from '../types/organization';
 import { findPersonCandidate, listMemberCandidates, listPastorCandidates } from './orgPeopleCatalog';
+import { notifyOrganizationTreeChanged } from './organizationStorage';
 
 const LS_ASSIGNEES = 'org_assignees_v1';
 const LS_LEADERS = 'org_leaders_v1';
@@ -230,11 +231,13 @@ export function upsertAssignee(
   if (idx >= 0) list[idx] = next;
   else list.push(next);
   saveJSON(LS_ASSIGNEES, list);
+  notifyOrganizationTreeChanged();
   return next;
 }
 
 export function removeAssignee(id: string): void {
   saveJSON(LS_ASSIGNEES, getAllAssignees().filter(a => a.id !== id));
+  notifyOrganizationTreeChanged();
 }
 
 export function removeAssigneesForOrg(organizationId: string): void {
@@ -247,4 +250,5 @@ export function removeAssigneesForOrganizations(organizationIds: string[]): void
     LS_ASSIGNEES,
     getAllAssignees().filter(a => !set.has(a.organizationId)),
   );
+  notifyOrganizationTreeChanged();
 }

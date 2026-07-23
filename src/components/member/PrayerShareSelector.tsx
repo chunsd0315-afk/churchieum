@@ -2,12 +2,11 @@
  * 기도 작성 — 공개범위 + 공유 대상 (은혜기록 GraceNoteShareSelector 패턴)
  */
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrgSettings } from '../../contexts/OrgSettingsContext';
 import type { VisibilityType } from '../../types/sharedContent';
 import {
-  getEligiblePastorsForUser,
   uniqueIds,
   formatGroupShareOptionLabel,
   formatGroupShareOptionDesc,
@@ -16,7 +15,7 @@ import {
   composeSharedGroupIds,
 } from '../../services/graceNoteShareScope';
 import { VisibilitySelector } from '../common/shared-content/VisibilitySelector';
-import { PastorShareSelector } from '../common/shared-content/PastorShareSelector';
+import { DirectPastorOrgShareSelector } from '../common/shared-content/DirectPastorOrgShareSelector';
 import { UserOrganizationTreeSelector } from '../common/shared-content/UserOrganizationTreeSelector';
 import {
   flattenOrgFilterTree,
@@ -24,6 +23,8 @@ import {
   getUserOrganizationTree,
   resolveOrgTreeMode,
 } from '../../services/userOrganizationTree';
+import { buildDirectPastorShareModel } from '../../services/directPastorShare';
+import { ORG_TREE_CHANGED_EVENT } from '../../services/organizationStorage';
 
 export type PrayerShareState = {
   visibility: VisibilityType;
@@ -52,6 +53,17 @@ export function PrayerShareSelector({
   const { l1, l2, dept } = useOrgSettings();
   const labels = useMemo(() => getOrganizationLabels(), [l1, l2, dept]);
   const isPastoralViewer = isPastor || isAdmin;
+  const [orgTick, setOrgTick] = useState(0);
+
+  useEffect(() => {
+    const bump = () => setOrgTick(t => t + 1);
+    window.addEventListener(ORG_TREE_CHANGED_EVENT, bump);
+    window.addEventListener('storage', bump);
+    return () => {
+      window.removeEventListener(ORG_TREE_CHANGED_EVENT, bump);
+      window.removeEventListener('storage', bump);
+    };
+  }, []);
 
   const orgTreeMode = useMemo(() => resolveOrgTreeMode(user), [user]);
   const orgTreeDefaultScope = isAdmin ? 'all' : 'mine';
@@ -63,7 +75,8 @@ export function PrayerShareSelector({
         mode: orgTreeMode,
         scope: orgTreeDefaultScope,
       }),
-    [user, orgTreeMode, orgTreeDefaultScope],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [user, orgTreeMode, orgTreeDefaultScope, orgTick],
   );
 
   const hasOrgTree = useMemo(
@@ -71,11 +84,14 @@ export function PrayerShareSelector({
     [orgTree],
   );
 
-  const eligiblePastors = useMemo(() => getEligiblePastorsForUser(user), [user]);
-  const hasPastors = eligiblePastors.length > 0;
+  const pastorModel = useMemo(
+    () => buildDirectPastorShareModel(user),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [user, orgTick],
+  );
 
   const setVisibility = (visibility: VisibilityType) => {
-    if (visibility === 'pastor_share' && !hasPastors) return;
+    if (visibility === 'pastor_share' && pastorModel.pastors.length === 0) return;
     if (visibility === 'organization_share' && !hasOrgTree) return;
     onChange({
       visibility,
@@ -89,7 +105,9 @@ export function PrayerShareSelector({
   };
 
   const disabledOptions: VisibilityType[] = [];
-  if (!hasPastors) disabledOptions.push('pastor_share');
+  if (pastorModel.pastors.length === 0 && value.visibility !== 'pastor_share') {
+    disabledOptions.push('pastor_share');
+  }
   if (!hasOrgTree) disabledOptions.push('organization_share');
 
   return (
@@ -109,6 +127,7 @@ export function PrayerShareSelector({
                 disabledHint: `현재 소속된 ${labels.upper} 또는 ${labels.department}가 없습니다.`,
               },
               pastor_share: {
+                description: '내 소속 조직의 담당 교역자를 선택해 공유합니다.',
                 disabledHint: '현재 연결된 담당 교역자가 없습니다.',
               },
             }}
@@ -117,12 +136,14 @@ export function PrayerShareSelector({
       </div>
 
       {value.visibility === 'pastor_share' && (
-        <PastorShareSelector
-          pastors={eligiblePastors}
-          selectedIds={value.sharedPastorIds}
-          onChange={ids => onChange({ ...value, sharedPastorIds: uniqueIds(ids) })}
-          searchable={isAdmin}
-        />
+        <div className="rounded-[18px] border border-gray-200 bg-white p-4 md:p-5">
+          <DirectPastorOrgShareSelector
+            user={user}
+            selectedIds={value.sharedPastorIds}
+            onChange={ids => onChange({ ...value, sharedPastorIds: uniqueIds(ids) })}
+            viewerIsMember={!isPastoralViewer}
+          />
+        </div>
       )}
 
       {value.visibility === 'organization_share' && (

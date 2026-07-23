@@ -32,6 +32,7 @@ import {
 import { getDistricts, getZones, getDepartments, getDistrictNameById, getZoneNameById, getDepartmentNameById } from './orgData';
 import { getAssigneesForUser, getAllAssignees } from './orgAssigneeStorage';
 import { resolveAssigneeUserIds } from './orgPermissionHelpers';
+import { getDirectShareablePastorsForWriter } from './directPastorShare';
 
 export type SharedContentLike = {
   authorId?: string;
@@ -409,59 +410,7 @@ function pastorsFromOrgAssignees(orgIds: string[]): EligiblePastor[] {
  * - 최고관리자: 전체 검색 가능 (전체 목록 반환, UI에서 검색)
  */
 export function getShareablePastorsForWriter(user: AppUser | null): EligiblePastor[] {
-  if (!user) return [];
-
-  if (isSuperAdmin(user)) {
-    return getAllClergy()
-      .filter(isPastoralClergy)
-      .map(c => ({
-        id: c.id,
-        name: c.name,
-        position: positionLabel(c),
-        orgLabels: [],
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name, 'ko'));
-  }
-
-  // 성도·교역자 공통: 소속/담당 기반
-  const fromStaff = getEligiblePastorsForUser(user);
-  const membership = resolveUserOrgMembership(user);
-  const orgIds = membership
-    ? uniqueIds([
-        membership.districtId,
-        membership.zoneId,
-        ...membership.departmentIds,
-      ].filter(Boolean) as string[])
-    : [];
-
-  // 교역자: 본인이 담당하는 조직의 동료 담당자
-  if (user.role === 'pastor') {
-    const myAssigneeOrgs = resolveAssigneeUserIds(user).flatMap(uid =>
-      getAssigneesForUser(uid).map(a => a.organizationId),
-    );
-    const assignedViaStaff = getAllActiveAssignments()
-      .filter(a => {
-        const me = getClergyByEmail(user.email);
-        return me && a.pastorId === me.id && a.isActive;
-      })
-      .flatMap(a => [a.districtId, a.zoneId, a.departmentId].filter(Boolean) as string[]);
-
-    const allOrgIds = uniqueIds([...orgIds, ...myAssigneeOrgs, ...assignedViaStaff]);
-    const fromAssignees = pastorsFromOrgAssignees(allOrgIds);
-    const me = getClergyByEmail(user.email)?.id;
-    const merged = new Map<string, EligiblePastor>();
-    for (const p of [...fromStaff, ...fromAssignees]) {
-      if (me && p.id === me) continue;
-      merged.set(p.id, p);
-    }
-    return [...merged.values()].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
-  }
-
-  // 성도
-  const fromAssignees = pastorsFromOrgAssignees(orgIds);
-  const merged = new Map<string, EligiblePastor>();
-  for (const p of [...fromStaff, ...fromAssignees]) merged.set(p.id, p);
-  return [...merged.values()].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+  return getDirectShareablePastorsForWriter(user);
 }
 
 export type ShareableOrganizations = {
