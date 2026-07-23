@@ -8,6 +8,8 @@ import { isSuperAdmin } from './permissions';
 import { getClergyByEmail, positionLabel } from './clergyData';
 import type { ReceivedShareType, ShareTypeFilter } from '../types/sharedContent';
 import { SHARE_TYPE_FILTER_LABELS } from '../types/sharedContent';
+import { getDistrictDepartmentLabel } from './orgTerminology';
+import { readOrgSettings } from '../contexts/OrgSettingsContext';
 
 export type SharedContentDomain = 'grace' | 'prayer';
 
@@ -141,14 +143,15 @@ export function getSharedContentShareTypeFilterOptions(
 ): SharedContentShareTypeFilterOption[] {
   const noun = contentNoun(domain);
   const includePastorShare = options?.includePastorShare ?? true;
+  const dd = getDistrictDepartmentLabel(readOrgSettings());
 
   if (!user) {
     return [{
       id: 'organization_share',
-      label: '내 교구·부서에 공유한 기록',
-      chipLabel: '내 교구·부서 공유',
-      description: `교구·부서에 공유한 ${noun}입니다.`,
-      ariaLabel: `내 교구·부서에 공유한 ${noun} 보기`,
+      label: `내 ${dd}에 공유한 기록`,
+      chipLabel: `내 ${dd} 공유`,
+      description: `${dd}에 공유한 ${noun}입니다.`,
+      ariaLabel: `내 ${dd}에 공유한 ${noun} 보기`,
       visible: true,
     }];
   }
@@ -167,10 +170,10 @@ export function getSharedContentShareTypeFilterOptions(
     }
     opts.push({
       id: 'organization_share',
-      label: '교구·부서에 공유한 기록',
-      chipLabel: '교구·부서 공유',
-      description: `교구·부서에 공유한 ${noun}입니다.`,
-      ariaLabel: `교구·부서에 공유한 ${noun} 보기`,
+      label: `${dd}에 공유한 기록`,
+      chipLabel: `${dd} 공유`,
+      description: `${dd}에 공유한 ${noun}입니다.`,
+      ariaLabel: `${dd}에 공유한 ${noun} 보기`,
       visible: true,
     });
     return opts;
@@ -179,10 +182,10 @@ export function getSharedContentShareTypeFilterOptions(
   if (isMemberRole(user)) {
     return [{
       id: 'organization_share',
-      label: '내 교구·부서에 공유한 기록',
-      chipLabel: '내 교구·부서 공유',
-      description: `교구·부서에 공유한 ${noun}입니다.`,
-      ariaLabel: `내 교구·부서에 공유한 ${noun} 보기`,
+      label: `내 ${dd}에 공유한 기록`,
+      chipLabel: `내 ${dd} 공유`,
+      description: `${dd}에 공유한 ${noun}입니다.`,
+      ariaLabel: `내 ${dd}에 공유한 ${noun} 보기`,
       visible: true,
     }];
   }
@@ -204,10 +207,10 @@ export function getSharedContentShareTypeFilterOptions(
 
   opts.push({
     id: 'organization_share',
-    label: `${userTitle} 교구·부서에 공유한 기록`,
-    chipLabel: `${userTitle} 교구·부서`,
-    description: `교구·부서에 공유한 ${noun}입니다.`,
-    ariaLabel: `${userTitle} 교구·부서에 공유한 ${noun} 보기`,
+    label: `${userTitle} ${dd}에 공유한 기록`,
+    chipLabel: `${userTitle} ${dd}`,
+    description: `${dd}에 공유한 ${noun}입니다.`,
+    ariaLabel: `${userTitle} ${dd}에 공유한 ${noun} 보기`,
     visible: true,
   });
 

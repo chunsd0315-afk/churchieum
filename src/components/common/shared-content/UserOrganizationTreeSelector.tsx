@@ -13,7 +13,8 @@ import {
   resolveOrgTreeMode,
   toggleOrganizationTreeSelection,
 } from '../../../services/userOrganizationTree';
-
+import { getDistrictDepartmentLabel } from '../../../services/orgTerminology';
+import { useOrgSettings } from '../../../contexts/OrgSettingsContext';
 export type UserOrganizationTreeSelectorProps = {
   user: AppUser | null;
   selectedOrganizationIds: string[];
@@ -147,6 +148,7 @@ export function UserOrganizationTreeSelector({
   defaultScope = 'mine',
   sectionTitle = '공유 조직',
 }: UserOrganizationTreeSelectorProps) {
+  const { districtDepartmentLabel, terminologyVersion } = useOrgSettings();
   const resolvedMode = mode ?? resolveOrgTreeMode(user);
   const [scope, setScope] = useState<UserOrgTreeScope>(defaultScope);
   const [q, setQ] = useState('');
@@ -164,7 +166,7 @@ export function UserOrganizationTreeSelector({
         scope,
         allowFullOrgTree,
       }),
-    [user, resolvedMode, scope, allowFullOrgTree],
+    [user, resolvedMode, scope, allowFullOrgTree, terminologyVersion],
   );
 
   const filteredTree = useMemo(() => filterOrgTreeByQuery(tree, q), [tree, q]);
@@ -235,7 +237,7 @@ export function UserOrganizationTreeSelector({
   if (tree.length === 0) {
     return (
       <div className={`px-1 py-2 space-y-1 ${className}`}>
-        <p className="text-sm font-semibold text-gray-700">소속된 교구·부서가 없습니다.</p>
+        <p className="text-sm font-semibold text-gray-700">소속된 {districtDepartmentLabel}가 없습니다.</p>
         <p className="text-xs text-gray-500">
           내정보 또는 조직관리에서 소속 조직을 확인해 주세요.
         </p>

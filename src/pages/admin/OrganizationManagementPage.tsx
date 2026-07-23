@@ -16,7 +16,7 @@ type MainTab = 'tree' | 'meta' | 'legacy';
 type LegacyTab = 'district' | 'zone' | 'department';
 
 export default function OrganizationManagementPage() {
-  const { settings, updateSettings, l1, l2, dept } = useOrgSettings();
+  const { settings, updateSettings, l1, l2, dept, terminologyVersion } = useOrgSettings();
   const { isMobile } = useBreakpoint();
   const [mainTab, setMainTab] = useState<MainTab>('tree');
   const [legacyTab, setLegacyTab] = useState<LegacyTab>('district');
@@ -25,6 +25,7 @@ export default function OrganizationManagementPage() {
   const [l2Draft, setL2Draft] = useState(settings.level2Label);
   const [deptDraft, setDeptDraft] = useState(settings.departmentLabel);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -35,21 +36,34 @@ export default function OrganizationManagementPage() {
   const refreshTree = useCallback(() => setTreeTick(t => t + 1), []);
   const tree = buildOrgTree(true);
   void treeTick;
+  void terminologyVersion;
+
+  useEffect(() => {
+    setL1Draft(settings.level1Label);
+    setL2Draft(settings.level2Label);
+    setDeptDraft(settings.departmentLabel);
+  }, [settings.level1Label, settings.level2Label, settings.departmentLabel]);
 
   useEffect(() => {
     if (!selectedId && tree[0] && !creating) {
       setSelectedId(tree[0].id);
     }
-    // tree 배열 참조가 매 렌더 바뀌므로 길이·첫 id만 의존
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId, creating, treeTick, tree[0]?.id]);
+  }, [selectedId, creating, treeTick, terminologyVersion, tree[0]?.id]);
 
   const handleSaveLabels = () => {
-    updateSettings({
-      level1Label: l1Draft.trim() || '교구',
-      level2Label: l2Draft.trim() || '구역',
-      departmentLabel: deptDraft.trim() || '부서',
+    setSaveError(null);
+    const result = updateSettings({
+      level1Label: l1Draft.trim(),
+      level2Label: l2Draft.trim(),
+      departmentLabel: deptDraft.trim(),
     });
+    if (!result.ok) {
+      setSaveError(result.error);
+      setSaved(false);
+      return;
+    }
+    refreshTree();
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -103,7 +117,7 @@ export default function OrganizationManagementPage() {
         <div className="flex items-center gap-2 mb-4">
           <Settings className="w-4 h-4 text-primary-500" />
           <h3 className="font-bold text-gray-900 text-sm">기본 조직명 설정</h3>
-          <span className="text-xs text-gray-400 ml-1">기존 화면(성도·초대 등)에 표시되는 이름</span>
+          <span className="text-xs text-gray-400 ml-1">조직 종류 표시명 · 저장 시 트리·전체 앱에 반영</span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
           <div>
@@ -138,7 +152,12 @@ export default function OrganizationManagementPage() {
           </div>
         </div>
         <div className="flex items-center justify-between gap-2">
-          <p className="text-xs text-gray-400">변경하면 기존 화면에 즉시 반영됩니다.</p>
+          <div className="min-w-0">
+            <p className="text-xs text-gray-400">변경하면 조직 트리와 앱 전체에 즉시 반영됩니다.</p>
+            {saveError ? (
+              <p className="text-xs text-red-600 mt-1 font-semibold">{saveError}</p>
+            ) : null}
+          </div>
           <button
             type="button"
             onClick={handleSaveLabels}

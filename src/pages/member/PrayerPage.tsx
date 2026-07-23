@@ -11,7 +11,9 @@ import {
 import type { Prayer } from '../../types/prayer';
 import { CHURCH_WIDE_SCOPE } from '../../types/prayer';
 import type { ReceivedShareType, VisibilityFilter } from '../../types/sharedContent';
-import { migrateVisibility, VISIBILITY_LABELS } from '../../types/sharedContent';
+import { migrateVisibility } from '../../types/sharedContent';
+import { getVisibilityLabels, getDistrictDepartmentLabel } from '../../services/orgTerminology';
+import { useOrgSettings } from '../../contexts/OrgSettingsContext';
 import {
   filterSharedContentByTab,
   matchesSharedContentSearch,
@@ -162,6 +164,7 @@ function buildAuthorPool(prayers: Prayer[], user: ReturnType<typeof useAuth>['us
 
 export default function PrayerPage() {
   const { user } = useAuth();
+  const { districtDepartmentLabel } = useOrgSettings();
   const toast = useToast();
   const [view, setView] = useState<PrayerPageView>('collection');
   const [prayers, setPrayers] = useState<Prayer[]>([]);
@@ -398,7 +401,7 @@ export default function PrayerPage() {
     if (tab === 'mine' && applied.visibilityFilter !== 'all') {
       chips.push({
         key: 'visibility',
-        label: VISIBILITY_LABELS[applied.visibilityFilter],
+        label: getVisibilityLabels()[applied.visibilityFilter],
         onClear: () => setApplied(prev => ({
           ...prev,
           visibilityFilter: 'all',
@@ -495,8 +498,8 @@ export default function PrayerPage() {
       }
       return {
         title: isAdminUser
-          ? '조건에 맞는 교구·부서 공유 기도가 없습니다.'
-          : '내 교구·부서에 공유된 기도가 없습니다.',
+          ? `조건에 맞는 ${districtDepartmentLabel} 공유 기도가 없습니다.`
+          : `내 ${districtDepartmentLabel}에 공유된 기도가 없습니다.`,
         desc: '상세설정 조건을 바꾸거나 초기화해 보세요.',
       };
     }
@@ -512,11 +515,11 @@ export default function PrayerPage() {
     }
     return {
       title: isAdminUser
-        ? '조건에 맞는 교구·부서 공유 기도가 없습니다.'
-        : '내 교구·부서에 공유된 기도가 없습니다.',
-      desc: '교구·부서에 공유된 기도가 이곳에 나타납니다.',
+        ? `조건에 맞는 ${districtDepartmentLabel} 공유 기도가 없습니다.`
+        : `내 ${districtDepartmentLabel}에 공유된 기도가 없습니다.`,
+      desc: `${districtDepartmentLabel}에 공유된 기도가 이곳에 나타납니다.`,
     };
-  }, [tab, hasAppliedFilters, isMemberUser, isPastorUser, isAdminUser, applied.shareType]);
+  }, [tab, hasAppliedFilters, isMemberUser, isPastorUser, isAdminUser, applied.shareType, districtDepartmentLabel]);
 
   const pageDescription = tab === 'mine'
     ? '내가 작성한 기도제목을 확인합니다.'
@@ -525,10 +528,10 @@ export default function PrayerPage() {
         ? '교역자에게 직접 공유된 기도를 봅니다.'
         : '나에게 직접 공유된 기도를 봅니다.')
       : (isMemberUser
-        ? '내가 속한 교구·부서에 공유된 기도를 봅니다.'
+        ? `내가 속한 ${districtDepartmentLabel}에 공유된 기도를 봅니다.`
         : isAdminUser
-          ? '교구·부서에 공유된 기도를 봅니다.'
-          : '내가 속하거나 담당하는 교구·부서에 공유된 기도를 봅니다.');
+          ? `${districtDepartmentLabel}에 공유된 기도를 봅니다.`
+          : `내가 속하거나 담당하는 ${districtDepartmentLabel}에 공유된 기도를 봅니다.`);
 
   const handleSavePrayer = async (payload: {
     title: string;

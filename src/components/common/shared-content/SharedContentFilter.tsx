@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Filter, Search, X } from 'lucide-react';
 import type { VisibilityType, ReceivedShareType, ShareTypeFilter } from '../../../types/sharedContent';
-import { VISIBILITY_LABELS, SHARE_TYPE_FILTER_LABELS } from '../../../types/sharedContent';
 import type { AppUser } from '../../../services/permissions';
 import {
   getOrganizationPathLabel,
@@ -9,7 +8,9 @@ import {
   type UserOrgTreeMode,
 } from '../../../services/userOrganizationTree';
 import { getDefaultReceivedShareType } from '../../../services/sharedContentShareTypeFilterLabels';
+import { getVisibilityLabels, getShareTypeFilterLabels } from '../../../services/orgTerminology';
 import { UserOrganizationTreeSelector } from './UserOrganizationTreeSelector';
+import { useOrgSettings } from '../../../contexts/OrgSettingsContext';
 
 export type SharedContentFilterState = {
   visibility?: VisibilityType | 'all';
@@ -101,6 +102,10 @@ export function SharedContentSearchFilter({
   allowFullOrgTree = false,
   className = '',
 }: SharedContentFilterProps) {
+  const { settings, terminologyVersion } = useOrgSettings();
+  void terminologyVersion;
+  const visibilityLabels = getVisibilityLabels(settings);
+  const shareTypeLabels = getShareTypeFilterLabels(settings);
   const [open, setOpen] = useState(false);
   const organizationIds = value.organizationIds ?? [];
   const showOrgDetail =
@@ -113,7 +118,7 @@ export function SharedContentSearchFilter({
     if (value.shareType === 'pastor_share' || value.shareType === 'organization_share') {
       list.push({
         key: 'shareType',
-        label: SHARE_TYPE_FILTER_LABELS[value.shareType],
+        label: shareTypeLabels[value.shareType],
         clearable: value.shareType !== 'organization_share' || mode !== 'member',
       });
     }
@@ -128,7 +133,7 @@ export function SharedContentSearchFilter({
     if (value.visibility && value.visibility !== 'all') {
       list.push({
         key: 'visibility',
-        label: VISIBILITY_LABELS[value.visibility],
+        label: visibilityLabels[value.visibility],
       });
     }
     if (value.orgId) {
@@ -288,10 +293,10 @@ export function SharedContentSearchFilter({
                 className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm"
               >
                 {!hidePastorShareTypeOption && (
-                  <option value="pastor_share">{SHARE_TYPE_FILTER_LABELS.pastor_share}</option>
+                  <option value="pastor_share">{shareTypeLabels.pastor_share}</option>
                 )}
                 <option value="organization_share">
-                  {SHARE_TYPE_FILTER_LABELS.organization_share}
+                  {shareTypeLabels.organization_share}
                 </option>
               </select>
             </div>

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight, FolderTree, Plus } from 'lucide-react';
 import type { OrgTreeNode } from '../../../types/organization';
+import { useOrgSettings } from '../../../contexts/OrgSettingsContext';
+import { getOrganizationTypeDisplay } from '../../../services/orgTerminology';
 
 type Props = {
   tree: OrgTreeNode[];
@@ -17,6 +19,7 @@ function TreeItem({
   onAddChild,
   expanded,
   toggle,
+  typeLabel,
 }: {
   node: OrgTreeNode;
   depth: number;
@@ -25,6 +28,7 @@ function TreeItem({
   onAddChild: (parentId: string | null) => void;
   expanded: Set<string>;
   toggle: (id: string) => void;
+  typeLabel: string;
 }) {
   const hasChildren = node.children.length > 0;
   const isOpen = expanded.has(node.id);
@@ -59,7 +63,7 @@ function TreeItem({
           <span className={`block text-[14px] font-semibold truncate ${!node.isActive ? 'text-gray-400 line-through' : ''}`}>
             {node.name}
           </span>
-          <span className="block text-[11px] text-gray-400 truncate">{node.type}</span>
+          <span className="block text-[11px] text-gray-400 truncate">{typeLabel}</span>
         </button>
         <button
           type="button"
@@ -82,6 +86,7 @@ function TreeItem({
               onAddChild={onAddChild}
               expanded={expanded}
               toggle={toggle}
+              typeLabel={getOrganizationTypeDisplay(child)}
             />
           ))}
         </div>
@@ -91,6 +96,10 @@ function TreeItem({
 }
 
 export function OrgTreePanel({ tree, selectedId, onSelect, onAddChild }: Props) {
+  const { settings, terminologyVersion } = useOrgSettings();
+  void terminologyVersion;
+  void settings;
+
   const [expanded, setExpanded] = useState<Set<string>>(() => {
     const init = new Set<string>();
     tree.forEach(n => init.add(n.id));
@@ -136,6 +145,7 @@ export function OrgTreePanel({ tree, selectedId, onSelect, onAddChild }: Props) 
               onAddChild={onAddChild}
               expanded={expanded}
               toggle={toggle}
+              typeLabel={getOrganizationTypeDisplay(node)}
             />
           ))
         )}

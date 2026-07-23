@@ -17,6 +17,8 @@ import { getAllOrganizations } from './organizationStorage';
 import { matchesShareTypeFilter, matchesOrganizationFilterForRecord } from './sharedContentAccess';
 import { buildSharedContentUserTitle, subjectParticle } from './sharedContentShareTypeFilterLabels';
 import { matchesSharedPastorFilter, pastorLabel, type EligiblePastor } from './graceShareFilterHelpers';
+import { getDistrictDepartmentLabel } from './orgTerminology';
+import { readOrgSettings } from '../contexts/OrgSettingsContext';
 
 export type GraceSharedAuthorOption = {
   id: string;
@@ -232,20 +234,21 @@ export function buildGraceSharedListDescription(params: {
   }
 
   // organization_share
+  const dd = getDistrictDepartmentLabel(readOrgSettings());
   if (isMember) {
     return applied.organizationIds.length > 0
-      ? '선택한 내 교구·부서에 공유된 은혜와 기도를 봅니다.'
-      : '내가 속한 교구·부서에 공유된 은혜와 기도를 봅니다.';
+      ? `선택한 내 ${dd}에 공유된 은혜와 기도를 봅니다.`
+      : `내가 속한 ${dd}에 공유된 은혜와 기도를 봅니다.`;
   }
   if (isAdmin) {
     return applied.organizationIds.length > 0
-      ? '선택한 교구·부서에 공유된 은혜와 기도를 봅니다.'
-      : '교구·부서에 공유된 은혜와 기도를 봅니다.';
+      ? `선택한 ${dd}에 공유된 은혜와 기도를 봅니다.`
+      : `${dd}에 공유된 은혜와 기도를 봅니다.`;
   }
   if (isPastor && userTitle) {
     return applied.organizationIds.length > 0
-      ? `${userTitle}${subjectParticle(userTitle)} 속하거나 담당하는 교구·부서 중 선택한 조직의 기록을 봅니다.`
-      : `${userTitle}${subjectParticle(userTitle)} 속하거나 담당하는 교구·부서에 공유된 기록을 봅니다.`;
+      ? `${userTitle}${subjectParticle(userTitle)} 속하거나 담당하는 ${dd} 중 선택한 조직의 기록을 봅니다.`
+      : `${userTitle}${subjectParticle(userTitle)} 속하거나 담당하는 ${dd}에 공유된 기록을 봅니다.`;
   }
-  return '내 교구·부서에 공유된 은혜와 기도를 봅니다.';
+  return `내 ${dd}에 공유된 은혜와 기도를 봅니다.`;
 }

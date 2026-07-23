@@ -17,6 +17,7 @@ export type ShareTypeFilter = ReceivedShareType | 'all';
 
 export type VisibilityFilter = VisibilityType | 'all';
 
+/** 정적 기본값 — 동적 표시는 getShareTypeFilterLabels() (orgTerminology) */
 export const SHARE_TYPE_FILTER_LABELS: Record<ReceivedShareType, string> = {
   pastor_share: '교역자에게 공유한 기록',
   organization_share: '교구·부서에 공유한 기록',
@@ -38,6 +39,7 @@ export interface SharedContentFields {
   sharedOrganizationIds: string[];
 }
 
+/** 정적 기본값 — 동적 표시는 getVisibilityLabels() (orgTerminology) */
 export const VISIBILITY_LABELS: Record<VisibilityType, string> = {
   private: '나만 보기',
   pastor_share: '담당 교역자와 공유',

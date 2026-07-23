@@ -43,7 +43,9 @@ import {
   matchesOrganizationFilterForRecord,
 } from '../../services/sharedContentAccess';
 import type { ReceivedShareType, VisibilityFilter } from '../../types/sharedContent';
-import { migrateVisibility, VISIBILITY_LABELS } from '../../types/sharedContent';
+import { migrateVisibility } from '../../types/sharedContent';
+import { getVisibilityLabels } from '../../services/orgTerminology';
+import { useOrgSettings } from '../../contexts/OrgSettingsContext';
 import {
   getGraceShareTypeFilterLabel,
   getGraceShareTypeFilterOptions,
@@ -424,6 +426,8 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
   resetToMineSignal?: number;
 }) {
   const { user } = useAuth();
+  const { districtDepartmentLabel, terminologyVersion } = useOrgSettings();
+  void terminologyVersion;
   const { isMobile } = useBreakpoint();
   const [tab, setTab] = useState<GraceCollectTab>('mine');
   const [collectionView, setCollectionView] = useState<'list' | 'filter'>('list');
@@ -711,7 +715,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
     if (tab === 'mine' && applied.visibilityFilter !== 'all') {
       chips.push({
         key: 'visibility',
-        label: VISIBILITY_LABELS[applied.visibilityFilter],
+        label: getVisibilityLabels()[applied.visibilityFilter],
         clear: () => setApplied(prev => ({
           ...prev,
           visibilityFilter: 'all',
@@ -916,7 +920,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
     if (applied.shareType === 'organization_share') {
       if (coreOrgIds.length === 0 && isMemberUser) {
         return {
-          title: '소속된 교구·부서가 없습니다.',
+          title: `소속된 ${districtDepartmentLabel}가 없습니다.`,
           desc: '내정보 또는 조직관리에서 소속 조직을 확인해 주세요.',
         };
       }
@@ -924,22 +928,22 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
         applied.organizationIds.length === 1
           ? `${getOrganizationPathLabel(applied.organizationIds[0])}에 공유된 기록이 없습니다.`
           : applied.organizationIds.length > 1
-            ? '선택한 교구·부서에 공유된 기록이 없습니다.'
+            ? `선택한 ${districtDepartmentLabel}에 공유된 기록이 없습니다.`
             : isAdminUser
-              ? '조건에 맞는 교구·부서 공유 기록이 없습니다.'
-              : '내 교구·부서에 공유된 기록이 없습니다.';
+              ? `조건에 맞는 ${districtDepartmentLabel} 공유 기록이 없습니다.`
+              : `내 ${districtDepartmentLabel}에 공유된 기록이 없습니다.`;
       return {
         title,
         desc: isMemberUser
-          ? '소속 교구·부서에서 공유하면 이곳에 나타납니다.'
+          ? `소속 ${districtDepartmentLabel}에서 공유하면 이곳에 나타납니다.`
           : '소속·담당 조직에 공유된 기록이 이곳에 나타납니다.',
       };
     }
 
     if (isMemberUser) {
       return {
-        title: '내 교구·부서에 공유된 기록이 없습니다.',
-        desc: '소속 교구·부서에서 공유하면 이곳에 나타납니다.',
+        title: `내 ${districtDepartmentLabel}에 공유된 기록이 없습니다.`,
+        desc: `소속 ${districtDepartmentLabel}에서 공유하면 이곳에 나타납니다.`,
       };
     }
     if (isPastorUser) {
@@ -952,7 +956,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
       title: '조회 가능한 공유 기록이 없습니다.',
       desc: '공유된 기록이 이곳에 나타납니다.',
     };
-  }, [tab, applied, applied.organizationIds, coreOrgIds.length, isMemberUser, isPastorUser, hasAppliedFilters, search]);
+  }, [tab, applied, applied.organizationIds, coreOrgIds.length, isMemberUser, isPastorUser, hasAppliedFilters, search, districtDepartmentLabel]);
 
   if (collectionView === 'filter') {
     return (

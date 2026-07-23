@@ -3,9 +3,8 @@ import type { VisibilityType } from '../../../types/sharedContent';
 import {
   VISIBILITY_DESCRIPTIONS,
   VISIBILITY_DESCRIPTIONS_PASTOR,
-  VISIBILITY_LABELS,
-  VISIBILITY_LABELS_PASTOR,
 } from '../../../types/sharedContent';
+import { getVisibilityLabels, getVisibilityLabelsPastor } from '../../../services/orgTerminology';
 
 export type VisibilityOptionOverride = {
   label?: string;
@@ -40,7 +39,7 @@ export function VisibilitySelector({
   optionOverrides = {},
   className = '',
 }: VisibilitySelectorProps) {
-  const labels = variant === 'pastor' ? VISIBILITY_LABELS_PASTOR : VISIBILITY_LABELS;
+  const labels = variant === 'pastor' ? getVisibilityLabelsPastor() : getVisibilityLabels();
   const descs = variant === 'pastor' ? VISIBILITY_DESCRIPTIONS_PASTOR : VISIBILITY_DESCRIPTIONS;
 
   return (

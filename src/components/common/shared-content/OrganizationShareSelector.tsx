@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import type { EligibleGroup } from '../../../services/graceNoteShareScope';
 import type { ShareableOrganizations } from '../../../services/sharedContentAccess';
+import { getDistrictDepartmentLabel } from '../../../services/orgTerminology';
+import { useOrgSettings } from '../../../contexts/OrgSettingsContext';
 
 export type OrganizationShareSelectorProps = {
   organizations: ShareableOrganizations;
@@ -21,6 +23,7 @@ export function OrganizationShareSelector({
   searchable = false,
   className = '',
 }: OrganizationShareSelectorProps) {
+  const { districtDepartmentLabel } = useOrgSettings();
   const [q, setQ] = useState('');
   const all = organizations.all;
 
@@ -33,7 +36,7 @@ export function OrganizationShareSelector({
   if (all.length === 0) {
     return (
       <p className="text-sm text-gray-500 px-1 py-2">
-        공유할 수 있는 교구·부서가 없습니다.
+        공유할 수 있는 {districtDepartmentLabel}가 없습니다.
       </p>
     );
   }
@@ -48,7 +51,7 @@ export function OrganizationShareSelector({
 
   return (
     <div className={className}>
-      <p className="text-xs font-bold text-gray-500 mb-2">공유할 교구·부서</p>
+      <p className="text-xs font-bold text-gray-500 mb-2">공유할 {districtDepartmentLabel}</p>
       {searchable && (
         <input
           value={q}

@@ -30,6 +30,7 @@ import {
   resolveOrgTreeMode,
 } from './userOrganizationTree';
 import { getOrganizationIdsForUserId } from './userOrganizationPath';
+import { getDistrictDepartmentLabel } from './orgTerminology';
 
 /** 소속 미지정 작성자 그룹 ID */
 export const UNASSIGNED_AUTHOR_ORG_ID = '_unassigned';
@@ -84,6 +85,8 @@ export function getOrganizationLabels() {
     upper: s.level1Label || '상위조직',
     lower: s.level2Label || '하위조직',
     department: s.departmentLabel || '부서',
+    /** 교구·부서 조합 */
+    districtDepartment: getDistrictDepartmentLabel(s),
   };
 }
 

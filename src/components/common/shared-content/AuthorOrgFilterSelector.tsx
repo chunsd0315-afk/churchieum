@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, Search } from 'lucide-react';
 import type { AuthorOrgGroup } from '../../services/graceShareAuthorOrgGroups';
 import type { SharedContentAuthorOption } from './SharedContentAuthorSelector';
+import { useOrgSettings } from '../../../contexts/OrgSettingsContext';
 
 export type AuthorOrgFilterSelectorProps = {
   groups: AuthorOrgGroup[];
@@ -206,6 +207,7 @@ export function AuthorOrgFilterSelector({
   searchable = true,
   className = '',
 }: AuthorOrgFilterSelectorProps) {
+  const { districtDepartmentLabel } = useOrgSettings();
   const [q, setQ] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -286,7 +288,7 @@ export function AuthorOrgFilterSelector({
           )}
         </div>
         <p className="text-[12px] text-gray-500 mb-2 leading-snug">
-          교구·부서를 선택해 작성자를 확인합니다.
+          {districtDepartmentLabel}를 선택해 작성자를 확인합니다.
         </p>
 
         <div className="bg-white border border-gray-200 overflow-hidden rounded-card max-h-80 overflow-y-auto">

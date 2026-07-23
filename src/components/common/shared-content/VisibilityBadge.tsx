@@ -1,5 +1,6 @@
 import type { VisibilityType } from '../../../types/sharedContent';
-import { migrateVisibility, VISIBILITY_LABELS } from '../../../types/sharedContent';
+import { migrateVisibility } from '../../../types/sharedContent';
+import { getVisibilityLabels, getDistrictDepartmentLabel } from '../../../services/orgTerminology';
 import {
   getDistrictNameById,
   getZoneNameById,
@@ -27,6 +28,7 @@ export function VisibilityBadge({
   className?: string;
 }) {
   const v = migrateVisibility(visibility);
+  const labels = getVisibilityLabels();
   const colors: Record<VisibilityType, string> = {
     private: 'bg-gray-100 text-gray-600',
     pastor_share: 'bg-indigo-50 text-indigo-700',
@@ -36,7 +38,7 @@ export function VisibilityBadge({
     <span
       className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${colors[v]} ${className}`}
     >
-      {VISIBILITY_LABELS[v]}
+      {labels[v]}
     </span>
   );
 }
@@ -81,7 +83,7 @@ export function SharedTargetSummary({
 
   const orgs = resolveSharedOrganizationIds(content).map(orgName);
   if (orgs.length === 0) {
-    return <span className={`text-[12px] text-emerald-600 ${className}`}>교구·부서 공유</span>;
+    return <span className={`text-[12px] text-emerald-600 ${className}`}>{getDistrictDepartmentLabel()} 공유</span>;
   }
   if (orgs.length === 1) {
     return (

@@ -1,14 +1,7 @@
 import type { ReceivedShareType, VisibilityFilter, VisibilityType } from '../../../types/sharedContent';
-import { VISIBILITY_LABELS } from '../../../types/sharedContent';
+import { getVisibilityLabels } from '../../../services/orgTerminology';
 import { SharedContentSegmentButtons } from './SharedContentSegmentButtons';
 import type { SharedContentShareTypeFilterOption } from '../../../services/sharedContentShareTypeFilterLabels';
-
-const VISIBILITY_OPTIONS: { id: VisibilityFilter; label: string }[] = [
-  { id: 'all', label: '전체' },
-  { id: 'private', label: VISIBILITY_LABELS.private },
-  { id: 'pastor_share', label: VISIBILITY_LABELS.pastor_share },
-  { id: 'organization_share', label: VISIBILITY_LABELS.organization_share },
-];
 
 const AUTHOR_ROLE_OPTIONS = [
   { id: 'all' as const, label: '전체 작성자' },
@@ -23,10 +16,18 @@ export function SharedContentVisibilityFilterSection({
   value: VisibilityFilter;
   onChange: (next: VisibilityFilter) => void;
 }) {
+  const labels = getVisibilityLabels();
+  const options: { id: VisibilityFilter; label: string }[] = [
+    { id: 'all', label: '전체' },
+    { id: 'private', label: labels.private },
+    { id: 'pastor_share', label: labels.pastor_share },
+    { id: 'organization_share', label: labels.organization_share },
+  ];
+
   return (
     <SharedContentSegmentButtons
       title="공개범위"
-      options={VISIBILITY_OPTIONS}
+      options={options}
       value={value}
       onChange={onChange}
       layout="wrap"

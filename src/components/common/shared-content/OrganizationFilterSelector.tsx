@@ -1,6 +1,13 @@
 import { useMemo, useState } from 'react';
 import type { EligibleGroup } from '../../../services/graceNoteShareScope';
 import { getDistrictNameById } from '../../../services/orgData';
+import {
+  getDistrictDepartmentLabel,
+  getOrgDepartmentLabel,
+  getOrgLevel1Label,
+  getOrgLevel2Label,
+} from '../../../services/orgTerminology';
+import { useOrgSettings } from '../../../contexts/OrgSettingsContext';
 
 export type OrganizationFilterItem = EligibleGroup & {
   parentName?: string;
@@ -16,12 +23,6 @@ export type OrganizationFilterSelectorProps = {
 };
 
 type KindTab = 'all' | 'district' | 'department';
-
-const KIND_LABEL: Record<EligibleGroup['kind'], string> = {
-  district: '교구',
-  zone: '구역',
-  department: '부서',
-};
 
 function parentLabel(g: OrganizationFilterItem): string | undefined {
   if (g.parentName) return g.parentName;
@@ -44,6 +45,13 @@ export function OrganizationFilterSelector({
   showSearch = true,
   className = '',
 }: OrganizationFilterSelectorProps) {
+  const { settings } = useOrgSettings();
+  const dd = getDistrictDepartmentLabel(settings);
+  const kindLabel: Record<EligibleGroup['kind'], string> = {
+    district: getOrgLevel1Label(settings),
+    zone: getOrgLevel2Label(settings),
+    department: getOrgDepartmentLabel(settings),
+  };
   const [q, setQ] = useState('');
   const [kindTab, setKindTab] = useState<KindTab>('all');
 
@@ -58,14 +66,14 @@ export function OrganizationFilterSelector({
     if (!needle) return list;
     return list.filter(g => {
       const parent = parentLabel(g) ?? '';
-      const kind = KIND_LABEL[g.kind];
+      const kind = kindLabel[g.kind];
       return (
         g.name.toLowerCase().includes(needle) ||
         parent.toLowerCase().includes(needle) ||
         kind.includes(needle)
       );
     });
-  }, [organizations, kindTab, q]);
+  }, [organizations, kindTab, q, kindLabel.district, kindLabel.zone, kindLabel.department]);
 
   const isAll = selectedOrganizationIds.length === 0;
 
@@ -83,7 +91,7 @@ export function OrganizationFilterSelector({
   if (organizations.length === 0) {
     return (
       <p className={`text-sm text-gray-500 px-1 py-2 ${className}`}>
-        선택할 수 있는 교구·부서가 없습니다.
+        선택할 수 있는 {dd}가 없습니다.
       </p>
     );
   }
@@ -91,7 +99,7 @@ export function OrganizationFilterSelector({
   return (
     <div className={className}>
       <div className="flex items-center justify-between mb-2 gap-2">
-        <p className="text-xs font-bold text-gray-500">교구·부서 선택</p>
+        <p className="text-xs font-bold text-gray-500">{dd} 선택</p>
         {!isAll && (
           <span className="text-[11px] font-semibold text-primary-600">
             {selectedOrganizationIds.length}개 선택
@@ -104,8 +112,8 @@ export function OrganizationFilterSelector({
           {(
             [
               { id: 'all' as const, label: '전체' },
-              { id: 'district' as const, label: '교구' },
-              { id: 'department' as const, label: '부서' },
+              { id: 'district' as const, label: kindLabel.district },
+              { id: 'department' as const, label: kindLabel.department },
             ] as const
           ).map(t => (
             <button
@@ -163,7 +171,7 @@ export function OrganizationFilterSelector({
                 )}
               </span>
               <span className="text-[11px] text-gray-400 shrink-0 mt-0.5">
-                {KIND_LABEL[g.kind]}
+                {kindLabel[g.kind]}
               </span>
             </label>
           );
