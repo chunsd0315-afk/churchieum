@@ -340,6 +340,7 @@ export function getDescendantIds(orgId: string): string[] {
 export function saveAllOrganizations(list: Organization[]): void {
   saveJSON(LS_ORGS, list);
   projectToLegacy(list);
+  notifyOrganizationTreeChanged();
 }
 
 export function upsertOrganization(input: Omit<Organization, 'createdAt' | 'updatedAt'> & {
@@ -594,7 +595,6 @@ export function moveOrganization(params: MoveOrganizationParams): MoveOrganizati
 
   try {
     saveAllOrganizations(list);
-    notifyOrganizationTreeChanged();
     return { ok: true, parentChanged, organizations: list };
   } catch {
     try {

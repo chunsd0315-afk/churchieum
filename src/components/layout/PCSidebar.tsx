@@ -1,10 +1,11 @@
-﻿import { useState, useRef, useEffect } from 'react';
+﻿import { useState, useRef } from 'react';
 import { Camera, LogOut } from 'lucide-react';
 import type { MenuIconKey } from '../common/design-system';
 import { SidebarMenuItem } from '../common/design-system';
 import { useAuth } from '../../contexts/AuthContext';
-import { getProfileImage, resolveProfileImage, saveProfileImage } from '../../services/profileImage';
+import { saveProfileImage } from '../../services/profileImage';
 import { UserProfileAvatar } from '../common/ui/UserProfileAvatar';
+import { useCurrentUserDisplayMeta } from '../../hooks/useCurrentUserDisplayMeta';
 import { DS } from '../common/design-system/tokens';
 
 type NavItem<P extends string> = {
@@ -17,6 +18,7 @@ type Props<P extends string> = {
   currentPage: P;
   onNavigate: (page: P) => void;
   navItems: NavItem<P>[];
+  /** @deprecated 표시는 useCurrentUserDisplayMeta 사용 */
   userPosition?: string;
   modeSwitcher?: React.ReactNode;
   footerContent?: React.ReactNode;
@@ -26,36 +28,29 @@ export default function PCSidebar<P extends string>({
   currentPage,
   onNavigate,
   navItems,
-  userPosition,
+  userPosition: _userPosition,
   modeSwitcher,
   footerContent,
 }: Props<P>) {
+  void _userPosition;
   const { user, signOut } = useAuth();
-  const [profileImg, setProfileImg] = useState<string | null>(null);
+  const meta = useCurrentUserDisplayMeta();
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (user?.id) {
-      setProfileImg(
-        resolveProfileImage({ userId: user.id, role: user.role, src: getProfileImage(user.id) }),
-      );
-    }
-  }, [user?.id, user?.role]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user?.id) return;
     setUploading(true);
     try {
-      const url = await saveProfileImage(user.id, file);
-      setProfileImg(url);
+      await saveProfileImage(user.id, file);
     } finally {
       setUploading(false);
     }
   };
 
   const homeActive = currentPage === ('home' as P);
+  const tooltip = [meta.userDisplayName, meta.organizationPathLabel].filter(Boolean).join('\n');
 
   return (
     <aside
@@ -67,20 +62,21 @@ export default function PCSidebar<P extends string>({
         padding: '18px 14px',
       }}
     >
-      {/* User profile */}
+      {/* User profile — 이름·직분 + 대표 조직 */}
       <div
         className="mb-4"
         style={{ borderBottom: `1px solid ${DS.colors.borderSubtle}`, paddingBottom: 16 }}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3" title={tooltip}>
           <div className="relative group shrink-0">
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
               className="w-11 h-11 rounded-2xl overflow-hidden flex items-center justify-center shadow-sm relative"
               style={{ background: 'linear-gradient(135deg, #2563EB 0%, #22C55E 100%)' }}
+              aria-label="프로필 사진 변경"
             >
-              <UserProfileAvatar user={user} src={profileImg} size={44} rounded="2xl" />
+              <UserProfileAvatar user={user} src={meta.profileImageUrl} size={44} rounded="2xl" />
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-2xl">
                 <Camera className="w-4 h-4 text-white" />
               </div>
@@ -92,13 +88,26 @@ export default function PCSidebar<P extends string>({
             )}
           </div>
 
-          <div className="min-w-0">
-            <p className="font-bold truncate" style={{ fontSize: 14, color: DS.colors.textPrimary }}>
-              {user?.name || '사용자'}
+          <div className="min-w-0 flex-1">
+            <p
+              className="font-bold truncate"
+              style={{ fontSize: 14, color: DS.colors.textPrimary }}
+            >
+              {meta.userDisplayName}
             </p>
-            <p className="truncate mt-0.5" style={{ fontSize: 12, color: DS.colors.textMuted }}>
-              {user?.position || userPosition || '-'}
-            </p>
+            {meta.organizationPathLabel ? (
+              <p
+                className="truncate mt-0.5 leading-snug"
+                style={{ fontSize: 12, color: DS.colors.textMuted }}
+                title={meta.organizationPathLabel}
+              >
+                {meta.organizationPathLabel}
+              </p>
+            ) : (
+              <p className="truncate mt-0.5" style={{ fontSize: 12, color: DS.colors.textMuted }}>
+                소속 조직 없음
+              </p>
+            )}
           </div>
         </div>
 

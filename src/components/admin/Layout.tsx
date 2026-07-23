@@ -1,13 +1,9 @@
-﻿import { useState, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import {
-  Home, Bell, ChevronLeft, Settings,
-  BookOpen, BookHeart, User,
+﻿import { useState } from 'react';
+import { ChevronLeft, Settings,
+  Home, BookOpen, BookHeart, User,
 } from 'lucide-react';
-import { getProfileImage, resolveProfileImage } from '../../services/profileImage';
-import { UserProfileAvatar } from '../common/ui/UserProfileAvatar';
-import { useChurchOrg } from '../../hooks/useChurchOrg';
 import { AppLayout } from '../layout/AppLayout';
+import { MobileAppHomeHeader } from '../layout/MobileAppHomeHeader';
 import { MobileSubPageHeader } from '../common/ui/PageLayout';
 import ChurchSettingsPage from '../../pages/admin/ChurchSettingsPage';
 import { HomeLayoutProvider } from '../common/home/HomeLayoutContext';
@@ -78,22 +74,9 @@ const PAGE_SUBTITLES: Partial<Record<AdminPage, string>> = {
 };
 
 export function AdminLayout({ children, currentPage, onNavigate }: Props) {
-  const { user } = useAuth();
   const [showSettings, setShowSettings] = useState(false);
-  const [profileImg, setProfileImg] = useState<string | null>(null);
-  const { churchName, orgLabel } = useChurchOrg(user);
-
-  useEffect(() => {
-    if (user?.id) {
-      setProfileImg(
-        resolveProfileImage({ userId: user.id, role: user.role, src: getProfileImage(user.id) }),
-      );
-    }
-  }, [user?.id, user?.role]);
 
   const isHome = currentPage === 'home';
-  const position = user?.position
-    ?? (user?.role === 'super_admin' ? '최고관리자' : user?.role === 'pastor' ? '교역자' : '관리자');
   const pageLabel = PAGE_LABELS[currentPage] ?? '관리';
   const pageSubtitle = PAGE_SUBTITLES[currentPage];
 
@@ -105,45 +88,12 @@ export function AdminLayout({ children, currentPage, onNavigate }: Props) {
     onNavigate(id as AdminPage);
   };
 
-  const userPosition = user?.position
-    ?? (user?.role === 'super_admin' ? '최고관리자' : user?.role === 'pastor' ? '교역자' : '관리자');
-
   const mobileHomeHeader = (
-    <header className="bg-white sticky top-0 z-sticky" style={{ borderBottom: '1px solid #F1F5F9' }}>
-      <div className="px-4 h-14 flex items-center justify-between">
-        <button onClick={() => onNavigate('profile')} className="flex items-center gap-2.5 min-w-0 flex-1">
-          <div className="w-10 h-10 rounded-full overflow-hidden shrink-0">
-            <UserProfileAvatar user={user} src={profileImg} size={40} />
-          </div>
-          <div className="flex items-center gap-1 min-w-0">
-            <span className="font-bold text-gray-900 truncate" style={{ fontSize: '15px' }}>{user?.name || '관리자'}</span>
-            {position && (
-              <>
-                <span className="text-gray-300 shrink-0" style={{ fontSize: '13px' }}>·</span>
-                <span className="text-gray-500 truncate shrink-0" style={{ fontSize: '13px', fontWeight: 500 }}>{position}</span>
-              </>
-            )}
-          </div>
-        </button>
-        <div className="flex items-center gap-0.5 shrink-0">
-          <button className="relative p-2 hover:bg-gray-100 rounded-[10px] transition-colors">
-            <Bell className="w-5 h-5 text-gray-500" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white" />
-          </button>
-          <button onClick={() => setShowSettings(true)} className="p-2 hover:bg-gray-100 rounded-[10px] transition-colors">
-            <svg className="w-5 h-5 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-      <div className="px-4 pb-3">
-        <p className="font-bold leading-tight" style={{ fontSize: '28px', color: '#111827' }}>{churchName}</p>
-        {orgLabel && (
-          <p className="leading-tight mt-1" style={{ fontSize: '14px', fontWeight: 500, color: '#6B7280' }}>{orgLabel}</p>
-        )}
-      </div>
-    </header>
+    <MobileAppHomeHeader
+      onProfileClick={() => onNavigate('profile')}
+      showSettings
+      onSettingsClick={() => setShowSettings(true)}
+    />
   );
 
   const mobileSubHeader = (
@@ -171,7 +121,6 @@ export function AdminLayout({ children, currentPage, onNavigate }: Props) {
         mobileHomeHeader={mobileHomeHeader}
         mobileSubHeader={mobileSubHeader}
         sidebarNavItems={SIDEBAR_NAV_ITEMS.map(i => ({ page: i.page as AdminPage, label: i.label, iconKey: i.iconKey }))}
-        userPosition={userPosition}
         showSettingsButton
         onSettingsClick={() => setShowSettings(true)}
         bottomNavItems={BOTTOM_NAV_ITEMS.map(i => ({ id: i.id, label: i.label, icon: i.icon }))}

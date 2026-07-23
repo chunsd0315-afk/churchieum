@@ -1,13 +1,11 @@
-﻿import { useState, useEffect } from 'react';
+﻿import { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import {
-  Bell, ChevronLeft, Home, BookOpen, BookHeart, User,
+  ChevronLeft, Home, BookOpen, BookHeart, User,
 } from 'lucide-react';
-import { getProfileImage, resolveProfileImage } from '../../services/profileImage';
-import { UserProfileAvatar } from '../common/ui/UserProfileAvatar';
-import { useChurchOrg } from '../../hooks/useChurchOrg';
 import { getUnreadNotificationCount } from '../../services/prayerNotificationStorage';
 import { AppLayout } from '../layout/AppLayout';
+import { MobileAppHomeHeader } from '../layout/MobileAppHomeHeader';
 import { MobilePageHeaderCenter } from '../common/ui/PageHeaderTypography';
 import PrayerNotificationSheet from '../layout/PrayerNotificationSheet';
 import ChurchSettingsPage from '../../pages/admin/ChurchSettingsPage';
@@ -73,25 +71,14 @@ type Props = {
 
 export function PastorLayout({ children, currentPage, onNavigate }: Props) {
   const { user } = useAuth();
-  const [profileImg, setProfileImg] = useState<string | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [notifTick, setNotifTick] = useState(0);
-  const { churchName, orgLabel } = useChurchOrg(user);
 
   const unreadCount = user?.id ? getUnreadNotificationCount(user.id) : 0;
   void notifTick;
 
-  useEffect(() => {
-    if (user?.id) {
-      setProfileImg(
-        resolveProfileImage({ userId: user.id, role: user.role, src: getProfileImage(user.id) }),
-      );
-    }
-  }, [user?.id, user?.role]);
-
   const isHome = currentPage === 'home';
-  const position = user?.position ?? '교역자';
   const pageLabel = PAGE_LABELS[currentPage] ?? '메뉴';
   const pageSubtitle = PAGE_SUBTITLES[currentPage];
 
@@ -104,37 +91,11 @@ export function PastorLayout({ children, currentPage, onNavigate }: Props) {
   };
 
   const mobileHomeHeader = (
-    <header className="bg-white sticky top-0 z-sticky" style={{ borderBottom: '1px solid #F1F5F9' }}>
-      <div className="px-4 h-14 flex items-center justify-between">
-        <button type="button" onClick={() => onNavigate('profile')} className="flex items-center gap-2.5 min-w-0 flex-1">
-          <div className="w-10 h-10 rounded-full overflow-hidden shrink-0">
-            <UserProfileAvatar user={user} src={profileImg} size={40} />
-          </div>
-          <div className="flex items-center gap-1 min-w-0">
-            <span className="font-bold text-gray-900 truncate" style={{ fontSize: '15px' }}>{user?.name || '교역자'}</span>
-            <span className="text-gray-300 shrink-0" style={{ fontSize: '13px' }}>·</span>
-            <span className="text-gray-500 truncate shrink-0" style={{ fontSize: '13px', fontWeight: 500 }}>{position}</span>
-          </div>
-        </button>
-        <button
-          type="button"
-          onClick={() => setShowNotifications(true)}
-          className="relative p-2 hover:bg-gray-100 rounded-[10px] transition-colors"
-          aria-label="기도 알림"
-        >
-          <Bell className="w-5 h-5 text-gray-500" />
-          {unreadCount > 0 && (
-            <span className="absolute top-1.5 right-1.5 min-w-[8px] h-2 px-0.5 bg-red-500 rounded-full border border-white" />
-          )}
-        </button>
-      </div>
-      <div className="px-4 pb-3">
-        <p className="font-bold leading-tight" style={{ fontSize: '28px', color: '#111827' }}>{churchName}</p>
-        {orgLabel && (
-          <p className="leading-tight mt-1" style={{ fontSize: '14px', fontWeight: 500, color: '#6B7280' }}>{orgLabel}</p>
-        )}
-      </div>
-    </header>
+    <MobileAppHomeHeader
+      onProfileClick={() => onNavigate('profile')}
+      onNotificationsClick={() => setShowNotifications(true)}
+      unreadCount={unreadCount}
+    />
   );
 
   const mobileSubHeader = (
@@ -164,7 +125,6 @@ export function PastorLayout({ children, currentPage, onNavigate }: Props) {
         mobileHomeHeader={mobileHomeHeader}
         mobileSubHeader={mobileSubHeader}
         sidebarNavItems={SIDEBAR_NAV_ITEMS.map(i => ({ page: i.page as PastorPage, label: i.label, iconKey: i.iconKey }))}
-        userPosition={position}
         bottomNavItems={BOTTOM_NAV_ITEMS.map(i => ({ id: i.page, label: i.label, icon: i.icon }))}
       >
         {children}

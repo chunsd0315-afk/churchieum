@@ -2,6 +2,18 @@ import type { UserRole } from './permissions';
 
 const PREFIX = 'churchieum_profile_img_';
 
+export const PROFILE_IMAGE_CHANGED_EVENT = 'churchieum-profile-image-changed';
+
+function emitProfileImageChanged(userId?: string): void {
+  try {
+    window.dispatchEvent(
+      new CustomEvent(PROFILE_IMAGE_CHANGED_EVENT, { detail: { userId } }),
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
 /** 역할별 기본 3D 프로필 — public/images/profile (단일 경로) */
 export const DEFAULT_PROFILE_IMAGES = {
   admin: '/images/profile/admin-default.webp',
@@ -31,6 +43,7 @@ export function saveProfileImage(userId: string, file: File): Promise<string> {
     reader.onload = (e) => {
       const dataUrl = e.target?.result as string;
       localStorage.setItem(PREFIX + userId, dataUrl);
+      emitProfileImageChanged(userId);
       resolve(dataUrl);
     };
     reader.onerror = reject;
@@ -40,6 +53,7 @@ export function saveProfileImage(userId: string, file: File): Promise<string> {
 
 export function removeProfileImage(userId: string): void {
   localStorage.removeItem(PREFIX + userId);
+  emitProfileImageChanged(userId);
 }
 
 export type ResolveProfileImageInput = {
