@@ -403,6 +403,256 @@ export function wouldCreateCycle(orgId: string, newParentId: string | null): boo
   return getDescendantIds(orgId).includes(newParentId);
 }
 
+export const ORG_TREE_CHANGED_EVENT = 'churchieum-organizations-changed';
+
+export function notifyOrganizationTreeChanged(): void {
+  try {
+    window.dispatchEvent(new CustomEvent(ORG_TREE_CHANGED_EVENT));
+  } catch {
+    /* ignore */
+  }
+}
+
+export type OrganizationTreeIssue = {
+  code: string;
+  message: string;
+  organizationId?: string;
+};
+
+/** 개발·저장 전 트리 정합성 검사 */
+export function validateOrganizationTree(
+  organizations: Organization[],
+): OrganizationTreeIssue[] {
+  const issues: OrganizationTreeIssue[] = [];
+  const byId = new Map<string, Organization>();
+
+  for (const o of organizations) {
+    if (byId.has(o.id)) {
+      issues.push({ code: 'duplicate_id', message: `중복 조직 ID: ${o.id}`, organizationId: o.id });
+    }
+    byId.set(o.id, o);
+  }
+
+  for (const o of organizations) {
+    if (o.parentId === o.id) {
+      issues.push({
+        code: 'self_parent',
+        message: `자기 자신을 상위로 둘 수 없습니다: ${o.name}`,
+        organizationId: o.id,
+      });
+    }
+    if (o.parentId && !byId.has(o.parentId)) {
+      issues.push({
+        code: 'missing_parent',
+        message: `상위 조직이 없습니다: ${o.name}`,
+        organizationId: o.id,
+      });
+    }
+  }
+
+  // 순환 검사
+  for (const o of organizations) {
+    const seen = new Set<string>();
+    let cur: Organization | undefined = o;
+    while (cur?.parentId) {
+      if (seen.has(cur.parentId) || cur.parentId === o.id) {
+        issues.push({
+          code: 'cycle',
+          message: `순환 구조: ${o.name}`,
+          organizationId: o.id,
+        });
+        break;
+      }
+      seen.add(cur.id);
+      cur = byId.get(cur.parentId);
+    }
+  }
+
+  // 형제 sortOrder 중복
+  const byParent = new Map<string | null, Organization[]>();
+  for (const o of organizations) {
+    const key = o.parentId;
+    const list = byParent.get(key) ?? [];
+    list.push(o);
+    byParent.set(key, list);
+  }
+  byParent.forEach((siblings, parentId) => {
+    const orders = siblings.map(s => s.sortOrder);
+    if (new Set(orders).size !== orders.length) {
+      issues.push({
+        code: 'sort_order_dup',
+        message: `형제 sortOrder 중복 (parent=${parentId ?? 'root'})`,
+      });
+    }
+  });
+
+  return issues;
+}
+
+export type MoveOrganizationParams = {
+  organizationId: string;
+  newParentId: string | null;
+  /** 새 상위 아래에서의 형제 인덱스 (0-based, 이동 조직 제외 기준) */
+  newIndex: number;
+  /** 저장 함수에서도 최고관리자만 허용 */
+  actorIsAdmin: boolean;
+};
+
+export type MoveOrganizationResult =
+  | { ok: true; parentChanged: boolean; organizations: Organization[] }
+  | { ok: false; error: string };
+
+function reindexSiblings(
+  list: Organization[],
+  parentId: string | null,
+  touchIds?: Set<string>,
+): void {
+  const ts = nowIso();
+  const siblings = list
+    .filter(o => o.parentId === parentId)
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'ko'));
+  siblings.forEach((s, i) => {
+    if (s.sortOrder !== i || touchIds?.has(s.id)) {
+      s.sortOrder = i;
+      s.updatedAt = ts;
+    } else {
+      s.sortOrder = i;
+    }
+  });
+}
+
+/**
+ * 조직 이동 — parentId·sortOrder만 변경. ID·소속·담당·공유 연결 유지.
+ */
+export function moveOrganization(params: MoveOrganizationParams): MoveOrganizationResult {
+  const { organizationId, newParentId, newIndex, actorIsAdmin } = params;
+
+  if (!actorIsAdmin) {
+    return { ok: false, error: '최고관리자만 조직을 이동할 수 있습니다.' };
+  }
+
+  const snapshot = getAllOrganizations();
+  const prevJson = JSON.stringify(snapshot);
+  const list = snapshot.map(o => ({ ...o }));
+  const moving = list.find(o => o.id === organizationId);
+  if (!moving) {
+    return { ok: false, error: '조직을 찾을 수 없습니다.' };
+  }
+
+  if (newParentId !== null) {
+    const parent = list.find(o => o.id === newParentId);
+    if (!parent) {
+      return { ok: false, error: '상위 조직을 찾을 수 없습니다.' };
+    }
+  }
+
+  if (wouldCreateCycle(organizationId, newParentId)) {
+    return { ok: false, error: '하위 조직 아래로 이동할 수 없습니다.' };
+  }
+
+  const oldParentId = moving.parentId;
+  const parentChanged = oldParentId !== newParentId;
+
+  // 동일 위치면 no-op
+  const currentSiblings = list
+    .filter(o => o.parentId === oldParentId)
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'ko'));
+  const currentIndex = currentSiblings.findIndex(o => o.id === organizationId);
+  if (!parentChanged && currentIndex === newIndex) {
+    return { ok: true, parentChanged: false, organizations: snapshot };
+  }
+
+  moving.parentId = newParentId;
+  moving.updatedAt = nowIso();
+
+  // 새 형제 목록에 삽입 후 sortOrder 재부여
+  const newSiblingsExcluding = list
+    .filter(o => o.parentId === newParentId && o.id !== organizationId)
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'ko'));
+  const clamped = Math.max(0, Math.min(newIndex, newSiblingsExcluding.length));
+  const ordered = [
+    ...newSiblingsExcluding.slice(0, clamped),
+    moving,
+    ...newSiblingsExcluding.slice(clamped),
+  ];
+  const ts = nowIso();
+  ordered.forEach((s, i) => {
+    s.sortOrder = i;
+    s.updatedAt = ts;
+  });
+
+  if (parentChanged) {
+    reindexSiblings(list, oldParentId);
+  }
+
+  const issues = validateOrganizationTree(list).filter(
+    i => i.code === 'cycle' || i.code === 'self_parent' || i.code === 'missing_parent' || i.code === 'duplicate_id',
+  );
+  if (issues.length > 0) {
+    return { ok: false, error: issues[0].message };
+  }
+
+  try {
+    saveAllOrganizations(list);
+    notifyOrganizationTreeChanged();
+    return { ok: true, parentChanged, organizations: list };
+  } catch {
+    try {
+      saveJSON(LS_ORGS, JSON.parse(prevJson) as Organization[]);
+    } catch { /* ignore */ }
+    return { ok: false, error: '조직을 이동하지 못했습니다. 다시 시도해 주세요.' };
+  }
+}
+
+/** 드롭 위치 → parentId / index 계산 */
+export type OrgDropPosition = 'before' | 'after' | 'inside';
+
+export const ORG_ROOT_DROP_ID = '__org_root__';
+
+export function resolveOrganizationDropTarget(params: {
+  movingId: string;
+  overId: string;
+  position: OrgDropPosition;
+  organizations?: Organization[];
+}): { newParentId: string | null; newIndex: number } | { error: string } {
+  const { movingId, overId, position } = params;
+  const all = params.organizations ?? getAllOrganizations();
+  const byId = new Map(all.map(o => [o.id, o]));
+
+  if (overId === ORG_ROOT_DROP_ID) {
+    const roots = all
+      .filter(o => o.parentId === null && o.id !== movingId)
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'ko'));
+    return { newParentId: null, newIndex: roots.length };
+  }
+
+  const over = byId.get(overId);
+  if (!over) return { error: '대상 조직을 찾을 수 없습니다.' };
+
+  if (position === 'inside') {
+    if (wouldCreateCycle(movingId, over.id)) {
+      return { error: '하위 조직 아래로 이동할 수 없습니다.' };
+    }
+    const children = all
+      .filter(o => o.parentId === over.id && o.id !== movingId)
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'ko'));
+    return { newParentId: over.id, newIndex: children.length };
+  }
+
+  const parentId = over.parentId;
+  if (wouldCreateCycle(movingId, parentId)) {
+    return { error: '하위 조직 아래로 이동할 수 없습니다.' };
+  }
+
+  const siblings = all
+    .filter(o => o.parentId === parentId && o.id !== movingId)
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'ko'));
+  const overIndex = siblings.findIndex(o => o.id === overId);
+  if (overIndex < 0) return { error: '대상 조직을 찾을 수 없습니다.' };
+  const newIndex = position === 'before' ? overIndex : overIndex + 1;
+  return { newParentId: parentId, newIndex };
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export function getOrgTypes(): OrgTypeDef[] {

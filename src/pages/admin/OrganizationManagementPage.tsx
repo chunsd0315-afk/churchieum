@@ -191,6 +191,7 @@ export default function OrganizationManagementPage() {
               selectedId={creating ? null : selectedId}
               onSelect={openSelect}
               onAddChild={openCreate}
+              onTreeMoved={refreshTree}
             />
             {detail}
           </div>
@@ -203,6 +204,7 @@ export default function OrganizationManagementPage() {
                 selectedId={creating ? null : selectedId}
                 onSelect={openSelect}
                 onAddChild={openCreate}
+                onTreeMoved={refreshTree}
               />
             </div>
             {mobileDetailOpen && (
