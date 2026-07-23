@@ -13,7 +13,6 @@ import {
   resolveOrgTreeMode,
   toggleOrganizationTreeSelection,
 } from '../../../services/userOrganizationTree';
-import { getDistrictDepartmentLabel } from '../../../services/orgTerminology';
 import { useOrgSettings } from '../../../contexts/OrgSettingsContext';
 export type UserOrganizationTreeSelectorProps = {
   user: AppUser | null;

@@ -9,6 +9,7 @@ import type { Organization, OrgTreeNode } from '../types/organization';
 import {
   getAllOrganizations,
   getAncestorIds,
+  getDescendantIds,
   getMembershipsForMember,
   getOrganizationById,
 } from './organizationStorage';
@@ -121,6 +122,37 @@ export function getUserVisibleOrganizationIds(
   }
 
   return uniqueIds([...visible]);
+}
+
+/**
+ * 교역자 조회 가능 조직 = 소속·담당 + 상위 + 하위 (활성만)
+ * 형제·타 교역자 전담 조직·비활성·삭제 제외
+ */
+export function getPastorAccessibleOrganizationIds(
+  user: AppUser | null,
+): string[] {
+  if (!user) return [];
+
+  const activeIds = new Set(
+    getAllOrganizations()
+      .filter(o => o.isActive && !HIDDEN_ROOT_IDS.has(o.id))
+      .map(o => o.id),
+  );
+  const core = getUserCoreOrganizationIds(user).filter(id => activeIds.has(id));
+  const accessible = new Set<string>(core);
+
+  for (const id of core) {
+    for (const anc of getAncestorIds(id)) {
+      if (HIDDEN_ROOT_IDS.has(anc)) continue;
+      if (activeIds.has(anc)) accessible.add(anc);
+    }
+    for (const desc of getDescendantIds(id)) {
+      if (HIDDEN_ROOT_IDS.has(desc)) continue;
+      if (activeIds.has(desc)) accessible.add(desc);
+    }
+  }
+
+  return uniqueIds([...accessible]);
 }
 
 export function getUserVisibleOrganizationIdsForMode(

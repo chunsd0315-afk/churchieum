@@ -1,6 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, Search } from 'lucide-react';
-import type { AuthorOrgGroup } from '../../services/graceShareAuthorOrgGroups';
+import {
+  type AuthorOrgGroup,
+  getAuthorOrgGroupCheckState,
+  toggleAuthorOrgGroupSelection,
+} from '../../../services/graceShareAuthorOrgGroups';
 import type { SharedContentAuthorOption } from './SharedContentAuthorSelector';
 import { useOrgSettings } from '../../../contexts/OrgSettingsContext';
 
@@ -11,6 +15,7 @@ export type AuthorOrgFilterSelectorProps = {
   onChangeOrganizations: (organizationIds: string[]) => void;
   onChangeAuthors: (authorIds: string[]) => void;
   searchable?: boolean;
+  emptyMessage?: string;
   className?: string;
 };
 
@@ -99,8 +104,15 @@ function OrgGroupRow({
 }) {
   const open = expanded.has(group.organizationId);
   const hasChildren = group.children.length > 0;
-  const orgChecked = selectedOrganizationIds.includes(group.organizationId);
+  const checkState = getAuthorOrgGroupCheckState(group, selectedOrganizationIds);
+  const inputRef = useRef<HTMLInputElement>(null);
   const showAuthors = open && group.authors.length > 0;
+
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.indeterminate = checkState === 'indeterminate';
+    }
+  }, [checkState]);
 
   return (
     <div>
@@ -123,8 +135,9 @@ function OrgGroupRow({
 
         <label className="flex items-center gap-2.5 flex-1 min-w-0 py-2 pr-3 cursor-pointer">
           <input
+            ref={inputRef}
             type="checkbox"
-            checked={orgChecked}
+            checked={checkState === 'checked'}
             onChange={() => onToggleOrg(group.organizationId)}
             className="w-5 h-5 rounded border-gray-300 text-primary-600 shrink-0"
           />
@@ -156,6 +169,7 @@ function OrgGroupRow({
 
       {showAuthors && (
         <div className="pb-1" style={{ paddingLeft: 20 + depth * 14 }}>
+          <p className="px-3 pt-1 pb-0.5 text-[12px] font-bold text-gray-600">작성자</p>
           <button
             type="button"
             onClick={() => onClearAuthorsInGroup(group.authors)}
@@ -196,7 +210,7 @@ function OrgGroupRow({
 }
 
 /**
- * 교역자 직접 공유 — 작성자를 교회 조직별로 선택
+ * 교역자 공유 기록 — 소속·담당 조직별 작성자(기록·댓글) 선택
  */
 export function AuthorOrgFilterSelector({
   groups,
@@ -205,6 +219,7 @@ export function AuthorOrgFilterSelector({
   onChangeOrganizations,
   onChangeAuthors,
   searchable = true,
+  emptyMessage = '조건에 맞는 작성자가 없습니다.',
   className = '',
 }: AuthorOrgFilterSelectorProps) {
   const { districtDepartmentLabel } = useOrgSettings();
@@ -232,11 +247,9 @@ export function AuthorOrgFilterSelector({
   };
 
   const toggleOrg = (id: string) => {
-    if (selectedOrganizationIds.includes(id)) {
-      onChangeOrganizations(selectedOrganizationIds.filter(x => x !== id));
-    } else {
-      onChangeOrganizations([...selectedOrganizationIds, id]);
-    }
+    onChangeOrganizations(
+      toggleAuthorOrgGroupSelection(groups, id, selectedOrganizationIds),
+    );
   };
 
   const toggleAuthor = (id: string) => {
@@ -256,7 +269,7 @@ export function AuthorOrgFilterSelector({
   if (allAuthors.length === 0) {
     return (
       <p className={`text-sm text-gray-500 px-1 py-2 ${className}`}>
-        나에게 직접 공유한 작성자가 없습니다.
+        {emptyMessage}
       </p>
     );
   }
@@ -288,7 +301,7 @@ export function AuthorOrgFilterSelector({
           )}
         </div>
         <p className="text-[12px] text-gray-500 mb-2 leading-snug">
-          {districtDepartmentLabel}를 선택해 작성자를 확인합니다.
+          소속·담당 {districtDepartmentLabel}의 작성자를 확인합니다.
         </p>
 
         <div className="bg-white border border-gray-200 overflow-hidden rounded-card max-h-80 overflow-y-auto">

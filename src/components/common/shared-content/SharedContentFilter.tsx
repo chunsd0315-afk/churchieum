@@ -168,7 +168,7 @@ export function SharedContentSearchFilter({
       list.push({ key: 'authorQuery', label: `작성자: ${value.authorQuery}` });
     }
     return list;
-  }, [value, orgOptions, organizationIds, filterOrganizations, mode]);
+  }, [value, orgOptions, organizationIds, filterOrganizations, mode, shareTypeLabels, visibilityLabels]);
 
   const clearAll = () => {
     onChange({
