@@ -132,6 +132,30 @@ export function buildUserOrganizationPathLabel(user: AppUser | null | undefined)
   return { pathNames, departmentNames, label };
 }
 
+/**
+ * PC 상단 한 줄용 조직 경로 — 역할만 있는 라벨(예: 최고관리자)은 제외
+ */
+export function getPcTopOrganizationPathLabel(
+  user: AppUser | null | undefined,
+  meta: Pick<CurrentUserDisplayMeta, 'organizationPathLabel' | 'primaryOrganizationPath' | 'departmentNames'>,
+): string {
+  const label = meta.organizationPathLabel.trim();
+  if (!label || !user) return label;
+
+  const hasRealOrg =
+    meta.primaryOrganizationPath.length > 0 || meta.departmentNames.length > 0;
+
+  if (isSuperAdmin(user) && !hasRealOrg) {
+    return '';
+  }
+
+  if (isSuperAdmin(user) && label === '최고관리자') {
+    return '';
+  }
+
+  return label;
+}
+
 export function buildCurrentUserDisplayMeta(
   user: AppUser | null | undefined,
   churchNameOverride?: string | null,
