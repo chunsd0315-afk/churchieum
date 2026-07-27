@@ -1,9 +1,9 @@
 /**
  * OrgSettingsContext — 교회별 조직명 + 사용 여부 전역 관리
  *
- * 내부 데이터 키는 level1/level2/department 고정.
- * UI에서만 관리자가 설정한 이름을 표시한다.
- * 저장 시 조직 트리(자동생성명·종류명)와 앱 전체 표시에 즉시 반영한다.
+ * 원본: Supabase church_settings (church_id)
+ * 캐시: localStorage org_settings_v1
+ * Supabase 미연결 시에만 localStorage를 원본처럼 사용
  */
 import {
   createContext,
@@ -26,52 +26,26 @@ import {
   getPastorLabel,
   getPastorTerminologyPhrases,
 } from '../services/orgTerminology';
+import {
+  DEFAULT_ORG_SETTINGS,
+  fetchOrgSettingsFromRemote,
+  readOrgSettingsCache,
+  upsertOrgSettingsToRemote,
+  writeOrgSettingsCache,
+  type OrgSettingsPayload,
+} from '../services/orgSettingsRemote';
+import { supabaseConfigured } from '../services/supabase';
 
-const LS_KEY = 'org_settings_v1';
+export type OrgSettings = OrgSettingsPayload;
 
-export type OrgSettings = {
-  level1Enabled: boolean;
-  level2Enabled: boolean;
-  departmentEnabled: boolean;
-  level1Label: string;
-  level2Label: string;
-  departmentLabel: string;
-  pastorLabel: string;
-};
-
-const DEFAULTS: OrgSettings = {
-  level1Enabled: true,
-  level2Enabled: true,
-  departmentEnabled: true,
-  level1Label: '교구',
-  level2Label: '구역',
-  departmentLabel: '부서',
-  pastorLabel: '교역자',
-};
+const DEFAULTS: OrgSettings = { ...DEFAULT_ORG_SETTINGS };
 
 function load(): OrgSettings {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return { ...DEFAULTS };
-    const parsed = JSON.parse(raw) as Partial<OrgSettings>;
-    return {
-      ...DEFAULTS,
-      ...parsed,
-      level1Label: (parsed.level1Label ?? DEFAULTS.level1Label).trim() || DEFAULTS.level1Label,
-      level2Label: (parsed.level2Label ?? DEFAULTS.level2Label).trim() || DEFAULTS.level2Label,
-      departmentLabel:
-        (parsed.departmentLabel ?? DEFAULTS.departmentLabel).trim() || DEFAULTS.departmentLabel,
-      pastorLabel: (parsed.pastorLabel ?? DEFAULTS.pastorLabel).trim() || DEFAULTS.pastorLabel,
-    };
-  } catch {
-    return { ...DEFAULTS };
-  }
+  return readOrgSettingsCache();
 }
 
 function persist(s: OrgSettings) {
-  try {
-    localStorage.setItem(LS_KEY, JSON.stringify(s));
-  } catch { /* ignore */ }
+  writeOrgSettingsCache(s);
 }
 
 export type OrgSettingsUpdateResult =
@@ -80,9 +54,12 @@ export type OrgSettingsUpdateResult =
 
 type Ctx = {
   settings: OrgSettings;
+  /** 원격 동기화 완료 여부 */
+  remoteReady: boolean;
   /** 설정 저장 성공 시마다 증가 — 트리·목록 useMemo 의존성 */
   terminologyVersion: number;
-  updateSettings: (updates: Partial<OrgSettings>) => OrgSettingsUpdateResult;
+  updateSettings: (updates: Partial<OrgSettings>) => Promise<OrgSettingsUpdateResult>;
+  refreshFromRemote: () => Promise<void>;
   l1: string;
   l2: string;
   dept: string;
@@ -95,30 +72,91 @@ type Ctx = {
 
 const OrgSettingsContext = createContext<Ctx | null>(null);
 
+function applyValidated(
+  prev: OrgSettings,
+  updates: Partial<OrgSettings>,
+): OrgSettingsUpdateResult {
+  const merged: OrgSettings = { ...prev, ...updates };
+
+  const l1 = (updates.level1Label !== undefined ? updates.level1Label : merged.level1Label).trim();
+  const l2 = (updates.level2Label !== undefined ? updates.level2Label : merged.level2Label).trim();
+  const dept = (
+    updates.departmentLabel !== undefined ? updates.departmentLabel : merged.departmentLabel
+  ).trim();
+  const pastor = (
+    updates.pastorLabel !== undefined ? updates.pastorLabel : merged.pastorLabel
+  ).trim();
+
+  for (const [label, value] of [
+    ['상위조직', l1],
+    ['하위조직', l2],
+    ['부서', dept],
+  ] as const) {
+    const err = validateOrgTerminologyLabel(value);
+    if (err) return { ok: false, error: err.replace('조직명', `${label} 이름`) };
+  }
+
+  const pastorErr = validatePastorLabel(pastor);
+  if (pastorErr) return { ok: false, error: pastorErr };
+
+  return {
+    ok: true,
+    settings: {
+      ...merged,
+      level1Label: l1 || DEFAULTS.level1Label,
+      level2Label: l2 || DEFAULTS.level2Label,
+      departmentLabel: dept || DEFAULTS.departmentLabel,
+      pastorLabel: pastor || DEFAULTS.pastorLabel,
+    },
+  };
+}
+
 export function OrgSettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<OrgSettings>(() => load());
   const [terminologyVersion, setTerminologyVersion] = useState(0);
+  const [remoteReady, setRemoteReady] = useState(!supabaseConfigured);
+
+  const applySettings = useCallback((prev: OrgSettings, next: OrgSettings) => {
+    syncOrganizationTerminology(prev, next);
+    persist(next);
+    setSettings(next);
+    setTerminologyVersion(v => v + 1);
+  }, []);
+
+  const refreshFromRemote = useCallback(async () => {
+    const result = await fetchOrgSettingsFromRemote();
+    setSettings(prev => {
+      const next = result.settings;
+      if (
+        prev.level1Label === next.level1Label
+        && prev.level2Label === next.level2Label
+        && prev.departmentLabel === next.departmentLabel
+        && prev.pastorLabel === next.pastorLabel
+        && prev.level1Enabled === next.level1Enabled
+        && prev.level2Enabled === next.level2Enabled
+        && prev.departmentEnabled === next.departmentEnabled
+      ) {
+        return prev;
+      }
+      syncOrganizationTerminology(prev, next);
+      setTerminologyVersion(v => v + 1);
+      return next;
+    });
+    setRemoteReady(true);
+  }, []);
 
   useEffect(() => {
     ensureOrganizationTerminologySynced(settings);
     setTerminologyVersion(v => v + 1);
+    void refreshFromRemote();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
-      if (e.key !== LS_KEY || e.newValue == null) return;
+      if (e.key !== 'org_settings_v1' || e.newValue == null) return;
       try {
-        const parsed = JSON.parse(e.newValue) as Partial<OrgSettings>;
-        const next: OrgSettings = {
-          ...DEFAULTS,
-          ...parsed,
-          level1Label: (parsed.level1Label ?? DEFAULTS.level1Label).trim() || DEFAULTS.level1Label,
-          level2Label: (parsed.level2Label ?? DEFAULTS.level2Label).trim() || DEFAULTS.level2Label,
-          departmentLabel:
-            (parsed.departmentLabel ?? DEFAULTS.departmentLabel).trim() || DEFAULTS.departmentLabel,
-          pastorLabel: (parsed.pastorLabel ?? DEFAULTS.pastorLabel).trim() || DEFAULTS.pastorLabel,
-        };
+        const next = readOrgSettingsCache();
         setSettings(prev => {
           syncOrganizationTerminology(prev, next);
           return next;
@@ -126,65 +164,52 @@ export function OrgSettingsProvider({ children }: { children: ReactNode }) {
         setTerminologyVersion(v => v + 1);
       } catch { /* ignore */ }
     };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        void refreshFromRemote();
+      }
+    };
     window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
-  }, []);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [refreshFromRemote]);
 
-  const updateSettings = useCallback((updates: Partial<OrgSettings>): OrgSettingsUpdateResult => {
-    const prev = load();
-    const merged: OrgSettings = { ...prev, ...updates };
+  const updateSettings = useCallback(async (
+    updates: Partial<OrgSettings>,
+  ): Promise<OrgSettingsUpdateResult> => {
+    const prev = settings;
+    const validated = applyValidated(prev, updates);
+    if (!validated.ok) return validated;
 
-    const l1 = (updates.level1Label !== undefined ? updates.level1Label : merged.level1Label).trim();
-    const l2 = (updates.level2Label !== undefined ? updates.level2Label : merged.level2Label).trim();
-    const dept = (
-      updates.departmentLabel !== undefined ? updates.departmentLabel : merged.departmentLabel
-    ).trim();
-    const pastor = (
-      updates.pastorLabel !== undefined ? updates.pastorLabel : merged.pastorLabel
-    ).trim();
-
-    for (const [label, value] of [
-      ['상위조직', l1],
-      ['하위조직', l2],
-      ['부서', dept],
-    ] as const) {
-      const err = validateOrgTerminologyLabel(value);
-      if (err) return { ok: false, error: err.replace('조직명', `${label} 이름`) };
+    const remote = await upsertOrgSettingsToRemote(validated.settings);
+    if (!remote.ok) {
+      return { ok: false, error: remote.error };
     }
 
-    const pastorErr = validatePastorLabel(pastor);
-    if (pastorErr) return { ok: false, error: pastorErr };
-
-    const next: OrgSettings = {
-      ...merged,
-      level1Label: l1 || DEFAULTS.level1Label,
-      level2Label: l2 || DEFAULTS.level2Label,
-      departmentLabel: dept || DEFAULTS.departmentLabel,
-      pastorLabel: pastor || DEFAULTS.pastorLabel,
-    };
-
     try {
-      syncOrganizationTerminology(prev, next);
-      persist(next);
-      setSettings(next);
-      setTerminologyVersion(v => v + 1);
-      return { ok: true, settings: next };
+      applySettings(prev, remote.settings);
+      return { ok: true, settings: remote.settings };
     } catch {
       return { ok: false, error: '조직명을 저장하지 못했습니다. 다시 시도해 주세요.' };
     }
-  }, []);
+  }, [applySettings, settings]);
 
   const value = useMemo<Ctx>(() => ({
     settings,
+    remoteReady,
     terminologyVersion,
     updateSettings,
+    refreshFromRemote,
     l1: getOrgLevel1Label(settings),
     l2: getOrgLevel2Label(settings),
     dept: getOrgDepartmentLabel(settings),
     districtDepartmentLabel: getDistrictDepartmentLabel(settings),
     pastorLabel: getPastorLabel(settings),
     pastorPhrases: getPastorTerminologyPhrases(settings),
-  }), [settings, terminologyVersion, updateSettings]);
+  }), [settings, remoteReady, terminologyVersion, updateSettings, refreshFromRemote]);
 
   return (
     <OrgSettingsContext.Provider value={value}>
@@ -199,7 +224,7 @@ export function useOrgSettings(): Ctx {
   return ctx;
 }
 
-/** Read settings without React (for non-component use) */
+/** Read settings without React (for non-component use) — 캐시 기준 */
 export function readOrgSettings(): OrgSettings {
   return load();
 }

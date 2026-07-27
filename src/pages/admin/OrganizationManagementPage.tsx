@@ -26,6 +26,7 @@ export default function OrganizationManagementPage() {
   const [deptDraft, setDeptDraft] = useState(settings.departmentLabel);
   const [pastorDraft, setPastorDraft] = useState(settings.pastorLabel);
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -53,22 +54,28 @@ export default function OrganizationManagementPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId, creating, treeTick, terminologyVersion, tree[0]?.id]);
 
-  const handleSaveLabels = () => {
+  const handleSaveLabels = async () => {
+    if (saving) return;
     setSaveError(null);
-    const result = updateSettings({
-      level1Label: l1Draft.trim(),
-      level2Label: l2Draft.trim(),
-      departmentLabel: deptDraft.trim(),
-      pastorLabel: pastorDraft.trim(),
-    });
-    if (!result.ok) {
-      setSaveError(result.error);
-      setSaved(false);
-      return;
+    setSaving(true);
+    setSaved(false);
+    try {
+      const result = await updateSettings({
+        level1Label: l1Draft.trim(),
+        level2Label: l2Draft.trim(),
+        departmentLabel: deptDraft.trim(),
+        pastorLabel: pastorDraft.trim(),
+      });
+      if (!result.ok) {
+        setSaveError(result.error);
+        return;
+      }
+      refreshTree();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } finally {
+      setSaving(false);
     }
-    refreshTree();
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
   };
 
   const openCreate = (parentId: string | null) => {
@@ -185,13 +192,14 @@ export default function OrganizationManagementPage() {
           </div>
           <button
             type="button"
-            onClick={handleSaveLabels}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+            onClick={() => void handleSaveLabels()}
+            disabled={saving}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-60 ${
               saved ? 'bg-green-500 text-white' : 'bg-primary-500 hover:bg-primary-600 text-white'
             }`}
           >
             {saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-            {saved ? '저장됨' : '용어 저장'}
+            {saving ? '저장 중…' : saved ? '저장됨' : '용어 저장'}
           </button>
         </div>
       </div>
