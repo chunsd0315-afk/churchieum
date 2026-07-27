@@ -154,15 +154,25 @@ export function visibilityMeta(
     };
   }
   const phrases = getPastorTerminologyPhrases(readOrgSettings());
-  const orgSettings = readOrgSettings();
-  const orgShareLabel =
-    resolveOrganizationShareMode(organizationShareMode) === 'pastors_only'
-      ? `담당 ${phrases.label}만`
-      : `${orgSettings.level1Label}/${orgSettings.departmentLabel} 공유`;
+  const pastorOnly =
+    v === 'pastor_share'
+    || (v === 'organization_share'
+      && resolveOrganizationShareMode(organizationShareMode) === 'pastors_only');
+
+  if (pastorOnly && v === 'organization_share') {
+    return {
+      value: 'pastor_share' as const,
+      label: `담당 ${phrases.label}만`,
+      desc: `선택한 담당 ${phrases.label}만 볼 수 있습니다.`,
+      icon: <Eye className="w-3.5 h-3.5" />,
+      color: 'text-blue-600 bg-blue-50',
+    };
+  }
+
   const opts = [
-    { value: 'private' as const, label: '나만 보기', desc: '나만 볼 수 있어요', icon: <Lock className="w-3.5 h-3.5" />, color: 'text-gray-600 bg-gray-100' },
-    { value: 'pastor_share' as const, label: phrases.shareVisibility, desc: phrases.shareWithSelected, icon: <Eye className="w-3.5 h-3.5" />, color: 'text-blue-600 bg-blue-50' },
-    { value: 'organization_share' as const, label: orgShareLabel, desc: `선택한 ${orgSettings.level1Label}·${orgSettings.departmentLabel}와 공유`, icon: <Users className="w-3.5 h-3.5" />, color: 'text-emerald-600 bg-emerald-50' },
+    { value: 'private' as const, label: '나만 보기', desc: '나만 확인할 수 있습니다.', icon: <Lock className="w-3.5 h-3.5" />, color: 'text-gray-600 bg-gray-100' },
+    { value: 'pastor_share' as const, label: `담당 ${phrases.label}만`, desc: `선택한 담당 ${phrases.label}만 볼 수 있습니다.`, icon: <Eye className="w-3.5 h-3.5" />, color: 'text-blue-600 bg-blue-50' },
+    { value: 'organization_share' as const, label: '조직 공유', desc: `선택한 조직 구성원과 담당 ${phrases.label}가 함께 봅니다.`, icon: <Users className="w-3.5 h-3.5" />, color: 'text-emerald-600 bg-emerald-50' },
   ];
   return opts.find(o => o.value === v) ?? opts[0];
 }
@@ -170,6 +180,9 @@ export function visibilityMeta(
 function shareSummary(note: GraceNote): string | null {
   if (note.visibility === 'pastor_share') return formatSharedPastorLabel(note);
   if (note.visibility === 'organization_share') {
+    if (resolveOrganizationShareMode(note.organizationShareMode) === 'pastors_only') {
+      return formatSharedPastorLabel(note);
+    }
     const label = formatSharedGroupLabel(note);
     return label ? `공유범위 : ${label}` : null;
   }

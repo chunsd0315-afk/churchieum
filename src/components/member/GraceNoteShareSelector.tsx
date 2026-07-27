@@ -1,10 +1,12 @@
 /**
- * 은혜기록 공개범위 + 공유 대상 선택
- * 조직명은 조직관리(OrgSettings) 설정을 동적으로 반영한다.
+ * 은혜와 기도 공개범위 — 단순 3옵션 UI
+ * 1. 나만 보기
+ * 2. 담당 교역자만
+ * 3. 내 조직과 공유
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { X } from 'lucide-react';
+import { Check, Lock, UserRound, Users, X } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrgSettings } from '../../contexts/OrgSettingsContext';
 import type { GraceNoteVisibility, SharedPastorSnapshot } from '../../data/graceNotes';
@@ -14,16 +16,12 @@ import {
   composeSharedGroupIds,
   splitOrganizationShareIds,
   organizationIdsToShareSplit,
-  formatGroupShareOptionLabel,
-  formatGroupShareOptionDesc,
-  getOrganizationLabels,
   type GraceShareFields,
 } from '../../services/graceNoteShareScope';
 import {
   resolveOrganizationShareMode,
   type OrganizationShareMode,
 } from '../../types/sharedContent';
-import { VisibilitySelector } from '../common/shared-content/VisibilitySelector';
 import { DirectPastorOrgShareSelector } from '../common/shared-content/DirectPastorOrgShareSelector';
 import {
   flattenOrgFilterTree,
@@ -37,6 +35,7 @@ import {
   type DirectPastorOnOrg,
 } from '../../services/directPastorShare';
 import { ORG_TREE_CHANGED_EVENT } from '../../services/organizationStorage';
+import { getAllClergy, positionLabel } from '../../services/clergyData';
 
 export type UpperOrgSelectionFlag = {
   selectedDirectly: boolean;
@@ -52,9 +51,18 @@ export type GraceNoteShareState = {
   sharedUpperOrganizationIds: string[];
   sharedLowerOrganizationIds: string[];
   sharedDepartmentIds: string[];
+  /** 저장 호환용 — 새 작성은 organization_share 시 항상 members_and_pastors */
   organizationShareMode: OrganizationShareMode;
-  /** UI용 — 상위조직 직접/자식선택 구분 (레거시 호환) */
   upperSelectionFlags: Record<string, UpperOrgSelectionFlag>;
+};
+
+type VisibilityCard = {
+  value: GraceNoteVisibility;
+  title: string;
+  description: string;
+  icon: typeof Lock;
+  disabled?: boolean;
+  disabledHint?: string;
 };
 
 function toShareFields(state: GraceNoteShareState): GraceShareFields {
@@ -70,36 +78,62 @@ function toShareFields(state: GraceNoteShareState): GraceShareFields {
     sharedLowerOrganizationIds: lower,
     sharedDepartmentIds: departments,
     sharedGroupIds: composeSharedGroupIds(upper, lower, departments),
-    organizationShareMode: resolveOrganizationShareMode(state.organizationShareMode),
+    organizationShareMode:
+      state.visibility === 'organization_share' ? 'members_and_pastors' : undefined,
   };
 }
 
-export function defaultShareState(existing?: Partial<GraceNoteShareState> | Partial<GraceShareFields>): GraceNoteShareState {
-  const split = splitOrganizationShareIds({
+/**
+ * 수정 복원 — organizationShareMode=pastors_only 는 pastor_share UI로 해석
+ */
+export function defaultShareState(
+  existing?: Partial<GraceNoteShareState> | Partial<GraceShareFields> | null,
+): GraceNoteShareState {
+  let visibility = (existing?.visibility ?? 'private') as GraceNoteVisibility;
+  let sharedPastorIds = uniqueIds(existing?.sharedPastorIds);
+  let split = splitOrganizationShareIds({
     sharedGroupIds: existing?.sharedGroupIds,
     sharedUpperOrganizationIds: existing?.sharedUpperOrganizationIds,
     sharedLowerOrganizationIds: existing?.sharedLowerOrganizationIds,
     sharedDepartmentIds: existing?.sharedDepartmentIds,
   });
+
+  const legacyMode = resolveOrganizationShareMode(
+    (existing as { organizationShareMode?: OrganizationShareMode } | undefined)?.organizationShareMode,
+  );
+
+  // 레거시: 조직 공유 + 담당만 → 담당 교역자만(pastor_share)
+  if (visibility === 'organization_share' && legacyMode === 'pastors_only') {
+    visibility = 'pastor_share';
+    split = { upper: [], lower: [], departments: [] };
+  }
+
+  if (visibility === 'private') {
+    sharedPastorIds = [];
+    split = { upper: [], lower: [], departments: [] };
+  }
+  if (visibility === 'pastor_share') {
+    split = { upper: [], lower: [], departments: [] };
+  }
+  if (visibility === 'organization_share') {
+    // members_and_pastors — 담당 ID는 저장 시 조직 기준으로 재계산
+  }
+
   const upper = uniqueIds(split.upper);
   const lower = uniqueIds(split.lower);
   const departments = uniqueIds(split.departments);
-  const visibility = existing?.visibility ?? 'private';
+
   return {
     visibility,
-    sharedPastorAll: existing?.sharedPastorAll ?? false,
-    sharedPastorIds: uniqueIds(existing?.sharedPastorIds),
+    sharedPastorAll: false,
+    sharedPastorIds,
     sharedGroupAll: false,
     sharedUpperOrganizationIds: upper,
     sharedLowerOrganizationIds: lower,
     sharedDepartmentIds: departments,
     sharedGroupIds: composeSharedGroupIds(upper, lower, departments),
     organizationShareMode:
-      visibility === 'organization_share'
-        ? resolveOrganizationShareMode(
-            (existing as { organizationShareMode?: OrganizationShareMode })?.organizationShareMode,
-          )
-        : 'members_and_pastors',
+      visibility === 'organization_share' ? 'members_and_pastors' : 'members_and_pastors',
     upperSelectionFlags:
       (existing as GraceNoteShareState | undefined)?.upperSelectionFlags ?? {},
   };
@@ -107,13 +141,13 @@ export function defaultShareState(existing?: Partial<GraceNoteShareState> | Part
 
 function Chip({ label, onRemove }: { label: string; onRemove?: () => void }) {
   return (
-    <span className="inline-flex items-center gap-1 max-w-full px-2.5 py-1 rounded-full bg-primary-50 text-primary-700 text-[12px] font-semibold border border-primary-100">
+    <span className="inline-flex items-center gap-1 max-w-full px-2.5 py-1 rounded-full bg-primary-50 text-primary-800 text-[12px] font-semibold border border-primary-200">
       <span className="truncate">{label}</span>
       {onRemove && (
         <button
           type="button"
           onClick={onRemove}
-          className="shrink-0 p-0.5 rounded-full hover:bg-primary-100 touch-target"
+          className="shrink-0 p-0.5 rounded-full hover:bg-primary-100 touch-target min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center"
           aria-label={`${label} 선택 해제`}
         >
           <X className="w-3.5 h-3.5" />
@@ -124,10 +158,18 @@ function Chip({ label, onRemove }: { label: string; onRemove?: () => void }) {
 }
 
 function formatAssigneeLine(pastors: DirectPastorOnOrg[]): string {
-  if (pastors.length === 0) return '';
-  return pastors
-    .map(p => `${p.name}${p.position ? ` ${p.position}` : ''}`.trim())
-    .join(', ');
+  if (pastors.length === 0) return '담당 교역자 없음';
+  const first = `${pastors[0].name}${pastors[0].position ? ` ${pastors[0].position}` : ''}`.trim();
+  if (pastors.length === 1) return `담당 ${first}`;
+  return `담당 ${first} 외 ${pastors.length - 1}명`;
+}
+
+function pastorDisplayName(id: string, snapshots: SharedPastorSnapshot[]): string {
+  const snap = snapshots.find(s => s.pastorId === id);
+  if (snap) return `${snap.name}${snap.position ? ` ${snap.position}` : ''}`.trim();
+  const c = getAllClergy().find(cl => cl.id === id);
+  if (c) return `${c.name} ${positionLabel(c)}`.trim();
+  return id;
 }
 
 export function GraceNoteShareSelector({
@@ -140,8 +182,7 @@ export function GraceNoteShareSelector({
   existingPastorSnapshots?: SharedPastorSnapshot[];
 }) {
   const { user, isPastor, isAdmin } = useAuth();
-  const { l1, l2, dept, pastorPhrases } = useOrgSettings();
-  const labels = useMemo(() => getOrganizationLabels(), [l1, l2, dept]);
+  const { pastorLabel } = useOrgSettings();
   const isPastoralViewer = isPastor || isAdmin;
   const [orgTick, setOrgTick] = useState(0);
 
@@ -165,7 +206,7 @@ export function GraceNoteShareSelector({
         mode: orgTreeMode,
         scope: orgTreeDefaultScope,
       }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- orgTick refreshes labels/structure
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [user, orgTreeMode, orgTreeDefaultScope, orgTick],
   );
 
@@ -209,48 +250,30 @@ export function GraceNoteShareSelector({
     ],
   );
 
-  const orgShareMode = resolveOrganizationShareMode(value.organizationShareMode);
-
-  const activeOrgPastors = useMemo(() => {
-    const map = new Map<string, DirectPastorOnOrg & { orgNames: string[] }>();
-    for (const orgId of selectedOrgIds) {
-      const org = selectableOrgs.find(o => o.id === orgId);
-      const orgName = org?.name ?? getOrganizationPathLabel(orgId);
-      for (const p of getPastoralAssigneesForOrganization(orgId)) {
-        const prev = map.get(p.pastorId);
-        if (prev) {
-          if (orgName && !prev.orgNames.includes(orgName)) prev.orgNames.push(orgName);
-        } else {
-          map.set(p.pastorId, { ...p, orgNames: orgName ? [orgName] : [] });
-        }
-      }
-    }
-    return [...map.values()].sort((a, b) => {
-      if (a.isPrimary !== b.isPrimary) return a.isPrimary ? -1 : 1;
-      return a.name.localeCompare(b.name, 'ko');
-    });
-  }, [selectedOrgIds, selectableOrgs, orgTick]);
-
-  const activePastorIdSet = useMemo(
-    () => new Set(activeOrgPastors.map(p => p.pastorId)),
-    [activeOrgPastors],
-  );
-
-  const historicalPastors = useMemo(() => {
-    return existingPastorSnapshots
-      .filter(s => s.pastorId && !activePastorIdSet.has(s.pastorId) && value.sharedPastorIds.includes(s.pastorId))
-      .map(s => ({
-        pastorId: s.pastorId,
-        name: s.name,
-        position: s.position ?? '',
-        organizationRole: '이전 공유 대상',
-        isPrimary: false,
-        orgNames: s.organizationName ? [s.organizationName] : [],
-        historical: true as const,
-      }));
-  }, [existingPastorSnapshots, activePastorIdSet, value.sharedPastorIds]);
-
-  const hasAnyOrgAssignees = activeOrgPastors.length > 0 || historicalPastors.length > 0;
+  const cards: VisibilityCard[] = [
+    {
+      value: 'private',
+      title: '나만 보기',
+      description: '나만 확인할 수 있습니다.',
+      icon: Lock,
+    },
+    {
+      value: 'pastor_share',
+      title: `담당 ${pastorLabel}만`,
+      description: `선택한 담당 ${pastorLabel}만 볼 수 있습니다.`,
+      icon: UserRound,
+      disabled: !hasPastors && value.visibility !== 'pastor_share',
+      disabledHint: `현재 연결된 담당 ${pastorLabel}가 없습니다.`,
+    },
+    {
+      value: 'organization_share',
+      title: '내 조직과 공유',
+      description: `선택한 조직 구성원과 담당 ${pastorLabel}가 함께 봅니다.`,
+      icon: Users,
+      disabled: !hasOrgTree && value.visibility !== 'organization_share',
+      disabledHint: '현재 소속·담당 조직이 없습니다.',
+    },
+  ];
 
   const setVisibility = (visibility: GraceNoteVisibility) => {
     if (visibility === 'pastor_share' && !hasPastors && pastorModel.pastors.length === 0) return;
@@ -260,8 +283,7 @@ export function GraceNoteShareSelector({
     onChange({
       ...cleared,
       ...filtered,
-      organizationShareMode:
-        visibility === 'organization_share' ? 'members_and_pastors' : 'members_and_pastors',
+      organizationShareMode: 'members_and_pastors',
       upperSelectionFlags: {},
     });
   };
@@ -279,19 +301,9 @@ export function GraceNoteShareSelector({
       ? selectedOrgIds.filter(id => id !== orgId)
       : [...selectedOrgIds, orgId];
     const split = organizationIdsToShareSplit(next);
-    const nextActiveIds = new Set(
-      next.flatMap(id => getPastoralAssigneesForOrganization(id).map(p => p.pastorId)),
+    const assigneeIds = next.flatMap(id =>
+      getPastoralAssigneesForOrganization(id).map(p => p.pastorId),
     );
-    let nextPastorIds = value.sharedPastorIds;
-    if (orgShareMode === 'pastors_only') {
-      // 활성 담당만 유지 + 이전 공유(스냅샷) 유지
-      const histIds = new Set(historicalPastors.map(p => p.pastorId));
-      nextPastorIds = uniqueIds(value.sharedPastorIds).filter(
-        id => nextActiveIds.has(id) || histIds.has(id),
-      );
-    } else {
-      nextPastorIds = [...nextActiveIds];
-    }
     onChange({
       ...value,
       sharedGroupAll: false,
@@ -299,86 +311,86 @@ export function GraceNoteShareSelector({
       sharedLowerOrganizationIds: split.lower,
       sharedDepartmentIds: split.departments,
       sharedGroupIds: composeSharedGroupIds(split.upper, split.lower, split.departments),
-      sharedPastorIds: nextPastorIds,
+      sharedPastorIds: uniqueIds(assigneeIds),
+      organizationShareMode: 'members_and_pastors',
       upperSelectionFlags: {},
     });
   };
 
-  const setOrgShareMode = (mode: OrganizationShareMode) => {
-    if (mode === 'pastors_only' && activeOrgPastors.length === 0 && historicalPastors.length === 0) {
-      return;
+  const summaryText = useMemo(() => {
+    if (value.visibility === 'private') return '공개범위: 나만 보기';
+    if (value.visibility === 'pastor_share') {
+      const n = value.sharedPastorIds.length;
+      if (n === 0) return `공개범위: 담당 ${pastorLabel}만 (선택 필요)`;
+      if (n === 1) {
+        return `공개범위: ${pastorDisplayName(value.sharedPastorIds[0], existingPastorSnapshots)}`;
+      }
+      const first = pastorDisplayName(value.sharedPastorIds[0], existingPastorSnapshots);
+      return `공개범위: ${first} 외 ${n - 1}명`;
     }
-    if (mode === 'pastors_only') {
-      const preferred = activeOrgPastors.map(p => p.pastorId);
-      const keepHist = historicalPastors.map(p => p.pastorId);
-      onChange({
-        ...value,
-        organizationShareMode: mode,
-        sharedPastorIds: uniqueIds([
-          ...(preferred.length > 0 ? preferred : value.sharedPastorIds.filter(id => activePastorIdSet.has(id))),
-          ...keepHist.filter(id => value.sharedPastorIds.includes(id)),
-        ]),
-      });
-      return;
+    if (value.visibility === 'organization_share') {
+      if (selectedOrgIds.length === 0) return '공개범위: 내 조직과 공유 (선택 필요)';
+      const names = selectedOrgIds.map(id => getOrganizationPathLabel(id) || id);
+      return `공개범위: ${names.join(' · ')}`;
     }
-    onChange({
-      ...value,
-      organizationShareMode: mode,
-      sharedPastorIds: activeOrgPastors.map(p => p.pastorId),
-    });
-  };
-
-  const toggleOrgPastor = (pastorId: string, historical: boolean) => {
-    if (historical) {
-      // 이전 공유 대상: 유지 해제만 가능
-      onChange({
-        ...value,
-        sharedPastorIds: value.sharedPastorIds.filter(id => id !== pastorId),
-      });
-      return;
-    }
-    const selected = value.sharedPastorIds.includes(pastorId);
-    onChange({
-      ...value,
-      sharedPastorIds: selected
-        ? value.sharedPastorIds.filter(id => id !== pastorId)
-        : uniqueIds([...value.sharedPastorIds, pastorId]),
-    });
-  };
-
-  const disabledOptions: GraceNoteVisibility[] = [];
-  if (pastorModel.pastors.length === 0 && value.visibility !== 'pastor_share') {
-    disabledOptions.push('pastor_share');
-  }
-  if (!hasOrgTree) disabledOptions.push('organization_share');
+    return '공개범위: 나만 보기';
+  }, [value.visibility, value.sharedPastorIds, selectedOrgIds, pastorLabel, existingPastorSnapshots]);
 
   return (
     <div className="space-y-4 pb-6 md:pb-2">
       <div>
         <p className="text-sm font-bold text-gray-800 mb-3">공개범위</p>
-        <div className="rounded-2xl border border-gray-200 overflow-hidden">
-          <VisibilitySelector
-            value={value.visibility}
-            onChange={setVisibility}
-            variant={isPastoralViewer ? 'pastor' : 'member'}
-            disabledOptions={disabledOptions}
-            optionOverrides={{
-              organization_share: {
-                label: formatGroupShareOptionLabel(labels),
-                description: formatGroupShareOptionDesc(labels),
-                disabledHint: `현재 소속된 ${labels.upper} 또는 ${labels.department}가 없습니다.`,
-              },
-              pastor_share: {
-                description: pastorPhrases.shareSelectDescription,
-                disabledHint: `현재 연결된 담당 ${pastorPhrases.label}가 없습니다.`,
-              },
-            }}
-          />
+        <div className="flex flex-col gap-2.5" role="radiogroup" aria-label="공개범위">
+          {cards.map(card => {
+            const selected = value.visibility === card.value;
+            const Icon = card.icon;
+            const disabled = !!card.disabled;
+            return (
+              <button
+                key={card.value}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                disabled={disabled}
+                onClick={() => !disabled && setVisibility(card.value)}
+                className={`w-full flex items-start gap-3 px-4 py-3.5 min-h-[56px] text-left rounded-2xl border-2 transition-colors touch-target ${
+                  selected
+                    ? 'bg-primary-50 border-primary-500'
+                    : 'bg-white border-gray-200 hover:bg-gray-50'
+                } ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+              >
+                <span
+                  className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                    selected ? 'border-primary-500 bg-primary-500' : 'border-gray-300'
+                  }`}
+                >
+                  {selected && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                </span>
+                <Icon
+                  className={`w-5 h-5 shrink-0 mt-0.5 ${selected ? 'text-primary-600' : 'text-gray-400'}`}
+                />
+                <span className="min-w-0 flex-1">
+                  <span
+                    className={`block text-[15px] ${selected ? 'font-bold text-primary-900' : 'font-semibold text-gray-900'}`}
+                  >
+                    {card.title}
+                  </span>
+                  <span className="block text-[13px] text-gray-500 mt-0.5 leading-snug">
+                    {card.description}
+                  </span>
+                  {disabled && card.disabledHint && (
+                    <span className="block text-[11px] text-amber-600 mt-1">{card.disabledHint}</span>
+                  )}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
       {value.visibility === 'pastor_share' && (
-        <div className="rounded-[18px] border border-gray-200 bg-white p-4 md:p-5">
+        <div className="rounded-[18px] border border-gray-200 bg-white p-4 md:p-5 space-y-3">
+          <p className="text-sm font-bold text-gray-800">담당 {pastorLabel} 선택</p>
           <DirectPastorOrgShareSelector
             user={user}
             selectedIds={value.sharedPastorIds}
@@ -386,215 +398,81 @@ export function GraceNoteShareSelector({
             existingSnapshots={existingPastorSnapshots}
             viewerIsMember={!isPastoralViewer}
           />
+          {value.sharedPastorIds.length === 0 && (
+            <p className="text-[12px] text-amber-700 bg-amber-50 rounded-xl px-3 py-2">
+              공유할 담당 {pastorLabel}를 선택해 주세요.
+            </p>
+          )}
+          {value.sharedPastorIds.length > 0 && (
+            <div className="flex flex-wrap gap-2 pt-1 border-t border-gray-100">
+              {value.sharedPastorIds.map(id => (
+                <Chip
+                  key={id}
+                  label={pastorDisplayName(id, existingPastorSnapshots)}
+                  onRemove={() =>
+                    handlePastorIdsChange(value.sharedPastorIds.filter(x => x !== id))
+                  }
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
       {value.visibility === 'organization_share' && (
-        <div className="rounded-[18px] border border-gray-200 bg-white p-4 md:p-5 space-y-5">
-          <div>
-            <div className="flex items-center justify-between gap-2 mb-3">
-              <p className="text-sm font-bold text-gray-800">내 조직</p>
-              {selectedOrgIds.length > 0 && (
-                <span className="text-[11px] font-semibold text-primary-600 shrink-0">
-                  {selectedOrgIds.length}개 선택
-                </span>
-              )}
-            </div>
-
-            {!hasOrgTree ? (
-              <p className="text-sm text-gray-500 py-2">
-                현재 소속된 {labels.upper} 또는 {labels.department}가 없습니다.
-              </p>
-            ) : (
-              <div className="rounded-xl border border-gray-200 overflow-hidden divide-y divide-gray-100">
-                {selectableOrgs.map(org => {
-                  const checked = selectedOrgIds.includes(org.id);
-                  return (
-                    <label
-                      key={org.id}
-                      className={`flex items-start gap-3 px-4 py-3.5 min-h-[56px] touch-target cursor-pointer ${
-                        checked ? 'bg-primary-50/60' : 'bg-white hover:bg-gray-50'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => handleOrgToggle(org.id)}
-                        className="mt-1 w-5 h-5 rounded border-gray-300 text-primary-600 shrink-0"
-                      />
-                      <span className="min-w-0">
-                        <span className="block text-[15px] font-bold text-gray-900">{org.pathLabel}</span>
-                        {org.assigneeLine ? (
-                          <span className="block text-[13px] text-gray-500 mt-0.5">
-                            담당 : {org.assigneeLine}
-                          </span>
-                        ) : (
-                          <span className="block text-[12px] text-amber-700 mt-0.5">
-                            등록된 담당 {pastorPhrases.label}가 없습니다.
-                          </span>
-                        )}
-                      </span>
-                    </label>
-                  );
-                })}
-              </div>
-            )}
-
-            {selectedOrgIds.length === 0 && hasOrgTree && (
-              <p className="text-[12px] text-amber-700 bg-amber-50 rounded-xl px-3 py-2 mt-3">
-                공유할 {labels.upper}·{labels.department}를 하나 이상 선택해 주세요.
-              </p>
+        <div className="rounded-[18px] border border-gray-200 bg-white p-4 md:p-5 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-bold text-gray-800">공유할 조직</p>
+            {selectedOrgIds.length > 0 && (
+              <span className="text-[11px] font-semibold text-primary-600 shrink-0">
+                {selectedOrgIds.length}개 선택
+              </span>
             )}
           </div>
 
-          {selectedOrgIds.length > 0 && (
-            <div className="pt-1 border-t border-gray-100 space-y-3">
-              <p className="text-sm font-bold text-gray-800">공유 방식</p>
-              <div className="rounded-xl border border-gray-200 overflow-hidden" role="radiogroup" aria-label="공유 방식">
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={orgShareMode === 'members_and_pastors'}
-                  onClick={() => setOrgShareMode('members_and_pastors')}
-                  className={`w-full flex items-start gap-3 px-4 py-3.5 text-left border-b border-gray-100 touch-target ${
-                    orgShareMode === 'members_and_pastors' ? 'bg-primary-50' : 'bg-white hover:bg-gray-50'
-                  }`}
-                >
-                  <span
-                    className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                      orgShareMode === 'members_and_pastors' ? 'border-primary-500' : 'border-gray-300'
+          {!hasOrgTree ? (
+            <p className="text-sm text-gray-500 py-2">현재 소속·담당 조직이 없습니다.</p>
+          ) : (
+            <div className="rounded-xl border border-gray-200 overflow-hidden divide-y divide-gray-100">
+              {selectableOrgs.map(org => {
+                const checked = selectedOrgIds.includes(org.id);
+                return (
+                  <label
+                    key={org.id}
+                    className={`flex items-start gap-3 px-4 py-3.5 min-h-[56px] touch-target cursor-pointer ${
+                      checked ? 'bg-primary-50/60' : 'bg-white hover:bg-gray-50'
                     }`}
                   >
-                    {orgShareMode === 'members_and_pastors' && (
-                      <span className="w-2.5 h-2.5 rounded-full bg-primary-500" />
-                    )}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-[15px] font-bold text-gray-900">
-                      조직 구성원과 담당 {pastorPhrases.label}
-                    </span>
-                    <span className="block text-[13px] text-gray-500 mt-0.5">
-                      선택한 조직 구성원과 담당 {pastorPhrases.label}가 함께 봅니다.
-                    </span>
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={orgShareMode === 'pastors_only'}
-                  disabled={!hasAnyOrgAssignees}
-                  onClick={() => setOrgShareMode('pastors_only')}
-                  className={`w-full flex items-start gap-3 px-4 py-3.5 text-left touch-target ${
-                    orgShareMode === 'pastors_only' ? 'bg-primary-50' : 'bg-white hover:bg-gray-50'
-                  } ${!hasAnyOrgAssignees ? 'opacity-40 cursor-not-allowed' : ''}`}
-                >
-                  <span
-                    className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                      orgShareMode === 'pastors_only' ? 'border-primary-500' : 'border-gray-300'
-                    }`}
-                  >
-                    {orgShareMode === 'pastors_only' && (
-                      <span className="w-2.5 h-2.5 rounded-full bg-primary-500" />
-                    )}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-[15px] font-bold text-gray-900">
-                      담당 {pastorPhrases.label}에게만
-                    </span>
-                    <span className="block text-[13px] text-gray-500 mt-0.5">
-                      선택한 담당 {pastorPhrases.label}만 봅니다.
-                    </span>
-                    {!hasAnyOrgAssignees && (
-                      <span className="block text-[11px] text-amber-600 mt-1">
-                        이 조직에는 등록된 담당 {pastorPhrases.label}가 없습니다.
-                      </span>
-                    )}
-                  </span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {selectedOrgIds.length > 0 && orgShareMode === 'pastors_only' && (
-            <div className="pt-1 border-t border-gray-100 space-y-3">
-              <p className="text-sm font-bold text-gray-800">담당 {pastorPhrases.label} 선택</p>
-              {activeOrgPastors.length === 0 && historicalPastors.length === 0 ? (
-                <p className="text-[12px] text-amber-700 bg-amber-50 rounded-xl px-3 py-2">
-                  이 조직에는 등록된 담당 {pastorPhrases.label}가 없습니다.
-                </p>
-              ) : (
-                <div className="rounded-xl border border-gray-200 overflow-hidden divide-y divide-gray-100">
-                  {activeOrgPastors.map(p => {
-                    const checked = value.sharedPastorIds.includes(p.pastorId);
-                    return (
-                      <label
-                        key={p.pastorId}
-                        className="flex items-start gap-3 px-4 py-3.5 min-h-[56px] touch-target cursor-pointer hover:bg-gray-50"
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => handleOrgToggle(org.id)}
+                      className="mt-1 w-5 h-5 min-w-[20px] min-h-[20px] rounded border-gray-300 text-primary-600 shrink-0"
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-[15px] font-bold text-gray-900">{org.pathLabel}</span>
+                      <span
+                        className={`block text-[13px] mt-0.5 ${
+                          org.pastors.length === 0 ? 'text-amber-700' : 'text-gray-500'
+                        }`}
                       >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => toggleOrgPastor(p.pastorId, false)}
-                          className="mt-1 w-5 h-5 rounded border-gray-300 text-primary-600 shrink-0"
-                        />
-                        <span className="min-w-0">
-                          <span className="block text-[15px] font-semibold text-gray-900">
-                            {p.name}{p.position ? ` ${p.position}` : ''}
-                            {p.organizationRole ? ` · ${p.organizationRole}` : ''}
-                          </span>
-                          {p.orgNames.length > 0 && (
-                            <span className="block text-[12px] text-gray-500 mt-0.5">
-                              {p.orgNames.join(' · ')}
-                            </span>
-                          )}
-                        </span>
-                      </label>
-                    );
-                  })}
-                  {historicalPastors.length > 0 && (
-                    <>
-                      <p className="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400">
-                        이전 공유 대상
-                      </p>
-                      {historicalPastors.map(p => {
-                        const checked = value.sharedPastorIds.includes(p.pastorId);
-                        return (
-                          <label
-                            key={`hist-${p.pastorId}`}
-                            className="flex items-start gap-3 px-4 py-3.5 min-h-[56px] touch-target cursor-pointer hover:bg-gray-50 opacity-80"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => toggleOrgPastor(p.pastorId, true)}
-                              className="mt-1 w-5 h-5 rounded border-gray-300 text-primary-600 shrink-0"
-                            />
-                            <span className="min-w-0">
-                              <span className="block text-[15px] font-semibold text-gray-800">
-                                {p.name}{p.position ? ` ${p.position}` : ''}
-                              </span>
-                              <span className="block text-[12px] text-amber-700 mt-0.5">
-                                이전 공유 대상 · 유지 또는 해제만 가능
-                              </span>
-                            </span>
-                          </label>
-                        );
-                      })}
-                    </>
-                  )}
-                </div>
-              )}
-              {value.sharedPastorIds.length === 0 && (
-                <p className="text-[12px] text-amber-700 bg-amber-50 rounded-xl px-3 py-2">
-                  공유할 담당 {pastorPhrases.label}를 선택해 주세요.
-                </p>
-              )}
+                        {org.assigneeLine}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })}
             </div>
           )}
 
+          {selectedOrgIds.length === 0 && hasOrgTree && (
+            <p className="text-[12px] text-amber-700 bg-amber-50 rounded-xl px-3 py-2">
+              공유할 조직을 하나 이상 선택해 주세요.
+            </p>
+          )}
+
           {selectedOrgIds.length > 0 && (
-            <div className="flex flex-wrap gap-2 pt-1">
+            <div className="flex flex-wrap gap-2 pt-1 border-t border-gray-100">
               {selectedOrgIds.map(id => (
                 <Chip
                   key={id}
@@ -606,6 +484,8 @@ export function GraceNoteShareSelector({
           )}
         </div>
       )}
+
+      <p className="text-[13px] text-gray-600 font-medium px-0.5">{summaryText}</p>
     </div>
   );
 }
@@ -615,18 +495,49 @@ export function shareStateToInput(state: GraceNoteShareState) {
   const lower = uniqueIds(state.sharedLowerOrganizationIds);
   const departments = uniqueIds(state.sharedDepartmentIds);
   const visibility = state.visibility;
+
+  if (visibility === 'private') {
+    return {
+      visibility: 'private' as const,
+      sharedPastorAll: false,
+      sharedPastorIds: [] as string[],
+      sharedGroupAll: false,
+      sharedUpperOrganizationIds: [] as string[],
+      sharedLowerOrganizationIds: [] as string[],
+      sharedDepartmentIds: [] as string[],
+      sharedGroupIds: [] as string[],
+      organizationShareMode: undefined,
+    };
+  }
+
+  if (visibility === 'pastor_share') {
+    return {
+      visibility: 'pastor_share' as const,
+      sharedPastorAll: false,
+      sharedPastorIds: uniqueIds(state.sharedPastorIds),
+      sharedGroupAll: false,
+      sharedUpperOrganizationIds: [] as string[],
+      sharedLowerOrganizationIds: [] as string[],
+      sharedDepartmentIds: [] as string[],
+      sharedGroupIds: [] as string[],
+      organizationShareMode: undefined,
+    };
+  }
+
+  const orgIds = composeSharedGroupIds(upper, lower, departments);
+  const assigneeIds = orgIds.flatMap(id =>
+    getPastoralAssigneesForOrganization(id).map(p => p.pastorId),
+  );
+
   return {
-    visibility,
-    sharedPastorAll: state.sharedPastorAll,
-    sharedPastorIds: uniqueIds(state.sharedPastorIds),
+    visibility: 'organization_share' as const,
+    sharedPastorAll: false,
+    sharedPastorIds: uniqueIds(assigneeIds),
     sharedGroupAll: false,
     sharedUpperOrganizationIds: upper,
     sharedLowerOrganizationIds: lower,
     sharedDepartmentIds: departments,
-    sharedGroupIds: composeSharedGroupIds(upper, lower, departments),
-    organizationShareMode:
-      visibility === 'organization_share'
-        ? resolveOrganizationShareMode(state.organizationShareMode)
-        : undefined,
+    sharedGroupIds: orgIds,
+    organizationShareMode: 'members_and_pastors' as const,
   };
 }

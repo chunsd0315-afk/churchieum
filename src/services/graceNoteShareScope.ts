@@ -581,27 +581,35 @@ export function validateGraceNoteShare(
       (options?.previousSharedPastorIds ?? []).filter(Boolean),
     );
 
+    // members_and_pastors — 담당 없어도 구성원 공유 허용, 담당자는 자동 포함
+    // pastors_only 는 신규 작성 UI에서 제거됨. 레거시 저장값 읽기·수정 호환만 유지.
     if (mode === 'pastors_only') {
-      if (assigneeIds.size === 0 && preservedPastorIdsForOrg.size === 0) {
-        return {
-          ok: false,
-          error: '이 조직에는 등록된 담당 교역자가 없습니다.',
-        };
-      }
+      // 레거시 수정 경로: pastor_share 로 유도하지 않고 기존 권한 유지
       let sharedPastorIds = uniqueIds(state.sharedPastorIds).filter(
         id => assigneeIds.has(id) || preservedPastorIdsForOrg.has(id),
       );
-      const invalid = uniqueIds(state.sharedPastorIds).filter(
-        id => !assigneeIds.has(id) && !preservedPastorIdsForOrg.has(id),
-      );
-      if (invalid.length > 0) {
-        return {
-          ok: false,
-          error: `선택할 수 없는 ${pastorPhrases.label}가 포함되어 있습니다.`,
-        };
+      if (sharedPastorIds.length === 0 && assigneeIds.size > 0) {
+        sharedPastorIds = [...assigneeIds];
+      }
+      if (sharedPastorIds.length === 0 && preservedPastorIdsForOrg.size > 0) {
+        sharedPastorIds = [...preservedPastorIdsForOrg];
       }
       if (sharedPastorIds.length === 0) {
-        return { ok: false, error: '공유할 담당 교역자를 선택해 주세요.' };
+        // 담당 없으면 구성원 공유로 완화 (권한 축소 방지보다 저장 가능 우선)
+        return {
+          ok: true,
+          sanitized: {
+            ...emptyShareFields('organization_share'),
+            sharedGroupAll: false,
+            sharedGroupIds,
+            sharedUpperOrganizationIds: uniqueIds(upper),
+            sharedLowerOrganizationIds: uniqueIds(lower),
+            sharedDepartmentIds: uniqueIds(departments),
+            organizationShareMode: 'members_and_pastors',
+            sharedPastorIds: [],
+            sharedPastorAll: false,
+          },
+        };
       }
       return {
         ok: true,
@@ -619,7 +627,6 @@ export function validateGraceNoteShare(
       };
     }
 
-    // members_and_pastors — 담당 없어도 구성원 공유 허용, 담당자는 자동 포함
     return {
       ok: true,
       sanitized: {
@@ -1240,43 +1247,37 @@ export function getGraceListBadge(
 ): string {
   if (!viewer) return '';
 
-  const pastorShareBadge = getPastorTerminologyPhrases(readOrgSettings()).shareVisibility;
+  const phrases = getPastorTerminologyPhrases(readOrgSettings());
+  const pastorOnlyBadge = `담당 ${phrases.label}만`;
 
   if (tab === 'mine' || isOwnNote(note, viewer)) {
     const visibility = migrateVisibility(note.visibility);
     if (visibility === 'private') return '나만 보기';
-    if (visibility === 'pastor_share') return pastorShareBadge;
+    if (visibility === 'pastor_share') return pastorOnlyBadge;
     if (visibility === 'organization_share') {
       if (note.sharedGroupAll || isLegacyPublic(note.visibility)) return '전체 공개';
-      const mode = resolveOrganizationShareMode(note.organizationShareMode);
+      if (resolveOrganizationShareMode(note.organizationShareMode) === 'pastors_only') {
+        return pastorOnlyBadge;
+      }
       const labels = formatOrganizationShareDisplayLabels({
         sharedGroupIds: note.sharedGroupIds,
         sharedUpperOrganizationIds: note.sharedUpperOrganizationIds,
         sharedLowerOrganizationIds: note.sharedLowerOrganizationIds,
         sharedDepartmentIds: note.sharedDepartmentIds,
       });
-      if (mode === 'pastors_only') {
-        if (labels.length === 0) return '담당 교역자만';
-        const lowerLike = labels.find(l => l.includes(' > '));
-        const base = lowerLike ?? labels[0];
-        return `${base} 담당 교역자만`;
+      if (labels.length === 0) return '조직 공유';
+      if (labels.length === 1) {
+        const base = labels[0];
+        return base.endsWith('공유') ? base : `${base} 공유`;
       }
-      if (labels.length === 0) {
-        const org = getOrganizationLabels();
-        return `${org.upper}/${org.department} 공유`;
-      }
-      const lowerLike = labels.find(l => l.includes(' > '));
-      const base = lowerLike ?? labels[0];
-      return base.endsWith('공유') ? base : `${base} 공유`;
+      return `${labels.length}개 조직 공유`;
     }
     return '내 기록';
   }
 
   const info = getGraceNoteViewInfo(note, viewer);
   if (!info) return '공유받음';
-  if (info.kind === 'pastor_share') {
-    return getPastorTerminologyPhrases(readOrgSettings()).shareVisibility.replace('와 공유', ' 공유');
-  }
+  if (info.kind === 'pastor_share') return pastorOnlyBadge;
   return info.badgeLabel || '공유받음';
 }
 

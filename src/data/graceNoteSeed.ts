@@ -751,18 +751,17 @@ export function formatSharedGroupLabel(note: GraceNote): string {
   const labels = readOrgSettings();
   if (note.sharedGroupAll) return `${labels.level1Label}/${labels.departmentLabel} 전체`;
 
+  if (resolveOrganizationShareMode(note.organizationShareMode) === 'pastors_only') {
+    return '';
+  }
+
   const display = formatOrganizationShareDisplayLabels({
     sharedGroupIds: note.sharedGroupIds,
     sharedUpperOrganizationIds: note.sharedUpperOrganizationIds,
     sharedLowerOrganizationIds: note.sharedLowerOrganizationIds,
     sharedDepartmentIds: note.sharedDepartmentIds,
   });
-  const orgPart = display.length > 0
-    ? display.join(', ')
-    : `${labels.level1Label}/${labels.departmentLabel}`;
-
-  if (resolveOrganizationShareMode(note.organizationShareMode) === 'pastors_only') {
-    return `${orgPart} 담당 교역자만`;
-  }
-  return `${orgPart} 구성원과 담당 교역자`;
+  if (display.length === 0) return '내 조직';
+  if (display.length === 1) return display[0];
+  return display.join(' · ');
 }
