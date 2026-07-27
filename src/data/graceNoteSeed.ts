@@ -37,7 +37,7 @@ import {
 import { ensureSeedGraceNoteCopyRefreshed } from '../services/graceNoteSeedCopyRefresh';
 import { formatOrganizationShareDisplayLabels } from '../services/graceNoteShareScope';
 import { readOrgSettings } from '../contexts/OrgSettingsContext';
-import { migrateVisibility } from '../types/sharedContent';
+import { migrateVisibility, resolveOrganizationShareMode } from '../types/sharedContent';
 import { migrateGraceCommentAuthorIds } from '../services/graceCommentAuthorMigration';
 
 const LS_PROGRESS_SEEDED = 'graceNotes_reading_progress_seeded';
@@ -757,7 +757,12 @@ export function formatSharedGroupLabel(note: GraceNote): string {
     sharedLowerOrganizationIds: note.sharedLowerOrganizationIds,
     sharedDepartmentIds: note.sharedDepartmentIds,
   });
-  return display.length > 0
+  const orgPart = display.length > 0
     ? display.join(', ')
     : `${labels.level1Label}/${labels.departmentLabel}`;
+
+  if (resolveOrganizationShareMode(note.organizationShareMode) === 'pastors_only') {
+    return `${orgPart} 담당 교역자만`;
+  }
+  return `${orgPart} 구성원과 담당 교역자`;
 }

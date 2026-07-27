@@ -43,6 +43,7 @@ import {
 } from '../../services/sharedContentAccess';
 import type { ReceivedShareType, VisibilityFilter } from '../../types/sharedContent';
 import { migrateVisibility } from '../../types/sharedContent';
+import { resolveOrganizationShareMode } from '../../types/sharedContent';
 import { getVisibilityLabels, getPastorTerminologyPhrases } from '../../services/orgTerminology';
 import { useOrgSettings } from '../../contexts/OrgSettingsContext';
 import {
@@ -138,7 +139,11 @@ export {
 
 // ─── Visibility helpers ───────────────────────────────────────────────────────
 
-export function visibilityMeta(v: GraceNoteVisibility, sharedGroupAll?: boolean) {
+export function visibilityMeta(
+  v: GraceNoteVisibility,
+  sharedGroupAll?: boolean,
+  organizationShareMode?: string | null,
+) {
   if (v === 'organization_share' && sharedGroupAll) {
     return {
       value: 'organization_share' as const,
@@ -149,17 +154,25 @@ export function visibilityMeta(v: GraceNoteVisibility, sharedGroupAll?: boolean)
     };
   }
   const phrases = getPastorTerminologyPhrases(readOrgSettings());
+  const orgSettings = readOrgSettings();
+  const orgShareLabel =
+    resolveOrganizationShareMode(organizationShareMode) === 'pastors_only'
+      ? `담당 ${phrases.label}만`
+      : `${orgSettings.level1Label}/${orgSettings.departmentLabel} 공유`;
   const opts = [
     { value: 'private' as const, label: '나만 보기', desc: '나만 볼 수 있어요', icon: <Lock className="w-3.5 h-3.5" />, color: 'text-gray-600 bg-gray-100' },
     { value: 'pastor_share' as const, label: phrases.shareVisibility, desc: phrases.shareWithSelected, icon: <Eye className="w-3.5 h-3.5" />, color: 'text-blue-600 bg-blue-50' },
-    { value: 'organization_share' as const, label: `${readOrgSettings().level1Label}/${readOrgSettings().departmentLabel} 공유`, desc: `선택한 ${readOrgSettings().level1Label}·${readOrgSettings().departmentLabel}와 공유`, icon: <Users className="w-3.5 h-3.5" />, color: 'text-emerald-600 bg-emerald-50' },
+    { value: 'organization_share' as const, label: orgShareLabel, desc: `선택한 ${orgSettings.level1Label}·${orgSettings.departmentLabel}와 공유`, icon: <Users className="w-3.5 h-3.5" />, color: 'text-emerald-600 bg-emerald-50' },
   ];
   return opts.find(o => o.value === v) ?? opts[0];
 }
 
 function shareSummary(note: GraceNote): string | null {
   if (note.visibility === 'pastor_share') return formatSharedPastorLabel(note);
-  if (note.visibility === 'organization_share') return formatSharedGroupLabel(note);
+  if (note.visibility === 'organization_share') {
+    const label = formatSharedGroupLabel(note);
+    return label ? `공유범위 : ${label}` : null;
+  }
   return null;
 }
 
@@ -1452,7 +1465,7 @@ export function GraceNoteDetailView({ noteId, onBack, onEdit, onDelete }: {
   const commentCount = visibleComments.length;
   const likeLabel = likeCount.toLocaleString('ko-KR');
   const shareLabel = shareSummary(note);
-  const vm = visibilityMeta(note.visibility ?? 'private', note.sharedGroupAll);
+  const vm = visibilityMeta(note.visibility ?? 'private', note.sharedGroupAll, note.organizationShareMode);
   const typeLabel = graceRecordTypeLabel(note.type);
   const typeBadgeClass = graceTypeBadgeClass(note.type);
   const authorLine = formatGraceNoteAuthorLine(note);

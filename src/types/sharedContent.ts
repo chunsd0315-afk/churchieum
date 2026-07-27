@@ -5,6 +5,19 @@
 
 export type VisibilityType = 'private' | 'pastor_share' | 'organization_share';
 
+/**
+ * 조직 공유 방식
+ * - members_and_pastors: 조직 구성원 + 담당 교역자 (기본, 레거시 호환)
+ * - pastors_only: 담당 교역자만
+ */
+export type OrganizationShareMode = 'members_and_pastors' | 'pastors_only';
+
+export function resolveOrganizationShareMode(
+  mode?: OrganizationShareMode | string | null,
+): OrganizationShareMode {
+  return mode === 'pastors_only' ? 'pastors_only' : 'members_and_pastors';
+}
+
 /** 공유받은 기록 필터 — 공유유형 (전체 없음) */
 export type ReceivedShareType = 'pastor_share' | 'organization_share';
 
@@ -37,6 +50,7 @@ export interface SharedContentFields {
   visibility: VisibilityType;
   sharedPastorIds: string[];
   sharedOrganizationIds: string[];
+  organizationShareMode?: OrganizationShareMode;
 }
 
 /** 정적 기본값 — 동적 표시는 getVisibilityLabels() (orgTerminology) */

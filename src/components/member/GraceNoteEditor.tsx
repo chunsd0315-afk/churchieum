@@ -23,6 +23,7 @@ import { buildSharedPastorSnapshots } from '../../services/graceShareFilterHelpe
 import { GRACE_CONTENT_MAX_LENGTH, GRACE_MENU_LABEL, graceContentFieldLabel } from '../../services/graceNoteDisplay';
 import type { AppUser } from '../../services/permissions';
 import type { SharedPastorSnapshot } from '../../data/graceNotes';
+import { resolveOrganizationShareMode } from '../../types/sharedContent';
 
 export type ReadingEditorCtx = {
   progressId: string;
@@ -125,10 +126,13 @@ function shareInputWithSnapshots(
   existingSnapshots?: SharedPastorSnapshot[],
 ) {
   const base = shareStateToInput(share);
-  const isPastorShare = base.visibility === 'pastor_share' && !base.sharedPastorAll;
+  const needsPastorSnapshots =
+    (base.visibility === 'pastor_share' && !base.sharedPastorAll)
+    || (base.visibility === 'organization_share'
+      && resolveOrganizationShareMode(base.organizationShareMode) === 'pastors_only');
   return {
     ...base,
-    sharedPastorSnapshots: isPastorShare
+    sharedPastorSnapshots: needsPastorSnapshots
       ? buildSharedPastorSnapshots(
           base.sharedPastorIds ?? [],
           getEligiblePastorsForUser(user ?? null),

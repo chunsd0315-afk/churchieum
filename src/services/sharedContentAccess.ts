@@ -10,6 +10,7 @@ import {
   migrateVisibility,
   uniqueIds,
   isLegacyPublic,
+  resolveOrganizationShareMode,
   type LegacyVisibilityRaw,
   SHARE_TYPE_FILTER_LABELS,
 } from '../types/sharedContent';
@@ -48,6 +49,7 @@ export type SharedContentLike = {
   sharedUpperOrganizationIds?: string[];
   sharedLowerOrganizationIds?: string[];
   sharedDepartmentIds?: string[];
+  organizationShareMode?: import('../types/sharedContent').OrganizationShareMode | string;
   /** 기도 레거시 scope */
   organizationScope?: {
     districtIds?: string[];
@@ -150,6 +152,13 @@ function organizationShareMatches(
     return true;
   }
 
+  const mode = resolveOrganizationShareMode(content.organizationShareMode);
+
+  // 담당 교역자만 — 조직 구성원에게는 표시하지 않음
+  if (mode === 'pastors_only') {
+    return pastorShareMatches(content, user);
+  }
+
   const sharedOrgs = resolveSharedOrganizationIds(content);
   if (sharedOrgs.length === 0) {
     // 기도 레거시 중보: organizationScope 빈 배열 = 전체 교회
@@ -167,7 +176,10 @@ function organizationShareMatches(
   }
 
   const mine = viewerOrgIdSet(user);
-  return sharedOrgs.some(id => mine.has(id));
+  if (sharedOrgs.some(id => mine.has(id))) return true;
+
+  // 구성원은 아니지만 담당 교역자로 포함된 경우
+  return pastorShareMatches(content, user);
 }
 
 /**

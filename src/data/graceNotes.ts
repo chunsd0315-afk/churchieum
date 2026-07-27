@@ -1,6 +1,6 @@
 import { applyGraceShareValidation, canPastorViewSharedGraceNote, getCurrentUserFromStorage, splitOrganizationShareIds, composeSharedGroupIds } from '../services/graceNoteShareScope';
 import type { AppUser } from '../services/permissions';
-import { migrateVisibility, isLegacyPublic, type VisibilityType } from '../types/sharedContent';
+import { migrateVisibility, isLegacyPublic, resolveOrganizationShareMode, type VisibilityType, type OrganizationShareMode } from '../types/sharedContent';
 
 const LS_KEY = 'graceNotesV2';
 const LS_DEMO_SEEDED = 'graceNotesV2_demo_seeded_v5';
@@ -89,6 +89,12 @@ export type GraceNote = {
   sharedLowerOrganizationIds?: string[];
   /** 조직 공유 — 부서 ID */
   sharedDepartmentIds?: string[];
+  /**
+   * 조직 공유 방식
+   * - members_and_pastors (기본·레거시)
+   * - pastors_only
+   */
+  organizationShareMode?: OrganizationShareMode;
   /** 작성자 소속 (시드·권한 판별용) */
   authorDistrictId?: string;
   authorZoneId?: string;
@@ -177,6 +183,10 @@ function normalizeNote(n: GraceNote): GraceNote {
     sharedDepartmentIds: split.departments,
     sharedGroupIds: composed,
     sharedOrganizationIds: composed,
+    organizationShareMode:
+      visibility === 'organization_share'
+        ? resolveOrganizationShareMode(n.organizationShareMode)
+        : undefined,
     likeCount: n.likeCount ?? 0,
     amenCount: n.amenCount ?? 0,
     prayCount: n.prayCount ?? 0,
@@ -325,6 +335,7 @@ export function createGraceNote(input: GraceNoteInput, userId?: string): GraceNo
     sharedUpperOrganizationIds: input.sharedUpperOrganizationIds,
     sharedLowerOrganizationIds: input.sharedLowerOrganizationIds,
     sharedDepartmentIds: input.sharedDepartmentIds,
+    organizationShareMode: input.organizationShareMode,
   });
   const note: GraceNote = normalizeNote({
     ...input,
@@ -356,7 +367,8 @@ export function updateGraceNote(id: string, updates: Partial<Omit<GraceNote, 'id
     updates.sharedGroupIds !== undefined ||
     updates.sharedUpperOrganizationIds !== undefined ||
     updates.sharedLowerOrganizationIds !== undefined ||
-    updates.sharedDepartmentIds !== undefined;
+    updates.sharedDepartmentIds !== undefined ||
+    updates.organizationShareMode !== undefined;
 
   let finalUpdates = updates;
   if (hasShareUpdate) {
@@ -370,6 +382,7 @@ export function updateGraceNote(id: string, updates: Partial<Omit<GraceNote, 'id
         sharedUpperOrganizationIds: merged.sharedUpperOrganizationIds,
         sharedLowerOrganizationIds: merged.sharedLowerOrganizationIds,
         sharedDepartmentIds: merged.sharedDepartmentIds,
+        organizationShareMode: merged.organizationShareMode,
       },
       undefined,
       { previousSharedPastorIds: notes[idx].sharedPastorIds },

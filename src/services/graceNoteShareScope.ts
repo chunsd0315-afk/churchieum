@@ -22,7 +22,7 @@ import {
 } from './clergyData';
 import type { GraceNoteVisibility } from '../data/graceNotes';
 import { readOrgSettings } from '../contexts/OrgSettingsContext';
-import { migrateVisibility, isLegacyPublic } from '../types/sharedContent';
+import { migrateVisibility, isLegacyPublic, resolveOrganizationShareMode, type OrganizationShareMode } from '../types/sharedContent';
 import { getAllOrganizations, getAncestorIds, getDescendantIds } from './organizationStorage';
 import {
   flattenOrgFilterTree,
@@ -31,7 +31,7 @@ import {
 } from './userOrganizationTree';
 import { getOrganizationIdsForUserId } from './userOrganizationPath';
 import { getDistrictDepartmentLabel } from './orgTerminology';
-import { getDirectShareablePastorsForWriter } from './directPastorShare';
+import { getDirectShareablePastorsForWriter, getPastoralAssigneesForOrganization } from './directPastorShare';
 import { getPastorTerminologyPhrases } from './orgTerminology';
 
 /** 소속 미지정 작성자 그룹 ID */
@@ -74,6 +74,7 @@ export type GraceShareFields = {
   sharedUpperOrganizationIds: string[];
   sharedLowerOrganizationIds: string[];
   sharedDepartmentIds: string[];
+  organizationShareMode?: OrganizationShareMode;
 };
 
 export type GraceShareValidationResult =
@@ -293,7 +294,19 @@ function emptyShareFields(visibility: GraceNoteVisibility = 'private'): GraceSha
     sharedUpperOrganizationIds: [],
     sharedLowerOrganizationIds: [],
     sharedDepartmentIds: [],
+    organizationShareMode: visibility === 'organization_share' ? 'members_and_pastors' : undefined,
   };
+}
+
+/** 선택 조직들의 활성 담당 교역자 ID (중복 제거) */
+export function collectActiveAssigneePastorIdsForOrgs(organizationIds: string[]): string[] {
+  const ids = new Set<string>();
+  for (const orgId of uniqueIds(organizationIds)) {
+    for (const p of getPastoralAssigneesForOrganization(orgId)) {
+      if (p.pastorId) ids.add(p.pastorId);
+    }
+  }
+  return [...ids];
 }
 
 function readDemoMemberByEmail(email: string): {
@@ -562,6 +575,51 @@ export function validateGraceNoteShare(
       };
     }
 
+    const mode = resolveOrganizationShareMode(state.organizationShareMode);
+    const assigneeIds = new Set(collectActiveAssigneePastorIdsForOrgs(sharedGroupIds));
+    const preservedPastorIdsForOrg = new Set(
+      (options?.previousSharedPastorIds ?? []).filter(Boolean),
+    );
+
+    if (mode === 'pastors_only') {
+      if (assigneeIds.size === 0 && preservedPastorIdsForOrg.size === 0) {
+        return {
+          ok: false,
+          error: '이 조직에는 등록된 담당 교역자가 없습니다.',
+        };
+      }
+      let sharedPastorIds = uniqueIds(state.sharedPastorIds).filter(
+        id => assigneeIds.has(id) || preservedPastorIdsForOrg.has(id),
+      );
+      const invalid = uniqueIds(state.sharedPastorIds).filter(
+        id => !assigneeIds.has(id) && !preservedPastorIdsForOrg.has(id),
+      );
+      if (invalid.length > 0) {
+        return {
+          ok: false,
+          error: `선택할 수 없는 ${pastorPhrases.label}가 포함되어 있습니다.`,
+        };
+      }
+      if (sharedPastorIds.length === 0) {
+        return { ok: false, error: '공유할 담당 교역자를 선택해 주세요.' };
+      }
+      return {
+        ok: true,
+        sanitized: {
+          ...emptyShareFields('organization_share'),
+          sharedGroupAll: false,
+          sharedGroupIds,
+          sharedUpperOrganizationIds: uniqueIds(upper),
+          sharedLowerOrganizationIds: uniqueIds(lower),
+          sharedDepartmentIds: uniqueIds(departments),
+          organizationShareMode: 'pastors_only',
+          sharedPastorIds,
+          sharedPastorAll: false,
+        },
+      };
+    }
+
+    // members_and_pastors — 담당 없어도 구성원 공유 허용, 담당자는 자동 포함
     return {
       ok: true,
       sanitized: {
@@ -571,6 +629,9 @@ export function validateGraceNoteShare(
         sharedUpperOrganizationIds: uniqueIds(upper),
         sharedLowerOrganizationIds: uniqueIds(lower),
         sharedDepartmentIds: uniqueIds(departments),
+        organizationShareMode: 'members_and_pastors',
+        sharedPastorIds: [...assigneeIds],
+        sharedPastorAll: false,
       },
     };
   }
@@ -661,6 +722,20 @@ export function filterShareStateToMembership(
 
     upper = ensureParentUpperIds(lower, upper).filter(id => selectable.all.has(id));
     const sharedGroupIds = composeSharedGroupIds(upper, lower, departments);
+    const mode = resolveOrganizationShareMode(state.organizationShareMode);
+    const assigneeIds = new Set(collectActiveAssigneePastorIdsForOrgs(sharedGroupIds));
+
+    if (mode === 'pastors_only') {
+      return {
+        ...emptyShareFields('organization_share'),
+        sharedUpperOrganizationIds: upper,
+        sharedLowerOrganizationIds: lower,
+        sharedDepartmentIds: departments,
+        sharedGroupIds,
+        organizationShareMode: 'pastors_only',
+        sharedPastorIds: uniqueIds(state.sharedPastorIds).filter(id => assigneeIds.has(id)),
+      };
+    }
 
     return {
       ...emptyShareFields('organization_share'),
@@ -668,6 +743,8 @@ export function filterShareStateToMembership(
       sharedLowerOrganizationIds: lower,
       sharedDepartmentIds: departments,
       sharedGroupIds,
+      organizationShareMode: 'members_and_pastors',
+      sharedPastorIds: [...assigneeIds],
     };
   }
 
@@ -776,6 +853,7 @@ export type GraceNoteVisibilityInput = {
   sharedUpperOrganizationIds?: string[];
   sharedLowerOrganizationIds?: string[];
   sharedDepartmentIds?: string[];
+  organizationShareMode?: OrganizationShareMode | string;
   createdAt?: string;
   isFavorite?: boolean;
 };
@@ -996,7 +1074,12 @@ export function getGraceNoteViewInfo(
         sharedLowerOrganizationIds: note.sharedLowerOrganizationIds,
         sharedDepartmentIds: note.sharedDepartmentIds,
       });
-      const badge = labels[0] ? (labels[0].endsWith('공유') ? labels[0] : `${labels[0]} 공유`) : '교구·부서 공유';
+      const mode = resolveOrganizationShareMode(note.organizationShareMode);
+      const base = labels[0] ?? getOrganizationLabels().districtDepartment;
+      const badge =
+        mode === 'pastors_only'
+          ? (labels[0] ? `${labels[0]} 담당 교역자만` : '담당 교역자만')
+          : (base.endsWith('공유') ? base : `${base} 공유`);
       return {
         kind: 'group_department',
         badgeLabel: badge,
@@ -1004,14 +1087,51 @@ export function getGraceNoteViewInfo(
         buckets: ['group_org'],
       };
     }
+
+    const mode = resolveOrganizationShareMode(note.organizationShareMode);
+    if (mode === 'pastors_only') {
+      if (!matchesPastorShareToViewer(note, viewer)) return null;
+      const labels = formatOrganizationShareDisplayLabels({
+        sharedGroupIds: note.sharedGroupIds,
+        sharedUpperOrganizationIds: note.sharedUpperOrganizationIds,
+        sharedLowerOrganizationIds: note.sharedLowerOrganizationIds,
+        sharedDepartmentIds: note.sharedDepartmentIds,
+      });
+      const badge = labels[0] ? `${labels[0]} 담당 교역자만` : '담당 교역자만';
+      return {
+        kind: 'group_department',
+        badgeLabel: badge,
+        badges: [badge],
+        buckets: ['group_org'],
+      };
+    }
+
     const g = matchGroupShare(note, scope);
-    if (!g) return null;
-    return {
-      kind: g.kind,
-      badgeLabel: g.badgeLabel,
-      badges: [g.badgeLabel],
-      buckets: [g.bucket],
-    };
+    if (g) {
+      return {
+        kind: g.kind,
+        badgeLabel: g.badgeLabel,
+        badges: [g.badgeLabel],
+        buckets: [g.bucket],
+      };
+    }
+    // 소속은 아니지만 담당 교역자로 포함된 경우
+    if (matchesPastorShareToViewer(note, viewer)) {
+      const labels = formatOrganizationShareDisplayLabels({
+        sharedGroupIds: note.sharedGroupIds,
+        sharedUpperOrganizationIds: note.sharedUpperOrganizationIds,
+        sharedLowerOrganizationIds: note.sharedLowerOrganizationIds,
+        sharedDepartmentIds: note.sharedDepartmentIds,
+      });
+      const badge = labels[0] ? `${labels[0]} 공유` : '조직 공유';
+      return {
+        kind: 'group_department',
+        badgeLabel: badge,
+        badges: [badge],
+        buckets: ['group_org'],
+      };
+    }
+    return null;
   }
 
   return null;
@@ -1128,12 +1248,19 @@ export function getGraceListBadge(
     if (visibility === 'pastor_share') return pastorShareBadge;
     if (visibility === 'organization_share') {
       if (note.sharedGroupAll || isLegacyPublic(note.visibility)) return '전체 공개';
+      const mode = resolveOrganizationShareMode(note.organizationShareMode);
       const labels = formatOrganizationShareDisplayLabels({
         sharedGroupIds: note.sharedGroupIds,
         sharedUpperOrganizationIds: note.sharedUpperOrganizationIds,
         sharedLowerOrganizationIds: note.sharedLowerOrganizationIds,
         sharedDepartmentIds: note.sharedDepartmentIds,
       });
+      if (mode === 'pastors_only') {
+        if (labels.length === 0) return '담당 교역자만';
+        const lowerLike = labels.find(l => l.includes(' > '));
+        const base = lowerLike ?? labels[0];
+        return `${base} 담당 교역자만`;
+      }
       if (labels.length === 0) {
         const org = getOrganizationLabels();
         return `${org.upper}/${org.department} 공유`;
