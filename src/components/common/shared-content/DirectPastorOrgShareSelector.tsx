@@ -16,6 +16,7 @@ import { ORG_TREE_CHANGED_EVENT } from '../../../services/organizationStorage';
 import { PastorShareSelector } from './PastorShareSelector';
 import type { SharedPastorSnapshot } from '../../../data/graceNotes';
 import { useBreakpoint } from '../../../hooks/useBreakpoint';
+import { useOrgSettings } from '../../../contexts/OrgSettingsContext';
 
 export type DirectPastorOrgShareSelectorProps = {
   user: AppUser | null;
@@ -217,6 +218,9 @@ export function DirectPastorOrgShareSelector({
   className = '',
 }: DirectPastorOrgShareSelectorProps) {
   const { isMobile } = useBreakpoint();
+  const { pastorPhrases, terminologyVersion } = useOrgSettings();
+  void terminologyVersion;
+  const p = pastorPhrases.label;
   const [orgTick, setOrgTick] = useState(0);
   const [q, setQ] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -291,9 +295,9 @@ export function DirectPastorOrgShareSelector({
   if (isSuperAdmin(user) || model.isAdminFullList) {
     return (
       <div className={className}>
-        <p className="text-sm font-bold text-gray-800 mb-1">담당 교역자 선택</p>
+        <p className="text-sm font-bold text-gray-800 mb-1">{pastorPhrases.shareSelectTitle}</p>
         <p className="text-[13px] text-gray-500 mb-3">
-          전체 교역자 중에서 공유할 대상을 선택합니다.
+          전체 {p} 중에서 공유할 대상을 선택합니다.
         </p>
         <PastorShareSelector
           pastors={model.pastors}
@@ -308,14 +312,14 @@ export function DirectPastorOrgShareSelector({
   if (model.pastors.length === 0 && outOfScopeSelected.length === 0) {
     return (
       <div className={className}>
-        <p className="text-sm font-bold text-gray-800 mb-1">담당 교역자 선택</p>
+        <p className="text-sm font-bold text-gray-800 mb-1">{pastorPhrases.shareSelectTitle}</p>
         <p className="text-sm text-gray-600 mt-2">
-          내 소속 조직에 등록된 담당 교역자가 없습니다.
+          {pastorPhrases.emptyAssignee}
         </p>
         <p className="text-[12px] text-gray-500 mt-1">
           {viewerIsMember
-            ? '담당 교역자 정보를 확인해 주세요.'
-            : '조직관리에서 담당 교역자를 먼저 지정해 주세요.'}
+            ? `담당 ${p} 정보를 확인해 주세요.`
+            : `조직관리에서 담당 ${p}를 먼저 지정해 주세요.`}
         </p>
       </div>
     );
@@ -336,9 +340,9 @@ export function DirectPastorOrgShareSelector({
   return (
     <div className={`space-y-3 ${className}`}>
       <div>
-        <p className="text-sm font-bold text-gray-800 mb-1">담당 교역자 선택</p>
+        <p className="text-sm font-bold text-gray-800 mb-1">{pastorPhrases.shareSelectTitle}</p>
         <p className="text-[13px] text-gray-500">
-          내 소속 조직의 담당 교역자를 선택해 공유합니다.
+          {pastorPhrases.shareSelectDescription}
         </p>
       </div>
 
@@ -347,7 +351,7 @@ export function DirectPastorOrgShareSelector({
         <input
           value={q}
           onChange={e => setQ(e.target.value)}
-          placeholder="교역자 이름 또는 조직을 검색하세요."
+          placeholder={pastorPhrases.searchPlaceholder}
           className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white focus:border-primary-400 focus:outline-none min-h-[48px]"
         />
       </div>
@@ -411,7 +415,7 @@ export function DirectPastorOrgShareSelector({
       {chipPastors.length > 0 && (
         <div className="pt-1 border-t border-gray-100">
           <p className="text-[12px] font-bold text-gray-500 mb-2">
-            선택한 교역자 {chipPastors.length}명
+            선택한 {p} {chipPastors.length}명
           </p>
           <div className="flex flex-wrap gap-2">
             {chipPastors.map(c => (
@@ -436,7 +440,7 @@ export function DirectPastorOrgShareSelector({
 
       {selectedInScope.length === 0 && outOfScopeSelected.filter(id => selectedIds.includes(id)).length === 0 && (
         <p className="text-[12px] text-amber-700 bg-amber-50 rounded-xl px-3 py-2">
-          공유할 교역자를 선택해 주세요.
+          {pastorPhrases.selectAtLeastOne}
         </p>
       )}
     </div>

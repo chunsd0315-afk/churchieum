@@ -1,5 +1,6 @@
 import type { MenuIconKey } from '../../../config/menuIconMap';
-import { HOME_MENU_CATALOG } from './homeMenuCatalog';
+import { HOME_MENU_CATALOG, resolveCatalogItem } from './homeMenuCatalog';
+import type { OrgTerminologySettings } from '../../../services/orgTerminology';
 import type { HomeMenuItem } from './HomeDashboard';
 
 export type MenuCatalogKey = keyof typeof HOME_MENU_CATALOG;
@@ -61,9 +62,10 @@ export const MEMBER_ROLE_MENUS: RoleMenuEntry[] = [
 
 export function buildSidebarNavItems<T extends string>(
   entries: RoleMenuEntry[],
+  settings?: OrgTerminologySettings | null,
 ): { page: T; label: string; iconKey: MenuIconKey }[] {
   return entries.map(({ catalogKey, page }) => {
-    const meta = HOME_MENU_CATALOG[catalogKey];
+    const meta = resolveCatalogItem(catalogKey, settings);
     return { page: page as T, label: meta.label, iconKey: meta.iconKey };
   });
 }
@@ -71,10 +73,11 @@ export function buildSidebarNavItems<T extends string>(
 export function buildHomeMenuItems(
   entries: RoleMenuEntry[],
   onNavigate: (page: string) => void,
-  options?: { onSettings?: () => void },
+  options?: { onSettings?: () => void; settings?: OrgTerminologySettings | null },
 ): HomeMenuItem[] {
+  const settings = options?.settings;
   return entries.map(({ catalogKey, page }) => {
-    const meta = HOME_MENU_CATALOG[catalogKey];
+    const meta = resolveCatalogItem(catalogKey, settings);
     return {
       id: page,
       label: meta.label,
@@ -93,8 +96,18 @@ export function buildHomeMenuItems(
 
 export function catalogPageLabels(
   entries: RoleMenuEntry[],
+  settings?: OrgTerminologySettings | null,
 ): Record<string, string> {
   return Object.fromEntries(
-    entries.map(({ catalogKey, page }) => [page, HOME_MENU_CATALOG[catalogKey].label]),
+    entries.map(({ catalogKey, page }) => [page, resolveCatalogItem(catalogKey, settings).label]),
+  );
+}
+
+export function catalogPageDescriptions(
+  entries: RoleMenuEntry[],
+  settings?: OrgTerminologySettings | null,
+): Record<string, string> {
+  return Object.fromEntries(
+    entries.map(({ catalogKey, page }) => [page, resolveCatalogItem(catalogKey, settings).description]),
   );
 }

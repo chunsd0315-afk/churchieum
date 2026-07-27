@@ -1,13 +1,8 @@
 import type { ReceivedShareType, VisibilityFilter, VisibilityType } from '../../../types/sharedContent';
-import { getVisibilityLabels } from '../../../services/orgTerminology';
+import { getVisibilityLabels, getAuthorRoleFilterOptions } from '../../../services/orgTerminology';
+import { useOrgSettings } from '../../../contexts/OrgSettingsContext';
 import { SharedContentSegmentButtons } from './SharedContentSegmentButtons';
 import type { SharedContentShareTypeFilterOption } from '../../../services/sharedContentShareTypeFilterLabels';
-
-const AUTHOR_ROLE_OPTIONS = [
-  { id: 'all' as const, label: '전체 작성자' },
-  { id: 'member' as const, label: '성도' },
-  { id: 'pastor' as const, label: '교역자' },
-];
 
 export function SharedContentVisibilityFilterSection({
   value,
@@ -16,7 +11,9 @@ export function SharedContentVisibilityFilterSection({
   value: VisibilityFilter;
   onChange: (next: VisibilityFilter) => void;
 }) {
-  const labels = getVisibilityLabels();
+  const { settings, terminologyVersion } = useOrgSettings();
+  void terminologyVersion;
+  const labels = getVisibilityLabels(settings);
   const options: { id: VisibilityFilter; label: string }[] = [
     { id: 'all', label: '전체' },
     { id: 'private', label: labels.private },
@@ -72,12 +69,15 @@ export function SharedContentAuthorRoleFilterSection({
   includeSuperAdmin?: boolean;
   description?: string;
 }) {
+  const { settings, terminologyVersion } = useOrgSettings();
+  void terminologyVersion;
+  const authorRoleOptions = getAuthorRoleFilterOptions(settings);
   const options = includeSuperAdmin
     ? [
-        ...AUTHOR_ROLE_OPTIONS,
+        ...authorRoleOptions,
         { id: 'super_admin' as const, label: '최고관리자' },
       ]
-    : AUTHOR_ROLE_OPTIONS;
+    : authorRoleOptions;
 
   return (
     <div>

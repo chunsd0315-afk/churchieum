@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import { useState, useMemo } from 'react';
 import { X, ChevronLeft, ChevronRight, Network, UserCog, Users, Link, Church, ShieldCheck, Settings } from 'lucide-react';
 import OrganizationManagementPage from './OrganizationManagementPage';
 import ClergyManagementPage from './ClergyManagementPage';
@@ -7,6 +7,8 @@ import InvitationPage from './InvitationPage';
 import ChurchManagementPage from './ChurchManagementPage';
 import StaffManagementPage from './StaffManagementPage';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
+import { useOrgSettings } from '../../contexts/OrgSettingsContext';
+import { getPastorTerminologyPhrases } from '../../services/orgTerminology';
 import { ChurchList, CHURCH_LIST_ROW_CLASS } from '../../components/common/ui';
 import type { NavIcon } from '../../types/icons';
 
@@ -16,7 +18,7 @@ type Props = {
   onClose: () => void;
 };
 
-const SETTINGS_ITEMS: {
+const SETTINGS_ITEM_DEFS: {
   id: SubPage;
   icon: NavIcon;
   iconBg: string;
@@ -81,6 +83,27 @@ const SETTINGS_ITEMS: {
   },
 ];
 
+function useChurchSettingsItems() {
+  const { pastorPhrases, terminologyVersion } = useOrgSettings();
+  return useMemo(
+    () =>
+      SETTINGS_ITEM_DEFS.map(item => {
+        if (item.id === 'clergy') {
+          return {
+            ...item,
+            title: pastorPhrases.management,
+            description: `담임목사, 부목사, 전도사 등 ${pastorPhrases.label}를 관리합니다`,
+          };
+        }
+        if (item.id === 'invitations') {
+          return { ...item, description: pastorPhrases.inviteDescription };
+        }
+        return { ...item };
+      }),
+  [pastorPhrases, terminologyVersion],
+  );
+}
+
 function SubPageContent({ subPage }: { subPage: SubPage; onSubNavigate: (p: SubPage) => void }) {
   switch (subPage) {
     case 'staff':       return <StaffManagementPage />;
@@ -97,7 +120,8 @@ function SubPageContent({ subPage }: { subPage: SubPage; onSubNavigate: (p: SubP
 ───────────────────────────────────────────── */
 function MobileChurchSettings({ onClose }: Props) {
   const [subPage, setSubPage] = useState<SubPage | null>(null);
-  const subTitle = SETTINGS_ITEMS.find(s => s.id === subPage)?.title ?? '';
+  const settingsItems = useChurchSettingsItems();
+  const subTitle = settingsItems.find(s => s.id === subPage)?.title ?? '';
 
   if (subPage !== null) {
     return (
@@ -134,7 +158,7 @@ function MobileChurchSettings({ onClose }: Props) {
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-2xl mx-auto px-4 py-4 pb-8">
           <ChurchList>
-            {SETTINGS_ITEMS.map(item => (
+            {settingsItems.map(item => (
               <button
                 key={item.id}
                 onClick={() => setSubPage(item.id)}
@@ -162,10 +186,11 @@ function MobileChurchSettings({ onClose }: Props) {
 ───────────────────────────────────────────── */
 function DesktopChurchSettings({ onClose }: Props) {
   const [subPage, setSubPage] = useState<SubPage>('staff');
+  const settingsItems = useChurchSettingsItems();
 
-  const mainItems = SETTINGS_ITEMS.filter(s => s.group === 'main');
-  const infoItems = SETTINGS_ITEMS.filter(s => s.group === 'info');
-  const current = SETTINGS_ITEMS.find(s => s.id === subPage)!;
+  const mainItems = settingsItems.filter(s => s.group === 'main');
+  const infoItems = settingsItems.filter(s => s.group === 'info');
+  const current = settingsItems.find(s => s.id === subPage)!;
 
   return (
     <div className="fixed inset-0 z-[300] bg-gray-100 flex flex-col">

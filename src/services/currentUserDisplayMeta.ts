@@ -5,6 +5,8 @@
 import type { AppUser } from './permissions';
 import { isSuperAdmin } from './permissions';
 import { combineNameAndPosition } from './graceNoteAuthorDisplay';
+import { readOrgSettings } from '../contexts/OrgSettingsContext';
+import { getPastorLabel, getPastorTerminologyPhrases } from './orgTerminology';
 import {
   formatOrgMetaSecondaryLine,
   getUserDepartmentLabelOutsidePath,
@@ -77,13 +79,13 @@ function resolvePosition(user: AppUser): string {
     /* ignore */
   }
   if (isSuperAdmin(user)) return '최고관리자';
-  if (user.role === 'pastor') return '교역자';
+  if (user.role === 'pastor') return getPastorLabel(readOrgSettings());
   return '성도';
 }
 
 function resolveRoleLabel(user: AppUser): string {
   if (isSuperAdmin(user)) return '최고관리자';
-  if (user.role === 'pastor') return '교역자';
+  if (user.role === 'pastor') return getPastorLabel(readOrgSettings());
   return '성도';
 }
 
@@ -108,13 +110,14 @@ export function buildUserOrganizationPathLabel(user: AppUser | null | undefined)
 
   const isPastoral = isSuperAdmin(user) || user.role === 'pastor';
   const hasOrgs = getOrganizationIdsForUserId(user.id).length > 0;
+  const assigneeTag = getPastorTerminologyPhrases(readOrgSettings()).assigneeTag;
 
   if (pathNames.length === 0 && departmentNames.length === 0) {
     if (isSuperAdmin(user)) {
       return { pathNames: [], departmentNames: [], label: '최고관리자' };
     }
     if (user.role === 'pastor') {
-      return { pathNames: [], departmentNames: [], label: hasOrgs ? '담당교역자' : '' };
+      return { pathNames: [], departmentNames: [], label: hasOrgs ? assigneeTag : '' };
     }
     return { pathNames: [], departmentNames: [], label: '' };
   }
@@ -125,8 +128,8 @@ export function buildUserOrganizationPathLabel(user: AppUser | null | undefined)
     dateLabel: '',
   });
 
-  if (isPastoral && label && !label.includes('담당교역자')) {
-    label = `${label} · 담당교역자`;
+  if (isPastoral && label && !label.includes(assigneeTag)) {
+    label = `${label} · ${assigneeTag}`;
   }
 
   return { pathNames, departmentNames, label };

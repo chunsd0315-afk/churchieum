@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import { useState, useMemo } from 'react';
 import { ChevronLeft, Settings,
   Home, BookOpen, BookHeart, User,
 } from 'lucide-react';
@@ -11,8 +11,11 @@ import {
   ADMIN_ROLE_MENUS,
   buildSidebarNavItems,
   catalogPageLabels,
+  catalogPageDescriptions,
 } from '../common/home/roleMenus';
-import { HOME_MENU_CATALOG } from '../common/home/homeMenuCatalog';
+import { HOME_MENU_CATALOG, resolveCatalogItem } from '../common/home/homeMenuCatalog';
+import { useOrgSettings } from '../../contexts/OrgSettingsContext';
+import type { OrgSettings } from '../../contexts/OrgSettingsContext';
 
 export type AdminPage =
   | 'home' | 'church' | 'org' | 'districts' | 'zones' | 'departments'
@@ -32,9 +35,6 @@ type Props = {
   onSwitchMode?: () => void;
 };
 
-/** 홈 카드와 동일한 사이드바 메뉴 */
-const SIDEBAR_NAV_ITEMS = buildSidebarNavItems<AdminNavId>(ADMIN_ROLE_MENUS);
-
 const BOTTOM_NAV_ITEMS = [
   { id: 'home' as const, label: '홈', icon: Home },
   { id: 'sermons' as const, label: HOME_MENU_CATALOG.sermon.label, icon: BookOpen },
@@ -43,42 +43,48 @@ const BOTTOM_NAV_ITEMS = [
   { id: 'settings' as const, label: HOME_MENU_CATALOG.settings.label, icon: Settings },
 ];
 
-const PAGE_LABELS: Partial<Record<AdminPage, string>> = {
-  home: '홈',
-  ...catalogPageLabels(ADMIN_ROLE_MENUS),
-  church: '교회',
-  contents: '콘텐츠',
-  districts: '교구',
-  zones: '구역',
-  departments: '부서',
-  visits: '심방',
-  'new-family': '새가족',
-  verification: '교회인증',
-  staff: '관리자',
-};
-
-const PAGE_SUBTITLES: Partial<Record<AdminPage, string>> = {
-  home: '교회 메뉴를 선택하세요.',
-  ...Object.fromEntries(
-    ADMIN_ROLE_MENUS.map(({ catalogKey, page }) => [
-      page,
-      HOME_MENU_CATALOG[catalogKey].description,
-    ]),
-  ),
-  church: '교회 기본 정보와 인증을 관리합니다.',
-  contents: '설교, 공지, 주보 등 콘텐츠를 관리합니다.',
-  org: HOME_MENU_CATALOG.org.description,
-  clergy: HOME_MENU_CATALOG.clergy.description,
-  members: HOME_MENU_CATALOG.members.description,
-  invitations: HOME_MENU_CATALOG.invitations.description,
-};
+function useAdminPageCopy(settings: OrgSettings) {
+  return useMemo(() => {
+    const pageLabels: Partial<Record<AdminPage, string>> = {
+      home: '홈',
+      ...catalogPageLabels(ADMIN_ROLE_MENUS, settings),
+      church: '교회',
+      contents: '콘텐츠',
+      districts: '교구',
+      zones: '구역',
+      departments: '부서',
+      visits: '심방',
+      'new-family': '새가족',
+      verification: '교회인증',
+      staff: '관리자',
+    };
+    const pageSubtitles: Partial<Record<AdminPage, string>> = {
+      home: '교회 메뉴를 선택하세요.',
+      ...catalogPageDescriptions(ADMIN_ROLE_MENUS, settings),
+      church: '교회 기본 정보와 인증을 관리합니다.',
+      contents: '설교, 공지, 주보 등 콘텐츠를 관리합니다.',
+      org: resolveCatalogItem('org', settings).description,
+      clergy: resolveCatalogItem('clergy', settings).description,
+      members: resolveCatalogItem('members', settings).description,
+      invitations: resolveCatalogItem('invitations', settings).description,
+    };
+    return { pageLabels, pageSubtitles };
+  }, [settings]);
+}
 
 export function AdminLayout({ children, currentPage, onNavigate }: Props) {
   const [showSettings, setShowSettings] = useState(false);
+  const { settings } = useOrgSettings();
+  const { pageLabels, pageSubtitles } = useAdminPageCopy(settings);
+
+  const sidebarNavItems = useMemo(
+    () => buildSidebarNavItems<AdminNavId>(ADMIN_ROLE_MENUS, settings),
+    [settings],
+  );
 
   const isHome = currentPage === 'home';
-  const pageLabel = PAGE_LABELS[currentPage] ?? '관리';
-  const pageSubtitle = PAGE_SUBTITLES[currentPage];
+  const pageLabel = pageLabels[currentPage] ?? '관리';
+  const pageSubtitle = pageSubtitles[currentPage];
 
   const handleNavigate = (id: string) => {
     if (id === 'settings') {
@@ -120,7 +126,7 @@ export function AdminLayout({ children, currentPage, onNavigate }: Props) {
         isHomePage={isHome}
         mobileHomeHeader={mobileHomeHeader}
         mobileSubHeader={mobileSubHeader}
-        sidebarNavItems={SIDEBAR_NAV_ITEMS.map(i => ({ page: i.page as AdminPage, label: i.label, iconKey: i.iconKey }))}
+        sidebarNavItems={sidebarNavItems.map(i => ({ page: i.page as AdminPage, label: i.label, iconKey: i.iconKey }))}
         showSettingsButton
         onSettingsClick={() => setShowSettings(true)}
         bottomNavItems={BOTTOM_NAV_ITEMS.map(i => ({ id: i.id, label: i.label, icon: i.icon }))}
@@ -137,5 +143,9 @@ export function AdminLayout({ children, currentPage, onNavigate }: Props) {
   );
 }
 
-// Backward-compat export
-export const MENU_ITEMS = SIDEBAR_NAV_ITEMS.map(i => ({ id: i.page, label: i.label, iconKey: i.iconKey }));
+// Backward-compat export (기본 용어)
+export const MENU_ITEMS = buildSidebarNavItems<AdminNavId>(ADMIN_ROLE_MENUS).map(i => ({
+  id: i.page,
+  label: i.label,
+  iconKey: i.iconKey,
+}));

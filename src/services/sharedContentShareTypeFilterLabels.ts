@@ -8,7 +8,7 @@ import { isSuperAdmin } from './permissions';
 import { getClergyByEmail, positionLabel } from './clergyData';
 import type { ReceivedShareType, ShareTypeFilter } from '../types/sharedContent';
 import { SHARE_TYPE_FILTER_LABELS } from '../types/sharedContent';
-import { getDistrictDepartmentLabel } from './orgTerminology';
+import { getDistrictDepartmentLabel, getPastorLabel, withObjectParticle } from './orgTerminology';
 import { readOrgSettings } from '../contexts/OrgSettingsContext';
 
 export type SharedContentDomain = 'grace' | 'prayer';
@@ -144,6 +144,8 @@ export function getSharedContentShareTypeFilterOptions(
   const noun = contentNoun(domain);
   const includePastorShare = options?.includePastorShare ?? true;
   const dd = getDistrictDepartmentLabel(readOrgSettings());
+  const pastor = getPastorLabel(readOrgSettings());
+  const pastorObj = withObjectParticle(pastor);
 
   if (!user) {
     return [{
@@ -161,10 +163,10 @@ export function getSharedContentShareTypeFilterOptions(
     if (includePastorShare) {
       opts.push({
         id: 'pastor_share',
-        label: '교역자에게 공유한 기록',
-        chipLabel: '교역자 직접 공유',
-        description: `교역자를 선택해 공유한 ${noun}입니다.`,
-        ariaLabel: `교역자에게 공유한 ${noun} 보기`,
+        label: `${pastor}에게 공유한 기록`,
+        chipLabel: `${pastor} 직접 공유`,
+        description: `${pastor}${pastorObj} 선택해 공유한 ${noun}입니다.`,
+        ariaLabel: `${pastor}에게 공유한 ${noun} 보기`,
         visible: true,
       });
     }
@@ -199,7 +201,7 @@ export function getSharedContentShareTypeFilterOptions(
       id: 'pastor_share',
       label: `${userTitle}에게 공유한 기록`,
       chipLabel: `${userTitle}에게 공유`,
-      description: `교역자를 선택해 공유한 ${noun}입니다.`,
+      description: `${pastor}${pastorObj} 선택해 공유한 ${noun}입니다.`,
       ariaLabel: `${userTitle}에게 공유한 ${noun} 보기`,
       visible: true,
     });

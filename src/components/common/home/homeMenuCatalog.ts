@@ -1,4 +1,9 @@
 import type { MenuIconKey } from '../../../config/menuIconMap';
+import {
+  getPastorLabel,
+  getPastorTerminologyPhrases,
+  type OrgTerminologySettings,
+} from '../../../services/orgTerminology';
 
 export type HomeMenuCatalogItem = {
   label: string;
@@ -102,4 +107,28 @@ export const HOME_MENU_CATALOG: Record<string, HomeMenuCatalogItem> = {
 
 export function catalogItem(key: keyof typeof HOME_MENU_CATALOG): HomeMenuCatalogItem {
   return HOME_MENU_CATALOG[key];
+}
+
+/** 교역자 표시명 등 교회별 용어 반영 */
+export function resolveCatalogItem(
+  key: keyof typeof HOME_MENU_CATALOG,
+  settings?: OrgTerminologySettings | null,
+): HomeMenuCatalogItem {
+  const base = HOME_MENU_CATALOG[key];
+  if (key === 'clergy') {
+    const phrases = getPastorTerminologyPhrases(settings);
+    return {
+      ...base,
+      label: phrases.management,
+      description: `${phrases.label} 정보와 담당 조직을 관리합니다.`,
+    };
+  }
+  if (key === 'invitations') {
+    const p = getPastorLabel(settings);
+    return {
+      ...base,
+      description: `성도 및 ${p}를 초대하고 초대 현황을 관리합니다.`,
+    };
+  }
+  return base;
 }

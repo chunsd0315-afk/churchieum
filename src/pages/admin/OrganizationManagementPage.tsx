@@ -16,7 +16,7 @@ type MainTab = 'tree' | 'meta' | 'legacy';
 type LegacyTab = 'district' | 'zone' | 'department';
 
 export default function OrganizationManagementPage() {
-  const { settings, updateSettings, l1, l2, dept, terminologyVersion } = useOrgSettings();
+  const { settings, updateSettings, l1, l2, dept, pastorLabel, pastorPhrases, terminologyVersion } = useOrgSettings();
   const { isMobile } = useBreakpoint();
   const [mainTab, setMainTab] = useState<MainTab>('tree');
   const [legacyTab, setLegacyTab] = useState<LegacyTab>('district');
@@ -24,6 +24,7 @@ export default function OrganizationManagementPage() {
   const [l1Draft, setL1Draft] = useState(settings.level1Label);
   const [l2Draft, setL2Draft] = useState(settings.level2Label);
   const [deptDraft, setDeptDraft] = useState(settings.departmentLabel);
+  const [pastorDraft, setPastorDraft] = useState(settings.pastorLabel);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -42,7 +43,8 @@ export default function OrganizationManagementPage() {
     setL1Draft(settings.level1Label);
     setL2Draft(settings.level2Label);
     setDeptDraft(settings.departmentLabel);
-  }, [settings.level1Label, settings.level2Label, settings.departmentLabel]);
+    setPastorDraft(settings.pastorLabel);
+  }, [settings.level1Label, settings.level2Label, settings.departmentLabel, settings.pastorLabel]);
 
   useEffect(() => {
     if (!selectedId && tree[0] && !creating) {
@@ -57,6 +59,7 @@ export default function OrganizationManagementPage() {
       level1Label: l1Draft.trim(),
       level2Label: l2Draft.trim(),
       departmentLabel: deptDraft.trim(),
+      pastorLabel: pastorDraft.trim(),
     });
     if (!result.ok) {
       setSaveError(result.error);
@@ -116,10 +119,10 @@ export default function OrganizationManagementPage() {
       <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
         <div className="flex items-center gap-2 mb-4">
           <Settings className="w-4 h-4 text-primary-500" />
-          <h3 className="font-bold text-gray-900 text-sm">기본 조직명 설정</h3>
-          <span className="text-xs text-gray-400 ml-1">조직 종류 표시명 · 저장 시 트리·전체 앱에 반영</span>
+          <h3 className="font-bold text-gray-900 text-sm">기본 용어 설정</h3>
+          <span className="text-xs text-gray-400 ml-1">조직명·교역자 표시명 · 저장 시 전체 앱에 반영</span>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
           <div>
             <label className="block text-xs font-semibold text-gray-500 mb-1.5">상위조직 이름</label>
             <input
@@ -150,6 +153,28 @@ export default function OrganizationManagementPage() {
             />
             <p className="text-[11px] text-gray-400 mt-1">현재: <strong>{dept}</strong></p>
           </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 mb-1.5">교역자 표시명</label>
+            <input
+              value={pastorDraft}
+              onChange={e => setPastorDraft(e.target.value)}
+              placeholder="예: 교역자, 목회자, 사역자"
+              className="w-full px-3.5 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:border-primary-400 focus:outline-none"
+            />
+            <p className="text-[11px] text-gray-400 mt-1">
+              현재: <strong>{pastorLabel}</strong>
+            </p>
+            <p className="text-[11px] text-gray-400 mt-0.5 leading-snug">
+              목사·전도사 등 교역자 그룹을 화면에 표시할 명칭입니다.
+            </p>
+            <button
+              type="button"
+              onClick={() => setPastorDraft('교역자')}
+              className="mt-1.5 text-[11px] font-semibold text-primary-600 touch-target px-1"
+            >
+              기본값으로 되돌리기
+            </button>
+          </div>
         </div>
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
@@ -166,7 +191,7 @@ export default function OrganizationManagementPage() {
             }`}
           >
             {saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-            {saved ? '저장됨' : '조직명 저장'}
+            {saved ? '저장됨' : '용어 저장'}
           </button>
         </div>
       </div>

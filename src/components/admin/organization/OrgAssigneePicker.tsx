@@ -7,6 +7,7 @@ import { TabBar } from '../../common/ui/TabBar';
 import { CHURCH_LIST_CLASS, CHURCH_LIST_ROW_CLASS } from '../../common/ui/ChurchList';
 import { MobileFullScreenPage } from '../../layout/ContentEditorLayout';
 import { useBreakpoint } from '../../../hooks/useBreakpoint';
+import { useOrgSettings } from '../../../contexts/OrgSettingsContext';
 
 type Filter = 'all' | OrganizationAssigneeType;
 
@@ -21,10 +22,12 @@ function PersonRow({
   person,
   registered,
   onSelect,
+  pastorGroupLabel,
 }: {
   person: OrgPersonCandidate;
   registered: boolean;
   onSelect: () => void;
+  pastorGroupLabel: string;
 }) {
   const isPastor = person.assigneeType === 'pastor';
   return (
@@ -54,7 +57,7 @@ function PersonRow({
             'text-[11px] font-bold px-2 py-0.5 rounded-full',
             isPastor ? 'bg-indigo-50 text-indigo-700' : 'bg-emerald-50 text-emerald-700',
           ].join(' ')}>
-            {isPastor ? '교역자' : '성도'}
+            {isPastor ? pastorGroupLabel : '성도'}
           </span>
           {registered && (
             <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-gray-200 text-gray-600 flex items-center gap-0.5">
@@ -78,6 +81,7 @@ function PickerBody({
   organizationId: string;
   onSelect: (person: OrgPersonCandidate) => void;
 }) {
+  const { pastorLabel } = useOrgSettings();
   const [filter, setFilter] = useState<Filter>('all');
   const [query, setQuery] = useState('');
 
@@ -101,7 +105,7 @@ function PickerBody({
         <TabBar
           tabs={[
             { id: 'all', label: '전체' },
-            { id: 'pastor', label: '교역자' },
+            { id: 'pastor', label: pastorLabel },
             { id: 'member', label: '성도' },
           ]}
           activeTab={filter}
@@ -119,6 +123,7 @@ function PickerBody({
               person={p}
               registered={isAlreadyAssignee(organizationId, p.userId)}
               onSelect={() => onSelect(p)}
+              pastorGroupLabel={pastorLabel}
             />
           ))
         )}
@@ -129,6 +134,8 @@ function PickerBody({
 
 export function OrgAssigneePicker({ organizationId, open, onClose, onSelect }: Props) {
   const { isMobile } = useBreakpoint();
+  const { pastorLabel } = useOrgSettings();
+  const assigneeHint = `${pastorLabel} 또는 성도를 선택하세요.`;
   if (!open) return null;
 
   const handleSelect = (person: OrgPersonCandidate) => {
@@ -140,7 +147,7 @@ export function OrgAssigneePicker({ organizationId, open, onClose, onSelect }: P
     return (
       <MobileFullScreenPage
         title="담당자 선택"
-        description="교역자 또는 성도를 선택하세요."
+        description={assigneeHint}
         onBack={onClose}
       >
         <div className="-mx-6 -my-6 bg-white">
@@ -158,7 +165,7 @@ export function OrgAssigneePicker({ organizationId, open, onClose, onSelect }: P
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
           <div>
             <h3 className="text-[17px] font-bold text-gray-900">담당자 선택</h3>
-            <p className="text-[13px] text-gray-500 mt-0.5">교역자 또는 성도를 선택하세요.</p>
+            <p className="text-[13px] text-gray-500 mt-0.5">{assigneeHint}</p>
           </div>
           <button type="button" onClick={onClose} className="text-sm font-semibold text-gray-500 hover:text-gray-800 px-3 py-2">
             닫기

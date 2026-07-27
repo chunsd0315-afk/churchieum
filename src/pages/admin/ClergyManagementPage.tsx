@@ -553,7 +553,8 @@ export default function ClergyManagementPage({ onNavigate: _onNavigate, initialF
   const [list, setList] = useState<ClergyMember[]>(() => getAllClergy());
   const [detailId, setDetailId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const { l1, dept } = useOrgSettings();
+  const { l1, dept, pastorPhrases } = useOrgSettings();
+  const p = pastorPhrases.label;
 
   const refresh = () => setList(getAllClergy());
 
@@ -610,13 +611,13 @@ export default function ClergyManagementPage({ onNavigate: _onNavigate, initialF
   return (
     <div className="space-y-5 max-w-4xl">
       <PageHeaderBar
-        title="교역자관리"
-        description="교역자 정보와 담당 조직을 관리합니다."
+        title={pastorPhrases.managementCompact}
+        description={`${p} 정보와 담당 조직을 관리합니다.`}
       />
 
       <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 flex items-start gap-2">
         <Link className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
-        <p className="text-xs text-amber-700">교역자 등록은 <strong>초대관리</strong>에서만 가능합니다. 상단 "교역자 초대" 버튼을 이용하세요.</p>
+        <p className="text-xs text-amber-700">{p} 등록은 <strong>초대관리</strong>에서만 가능합니다. 상단 &quot;{p} 초대&quot; 버튼을 이용하세요.</p>
       </div>
 
       {/* Stats */}
@@ -650,7 +651,7 @@ export default function ClergyManagementPage({ onNavigate: _onNavigate, initialF
         {filtered.length === 0 ? (
           <div className="text-center py-14">
             <Users className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-            <p className="text-gray-400 font-medium text-sm">교역자가 없습니다</p>
+            <p className="text-gray-400 font-medium text-sm">{p}가 없습니다</p>
             {search && <p className="text-xs text-gray-300 mt-1">검색어를 바꿔보세요.</p>}
           </div>
         ) : filtered.map(c => (

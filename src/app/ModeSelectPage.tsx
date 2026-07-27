@@ -2,6 +2,7 @@
 import { useAuth } from '../contexts/AuthContext';
 import type { UserRole } from '../services/permissions';
 import { ChurchieumBrandBlock } from '../components/common/ChurchieumBrandBlock';
+import { useOrgSettings } from '../contexts/OrgSettingsContext';
 
 export type SelectableMode = 'member' | 'pastor' | 'admin';
 
@@ -14,6 +15,7 @@ export default function ModeSelectPage({ onSelectMode, userRole }: Props) {
   const { user, signOut } = useAuth();
   const isSuperAdmin = userRole === 'super_admin';
   const isPastor = userRole === 'pastor';
+  const { pastorPhrases } = useOrgSettings();
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-5" style={{ background: '#F8FAFC' }}>
@@ -49,7 +51,7 @@ export default function ModeSelectPage({ onSelectMode, userRole }: Props) {
                 <div className="flex-1">
                   <p className="font-bold text-gray-900 group-hover:text-emerald-600 transition-colors"
                     style={{ fontSize: '16px' }}>
-                    교역자 모드
+                    {pastorPhrases.mode}
                   </p>
                   <p className="text-gray-500 mt-0.5" style={{ fontSize: '13px' }}>
                     담당성도, 기도, 심방, 설교, 공지

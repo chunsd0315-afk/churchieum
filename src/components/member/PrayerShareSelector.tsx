@@ -50,7 +50,7 @@ export function PrayerShareSelector({
   onChange: (v: PrayerShareState) => void;
 }) {
   const { user, isPastor, isAdmin } = useAuth();
-  const { l1, l2, dept } = useOrgSettings();
+  const { l1, l2, dept, pastorPhrases } = useOrgSettings();
   const labels = useMemo(() => getOrganizationLabels(), [l1, l2, dept]);
   const isPastoralViewer = isPastor || isAdmin;
   const [orgTick, setOrgTick] = useState(0);
@@ -127,8 +127,8 @@ export function PrayerShareSelector({
                 disabledHint: `현재 소속된 ${labels.upper} 또는 ${labels.department}가 없습니다.`,
               },
               pastor_share: {
-                description: '내 소속 조직의 담당 교역자를 선택해 공유합니다.',
-                disabledHint: '현재 연결된 담당 교역자가 없습니다.',
+                description: pastorPhrases.shareSelectDescription,
+                disabledHint: `현재 연결된 담당 ${pastorPhrases.label}가 없습니다.`,
               },
             }}
           />

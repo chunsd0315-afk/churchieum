@@ -43,7 +43,7 @@ import {
 } from '../../services/sharedContentAccess';
 import type { ReceivedShareType, VisibilityFilter } from '../../types/sharedContent';
 import { migrateVisibility } from '../../types/sharedContent';
-import { getVisibilityLabels } from '../../services/orgTerminology';
+import { getVisibilityLabels, getPastorTerminologyPhrases } from '../../services/orgTerminology';
 import { useOrgSettings } from '../../contexts/OrgSettingsContext';
 import {
   getGraceShareTypeFilterLabel,
@@ -148,9 +148,10 @@ export function visibilityMeta(v: GraceNoteVisibility, sharedGroupAll?: boolean)
       color: 'text-violet-600 bg-violet-50',
     };
   }
+  const phrases = getPastorTerminologyPhrases(readOrgSettings());
   const opts = [
     { value: 'private' as const, label: '나만 보기', desc: '나만 볼 수 있어요', icon: <Lock className="w-3.5 h-3.5" />, color: 'text-gray-600 bg-gray-100' },
-    { value: 'pastor_share' as const, label: '담당 교역자와 공유', desc: '선택한 교역자와 공유', icon: <Eye className="w-3.5 h-3.5" />, color: 'text-blue-600 bg-blue-50' },
+    { value: 'pastor_share' as const, label: phrases.shareVisibility, desc: phrases.shareWithSelected, icon: <Eye className="w-3.5 h-3.5" />, color: 'text-blue-600 bg-blue-50' },
     { value: 'organization_share' as const, label: `${readOrgSettings().level1Label}/${readOrgSettings().departmentLabel} 공유`, desc: `선택한 ${readOrgSettings().level1Label}·${readOrgSettings().departmentLabel}와 공유`, icon: <Users className="w-3.5 h-3.5" />, color: 'text-emerald-600 bg-emerald-50' },
   ];
   return opts.find(o => o.value === v) ?? opts[0];
@@ -465,7 +466,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
   resetToMineSignal?: number;
 }) {
   const { user } = useAuth();
-  const { districtDepartmentLabel, terminologyVersion } = useOrgSettings();
+  const { districtDepartmentLabel, terminologyVersion, pastorPhrases } = useOrgSettings();
   void terminologyVersion;
   const { isMobile } = useBreakpoint();
   const [tab, setTab] = useState<GraceCollectTab>('mine');
@@ -830,7 +831,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
     if (tab === 'shared' && applied.authorRole !== 'all') {
       chips.push({
         key: 'authorRole',
-        label: applied.authorRole === 'member' ? '성도 작성' : '교역자 작성',
+        label: applied.authorRole === 'member' ? '성도 작성' : pastorPhrases.authorWrite,
         clear: () => setApplied(prev => ({ ...prev, authorRole: 'all', selectedAuthorIds: [] })),
       });
     }
@@ -866,7 +867,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
       });
     }
     return chips;
-  }, [tab, applied, appliedFlags, showShareTypeFilter, pastorLookupFlat, user, shareTypeChipVariant, hidePastorShareTypeOption, setApplied, isMemberUser]);
+  }, [tab, applied, appliedFlags, showShareTypeFilter, pastorLookupFlat, user, shareTypeChipVariant, hidePastorShareTypeOption, setApplied, isMemberUser, pastorPhrases.authorWrite]);
 
   const resetAppliedFilters = () => {
     setApplied(cloneFilter(createEmptyFilter(user, '')));
@@ -949,13 +950,13 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
     if (applied.shareType === 'pastor_share') {
       return {
         title: isAdminUser
-          ? '조건에 맞는 교역자 직접 공유 기록이 없습니다.'
+          ? pastorPhrases.emptyPastorShareFilteredAdmin
           : isPastorUser
             ? '나에게 직접 공유된 기록이 없습니다.'
-            : '교역자에게 직접 공유받은 기록이 없습니다.',
+            : pastorPhrases.emptyPastorShareReceivedMember,
         desc: isMemberUser
-          ? '성도 모드에서는 다른 사람의 교역자 직접 공유 기록을 보지 않습니다.'
-          : '성도·교역자가 교역자에게 직접 공유한 기록이 이곳에 나타납니다.',
+          ? pastorPhrases.emptyPastorShareHintMember
+          : pastorPhrases.emptyPastorShareHintDefault,
       };
     }
 
@@ -998,7 +999,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
       title: '조회 가능한 공유 기록이 없습니다.',
       desc: '공유된 기록이 이곳에 나타납니다.',
     };
-  }, [tab, applied, applied.organizationIds, coreOrgIds.length, isMemberUser, isPastorUser, hasAppliedFilters, search, districtDepartmentLabel]);
+  }, [tab, applied, applied.organizationIds, coreOrgIds.length, isMemberUser, isPastorUser, hasAppliedFilters, search, districtDepartmentLabel, pastorPhrases, isAdminUser]);
 
   if (collectionView === 'filter') {
     return (
@@ -1080,8 +1081,8 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
               selectedPastorIds: ids,
               selectedAuthorIds: [],
             }))}
-            sectionTitle="공유받은 교역자"
-            sectionDescription="성도 또는 다른 교역자가 직접 공유 대상으로 선택한 교역자를 선택합니다."
+            sectionTitle={pastorPhrases.sharedPastorChip}
+            sectionDescription={pastorPhrases.sharedPastorFilterDescription}
           />
         )}
 

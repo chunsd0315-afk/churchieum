@@ -3,6 +3,7 @@ import { useAuth, PRIMARY_DEMO_ACCOUNTS } from '../contexts/AuthContext';
 import { resolveProfileImage, roleToProfileImageRole } from '../services/profileImage';
 import { Mail, Lock, User, Eye, EyeOff, Check } from 'lucide-react';
 import { ChurchieumBrandBlock } from '../components/common/ChurchieumBrandBlock';
+import { useOrgSettings } from '../contexts/OrgSettingsContext';
 
 // ─── Welcome Messages ─────────────────────────────────────────────────────────
 
@@ -36,6 +37,7 @@ function dailyRandom(max: number): number {
 }
 
 const DEMO_ACCOUNTS = PRIMARY_DEMO_ACCOUNTS.map(acc => ({
+  key: acc.key,
   label: acc.label,
   name: acc.name,
   title: acc.position,
@@ -50,10 +52,11 @@ const DEMO_ACCOUNTS = PRIMARY_DEMO_ACCOUNTS.map(acc => ({
 
 type DemoPanelProps = {
   selectedEmail: string;
+  pastorGroupLabel: string;
   onSelectAccount: (email: string, password: string, toast: string) => void;
 };
 
-function DemoPanel({ selectedEmail, onSelectAccount }: DemoPanelProps) {
+function DemoPanel({ selectedEmail, pastorGroupLabel, onSelectAccount }: DemoPanelProps) {
   return (
     <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)' }}>
       {/* Header */}
@@ -67,6 +70,8 @@ function DemoPanel({ selectedEmail, onSelectAccount }: DemoPanelProps) {
       <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
         {DEMO_ACCOUNTS.map((acc, i) => {
           const selected = selectedEmail === acc.email;
+          const roleBadge =
+            acc.key === 'pastor' ? `👨‍💼 ${pastorGroupLabel}` : acc.label;
           return (
             <button
               key={i}
@@ -88,7 +93,7 @@ function DemoPanel({ selectedEmail, onSelectAccount }: DemoPanelProps) {
                   />
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[11px] font-bold" style={{ color: selected ? 'rgba(147,197,253,0.95)' : 'rgba(255,255,255,0.55)' }}>{acc.label}</span>
+                      <span className="text-[11px] font-bold" style={{ color: selected ? 'rgba(147,197,253,0.95)' : 'rgba(255,255,255,0.55)' }}>{roleBadge}</span>
                       <span className="text-[12px] font-semibold" style={{ color: selected ? '#fff' : 'rgba(255,255,255,0.8)' }}>{acc.name}</span>
                       <span className="text-[11px]" style={{ color: selected ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.4)' }}>/ {acc.title}</span>
                     </div>
@@ -136,6 +141,7 @@ type Props = { onSuccess: () => void };
 
 export default function LoginPage({ onSuccess }: Props) {
   const { signIn, signUp } = useAuth();
+  const { pastorLabel } = useOrgSettings();
 
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
@@ -304,6 +310,7 @@ export default function LoginPage({ onSuccess }: Props) {
         {isLogin && (
           <DemoPanel
             selectedEmail={email}
+            pastorGroupLabel={pastorLabel}
             onSelectAccount={handleSelectDemo}
           />
         )}

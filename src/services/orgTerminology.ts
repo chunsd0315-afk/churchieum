@@ -18,6 +18,7 @@ export const DEFAULT_ORG_TERMINOLOGY = {
   level1Label: '교구',
   level2Label: '구역',
   departmentLabel: '부서',
+  pastorLabel: '교역자',
 } as const;
 
 /** Context OrgTerminologySettings 와 동일한 필드 — 순환 import 방지용 로컬 타입 */
@@ -28,6 +29,7 @@ export type OrgTerminologySettings = {
   level1Label: string;
   level2Label: string;
   departmentLabel: string;
+  pastorLabel?: string;
 };
 
 const LS_ORG_SETTINGS = 'org_settings_v1';
@@ -51,6 +53,7 @@ function readSettingsFromStorage(): OrgTerminologySettings {
       level1Label: parsed.level1Label?.trim() || DEFAULT_ORG_TERMINOLOGY.level1Label,
       level2Label: parsed.level2Label?.trim() || DEFAULT_ORG_TERMINOLOGY.level2Label,
       departmentLabel: parsed.departmentLabel?.trim() || DEFAULT_ORG_TERMINOLOGY.departmentLabel,
+      pastorLabel: parsed.pastorLabel?.trim() || DEFAULT_ORG_TERMINOLOGY.pastorLabel,
     };
   } catch {
     return {
@@ -86,6 +89,116 @@ export function getOrgDepartmentLabel(
   const s = settings ?? readSettingsFromStorage();
   const v = s.departmentLabel?.trim();
   return v || DEFAULT_ORG_TERMINOLOGY.departmentLabel;
+}
+
+/** 화면 표시용 교역자 그룹 명칭 (역할 enum과 무관) */
+export function getPastorLabel(
+  settings?: Pick<OrgTerminologySettings, 'pastorLabel'> | null,
+): string {
+  const s = settings ?? readSettingsFromStorage();
+  const v = s.pastorLabel?.trim();
+  return v || DEFAULT_ORG_TERMINOLOGY.pastorLabel;
+}
+
+export function validatePastorLabel(raw: string, maxLen = 10): string | null {
+  const v = raw.trim();
+  if (!v) return '표시할 용어를 입력해 주세요.';
+  if (v.length < 2) return '2자 이상 입력해 주세요.';
+  if (v.length > maxLen) return `${maxLen}자 이내로 입력해 주세요.`;
+  if (/[<>]/.test(v)) return '사용할 수 없는 문자가 포함되어 있습니다.';
+  return null;
+}
+
+/** 받침 유무 — 을/를 */
+export function withObjectParticle(word: string): string {
+  const w = word.trim();
+  if (!w) return '을';
+  const last = w.charCodeAt(w.length - 1);
+  if (last >= 0xac00 && last <= 0xd7a3) {
+    const hasBatchim = (last - 0xac00) % 28 !== 0;
+    return hasBatchim ? '을' : '를';
+  }
+  return '을';
+}
+
+/** 받침 유무 — 이/가 */
+export function withSubjectParticle(word: string): string {
+  const w = word.trim();
+  if (!w) return '이';
+  const last = w.charCodeAt(w.length - 1);
+  if (last >= 0xac00 && last <= 0xd7a3) {
+    const hasBatchim = (last - 0xac00) % 28 !== 0;
+    return hasBatchim ? '이' : '가';
+  }
+  return '이';
+}
+
+export type PastorTerminologyPhrases = {
+  label: string;
+  shareVisibility: string;
+  shareVisibilityPastor: string;
+  shareSelectTitle: string;
+  shareSelectDescription: string;
+  shareTypeFilter: string;
+  sharedPastorChip: string;
+  searchPlaceholder: string;
+  management: string;
+  managementCompact: string;
+  mode: string;
+  authorRole: string;
+  emptyAssignee: string;
+  selectAtLeastOne: string;
+  inviteDescription: string;
+  assigneeTag: string;
+  sharedPastorFilterDescription: string;
+  authorWrite: string;
+  pastorSelectSection: string;
+  allPastors: string;
+  emptyPastorShareFilteredAdmin: string;
+  emptyPastorShareReceivedMember: string;
+  emptyPastorShareHintMember: string;
+  emptyPastorShareHintDefault: string;
+  shareWithSelected: string;
+  noSelectablePastor: string;
+  currentPastorsGroup: string;
+  historicalSharedPastors: string;
+};
+
+export function getPastorTerminologyPhrases(
+  settings?: OrgTerminologySettings | null,
+): PastorTerminologyPhrases {
+  const p = getPastorLabel(settings);
+  const po = withObjectParticle(p);
+  return {
+    label: p,
+    shareVisibility: `담당 ${p}와 공유`,
+    shareVisibilityPastor: `${p}와 공유`,
+    shareSelectTitle: `담당 ${p} 선택`,
+    shareSelectDescription: `내 소속 조직의 담당 ${p}${withSubjectParticle(p) === '이' ? '를' : '을'} 선택해 공유합니다.`,
+    shareTypeFilter: `${p}에게 공유한 기록`,
+    sharedPastorChip: `공유받은 ${p}`,
+    searchPlaceholder: `${p} 이름 또는 조직을 검색하세요.`,
+    management: `${p} 관리`,
+    managementCompact: `${p}관리`,
+    mode: `${p} 모드`,
+    authorRole: p,
+    emptyAssignee: `등록된 담당 ${p}가 없습니다.`,
+    selectAtLeastOne: `공유할 ${p}${withObjectParticle(p)} 선택해 주세요.`,
+    inviteDescription: `성도 및 ${p} 초대 링크를 발송하고 관리합니다`,
+    assigneeTag: `담당 ${p}`,
+    sharedPastorFilterDescription: `성도 또는 다른 ${p}가 직접 공유 대상으로 선택한 ${p}${withObjectParticle(p)} 선택합니다.`,
+    authorWrite: `${p} 작성`,
+    pastorSelectSection: `${p} 선택`,
+    allPastors: `전체 ${p}`,
+    emptyPastorShareFilteredAdmin: `조건에 맞는 ${p} 직접 공유 기록이 없습니다.`,
+    emptyPastorShareReceivedMember: `${p}에게 직접 공유받은 기록이 없습니다.`,
+    emptyPastorShareHintMember: `성도 모드에서는 다른 사람의 ${p} 직접 공유 기록을 보지 않습니다.`,
+    emptyPastorShareHintDefault: `성도·${p}가 ${p}에게 직접 공유한 기록이 이곳에 나타납니다.`,
+    shareWithSelected: `선택한 ${p}와 공유`,
+    noSelectablePastor: `선택할 수 있는 ${p}가 없습니다.`,
+    currentPastorsGroup: `현재 ${p}`,
+    historicalSharedPastors: `이전에 공유한 ${p}`,
+  };
 }
 
 /** 조합형: 교구·부서 → 목장·공동체 */
@@ -282,10 +395,12 @@ export function getOrganizationTypeDisplay(
 export function getVisibilityLabels(
   settings?: OrgTerminologySettings | null,
 ): Record<'private' | 'pastor_share' | 'organization_share', string> {
-  const dd = getDistrictDepartmentLabel(resolveSettings(settings));
+  const s = resolveSettings(settings);
+  const dd = getDistrictDepartmentLabel(s);
+  const phrases = getPastorTerminologyPhrases(s);
   return {
     private: '나만 보기',
-    pastor_share: '담당 교역자와 공유',
+    pastor_share: phrases.shareVisibility,
     organization_share: `${dd}와 공유`,
   };
 }
@@ -293,22 +408,60 @@ export function getVisibilityLabels(
 export function getVisibilityLabelsPastor(
   settings?: OrgTerminologySettings | null,
 ): Record<'private' | 'pastor_share' | 'organization_share', string> {
-  const dd = getDistrictDepartmentLabel(resolveSettings(settings));
+  const s = resolveSettings(settings);
+  const dd = getDistrictDepartmentLabel(s);
+  const phrases = getPastorTerminologyPhrases(s);
   return {
     private: '나만 보기',
-    pastor_share: '교역자와 공유',
+    pastor_share: phrases.shareVisibilityPastor,
     organization_share: `${dd}와 공유`,
+  };
+}
+
+export function getVisibilityDescriptions(
+  settings?: OrgTerminologySettings | null,
+): Record<'private' | 'pastor_share' | 'organization_share', string> {
+  const phrases = getPastorTerminologyPhrases(settings);
+  return {
+    private: '나만 볼 수 있어요.',
+    pastor_share: phrases.shareSelectDescription,
+    organization_share: '선택한 공동체와 함께 나눠요.',
+  };
+}
+
+export function getVisibilityDescriptionsPastor(
+  settings?: OrgTerminologySettings | null,
+): Record<'private' | 'pastor_share' | 'organization_share', string> {
+  const s = resolveSettings(settings);
+  const p = getPastorLabel(s);
+  return {
+    private: '나만 볼 수 있어요.',
+    pastor_share: `내 소속·담당 조직의 상위 담당 ${p}${withSubjectParticle(p) === '이' ? '를' : '을'} 선택해 공유합니다.`,
+    organization_share: '선택한 공동체와 함께 나눠요.',
   };
 }
 
 export function getShareTypeFilterLabels(
   settings?: OrgTerminologySettings | null,
 ): Record<'pastor_share' | 'organization_share', string> {
-  const dd = getDistrictDepartmentLabel(resolveSettings(settings));
+  const s = resolveSettings(settings);
+  const dd = getDistrictDepartmentLabel(s);
+  const phrases = getPastorTerminologyPhrases(s);
   return {
-    pastor_share: '교역자에게 공유한 기록',
+    pastor_share: phrases.shareTypeFilter,
     organization_share: `${dd}에 공유한 기록`,
   };
+}
+
+export function getAuthorRoleFilterOptions(
+  settings?: OrgTerminologySettings | null,
+): { id: 'all' | 'member' | 'pastor'; label: string }[] {
+  const phrases = getPastorTerminologyPhrases(settings);
+  return [
+    { id: 'all', label: '전체 작성자' },
+    { id: 'member', label: '성도' },
+    { id: 'pastor', label: phrases.authorRole },
+  ];
 }
 
 export { mapLabelForKind };

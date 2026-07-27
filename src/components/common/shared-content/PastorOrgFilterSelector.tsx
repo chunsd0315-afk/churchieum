@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, Search } from 'lucide-react';
 import type { EligiblePastor } from '../../../services/graceNoteShareScope';
 import type { PastorOrgGroup } from '../../../services/graceShareFilterHelpers';
+import { useOrgSettings } from '../../../contexts/OrgSettingsContext';
 
 export type PastorOrgFilterSelectorProps = {
   groups: PastorOrgGroup[];
@@ -24,11 +25,13 @@ export function PastorOrgFilterSelector({
   selectedPastorIds,
   onChange,
   searchable = true,
-  sectionTitle = '교역자 선택',
+  sectionTitle,
   sectionDescription,
   className = '',
   emptyMeansAll = true,
 }: PastorOrgFilterSelectorProps) {
+  const { pastorPhrases } = useOrgSettings();
+  const resolvedTitle = sectionTitle ?? pastorPhrases.pastorSelectSection;
   const [q, setQ] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -84,7 +87,7 @@ export function PastorOrgFilterSelector({
   if (flat.length === 0) {
     return (
       <p className={`text-sm text-gray-500 px-1 py-2 ${className}`}>
-        선택할 수 있는 교역자가 없습니다.
+        {pastorPhrases.noSelectablePastor}
       </p>
     );
   }
@@ -92,7 +95,7 @@ export function PastorOrgFilterSelector({
   return (
     <div className={className}>
       <div className="flex items-center justify-between mb-1 gap-2">
-        <p className="text-xs font-bold text-gray-500">{sectionTitle}</p>
+        <p className="text-xs font-bold text-gray-500">{resolvedTitle}</p>
         {!isAll && (
           <span className="text-[11px] font-semibold text-primary-600">
             {selectedPastorIds.length}명 선택
@@ -109,7 +112,7 @@ export function PastorOrgFilterSelector({
           <input
             value={q}
             onChange={e => setQ(e.target.value)}
-            placeholder="교역자 이름 또는 조직을 검색하세요."
+            placeholder={pastorPhrases.searchPlaceholder}
             className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white focus:border-primary-400 focus:outline-none"
           />
         </div>
@@ -124,7 +127,7 @@ export function PastorOrgFilterSelector({
               onChange={() => onChange([])}
               className="w-5 h-5 rounded border-gray-300 text-primary-600 shrink-0"
             />
-            <span className="text-[14px] font-semibold text-gray-800">전체 교역자</span>
+            <span className="text-[14px] font-semibold text-gray-800">{pastorPhrases.allPastors}</span>
           </label>
         )}
 

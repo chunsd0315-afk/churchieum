@@ -2,16 +2,22 @@
 import HomeDashboard from '../common/home/HomeDashboard';
 import { ADMIN_ROLE_MENUS, buildHomeMenuItems } from '../common/home/roleMenus';
 import { useHomeLayoutActions } from '../common/home/HomeLayoutContext';
+import { useOrgSettings } from '../../contexts/OrgSettingsContext';
+import { useMemo } from 'react';
 
 type Props = { onNavigate: (page: AdminPage) => void };
 
 export default function AdminHome({ onNavigate }: Props) {
   const { openSettings } = useHomeLayoutActions();
+  const { settings } = useOrgSettings();
 
-  const menuItems = buildHomeMenuItems(
-    ADMIN_ROLE_MENUS,
-    page => onNavigate(page as AdminPage),
-    { onSettings: openSettings },
+  const menuItems = useMemo(
+    () => buildHomeMenuItems(
+      ADMIN_ROLE_MENUS,
+      page => onNavigate(page as AdminPage),
+      { onSettings: openSettings, settings },
+    ),
+    [onNavigate, openSettings, settings],
   );
 
   return (

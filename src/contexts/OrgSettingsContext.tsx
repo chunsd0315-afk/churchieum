@@ -22,6 +22,9 @@ import {
   getOrgLevel2Label,
   syncOrganizationTerminology,
   validateOrgTerminologyLabel,
+  validatePastorLabel,
+  getPastorLabel,
+  getPastorTerminologyPhrases,
 } from '../services/orgTerminology';
 
 const LS_KEY = 'org_settings_v1';
@@ -33,6 +36,7 @@ export type OrgSettings = {
   level1Label: string;
   level2Label: string;
   departmentLabel: string;
+  pastorLabel: string;
 };
 
 const DEFAULTS: OrgSettings = {
@@ -42,6 +46,7 @@ const DEFAULTS: OrgSettings = {
   level1Label: '교구',
   level2Label: '구역',
   departmentLabel: '부서',
+  pastorLabel: '교역자',
 };
 
 function load(): OrgSettings {
@@ -56,6 +61,7 @@ function load(): OrgSettings {
       level2Label: (parsed.level2Label ?? DEFAULTS.level2Label).trim() || DEFAULTS.level2Label,
       departmentLabel:
         (parsed.departmentLabel ?? DEFAULTS.departmentLabel).trim() || DEFAULTS.departmentLabel,
+      pastorLabel: (parsed.pastorLabel ?? DEFAULTS.pastorLabel).trim() || DEFAULTS.pastorLabel,
     };
   } catch {
     return { ...DEFAULTS };
@@ -82,6 +88,9 @@ type Ctx = {
   dept: string;
   /** 조합: 교구·부서 */
   districtDepartmentLabel: string;
+  /** 교역자 그룹 표시명 */
+  pastorLabel: string;
+  pastorPhrases: ReturnType<typeof getPastorTerminologyPhrases>;
 };
 
 const OrgSettingsContext = createContext<Ctx | null>(null);
@@ -108,6 +117,7 @@ export function OrgSettingsProvider({ children }: { children: ReactNode }) {
           level2Label: (parsed.level2Label ?? DEFAULTS.level2Label).trim() || DEFAULTS.level2Label,
           departmentLabel:
             (parsed.departmentLabel ?? DEFAULTS.departmentLabel).trim() || DEFAULTS.departmentLabel,
+          pastorLabel: (parsed.pastorLabel ?? DEFAULTS.pastorLabel).trim() || DEFAULTS.pastorLabel,
         };
         setSettings(prev => {
           syncOrganizationTerminology(prev, next);
@@ -129,6 +139,9 @@ export function OrgSettingsProvider({ children }: { children: ReactNode }) {
     const dept = (
       updates.departmentLabel !== undefined ? updates.departmentLabel : merged.departmentLabel
     ).trim();
+    const pastor = (
+      updates.pastorLabel !== undefined ? updates.pastorLabel : merged.pastorLabel
+    ).trim();
 
     for (const [label, value] of [
       ['상위조직', l1],
@@ -139,11 +152,15 @@ export function OrgSettingsProvider({ children }: { children: ReactNode }) {
       if (err) return { ok: false, error: err.replace('조직명', `${label} 이름`) };
     }
 
+    const pastorErr = validatePastorLabel(pastor);
+    if (pastorErr) return { ok: false, error: pastorErr };
+
     const next: OrgSettings = {
       ...merged,
       level1Label: l1 || DEFAULTS.level1Label,
       level2Label: l2 || DEFAULTS.level2Label,
       departmentLabel: dept || DEFAULTS.departmentLabel,
+      pastorLabel: pastor || DEFAULTS.pastorLabel,
     };
 
     try {
@@ -165,6 +182,8 @@ export function OrgSettingsProvider({ children }: { children: ReactNode }) {
     l2: getOrgLevel2Label(settings),
     dept: getOrgDepartmentLabel(settings),
     districtDepartmentLabel: getDistrictDepartmentLabel(settings),
+    pastorLabel: getPastorLabel(settings),
+    pastorPhrases: getPastorTerminologyPhrases(settings),
   }), [settings, terminologyVersion, updateSettings]);
 
   return (

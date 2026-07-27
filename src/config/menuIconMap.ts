@@ -24,6 +24,7 @@ import {
   Video,
   GitBranch,
 } from 'lucide-react';
+import { getPastorTerminologyPhrases, type OrgTerminologySettings } from '../services/orgTerminology';
 
 export type MenuIconKey =
   | 'home'
@@ -93,7 +94,8 @@ export const menuIconLabels: Record<MenuIconKey, string> = {
   settings: '설정',
 };
 
-export function getMenuIconLabel(key: MenuIconKey): string {
+export function getMenuIconLabel(key: MenuIconKey, settings?: OrgTerminologySettings | null): string {
+  if (key === 'clergy') return getPastorTerminologyPhrases(settings).management;
   return menuIconLabels[key] ?? '메뉴';
 }
 

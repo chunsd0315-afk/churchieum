@@ -1,10 +1,12 @@
 import { Lock, UserRound, Users } from 'lucide-react';
 import type { VisibilityType } from '../../../types/sharedContent';
 import {
-  VISIBILITY_DESCRIPTIONS,
-  VISIBILITY_DESCRIPTIONS_PASTOR,
-} from '../../../types/sharedContent';
-import { getVisibilityLabels, getVisibilityLabelsPastor } from '../../../services/orgTerminology';
+  getVisibilityLabels,
+  getVisibilityLabelsPastor,
+  getVisibilityDescriptions,
+  getVisibilityDescriptionsPastor,
+} from '../../../services/orgTerminology';
+import { useOrgSettings } from '../../../contexts/OrgSettingsContext';
 
 export type VisibilityOptionOverride = {
   label?: string;
@@ -39,8 +41,10 @@ export function VisibilitySelector({
   optionOverrides = {},
   className = '',
 }: VisibilitySelectorProps) {
-  const labels = variant === 'pastor' ? getVisibilityLabelsPastor() : getVisibilityLabels();
-  const descs = variant === 'pastor' ? VISIBILITY_DESCRIPTIONS_PASTOR : VISIBILITY_DESCRIPTIONS;
+  const { settings, terminologyVersion } = useOrgSettings();
+  void terminologyVersion;
+  const labels = variant === 'pastor' ? getVisibilityLabelsPastor(settings) : getVisibilityLabels(settings);
+  const descs = variant === 'pastor' ? getVisibilityDescriptionsPastor(settings) : getVisibilityDescriptions(settings);
 
   return (
     <div className={`flex flex-col ${className}`} role="radiogroup" aria-label="공개범위">

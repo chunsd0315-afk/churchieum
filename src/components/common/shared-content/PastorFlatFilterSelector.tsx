@@ -5,6 +5,7 @@ import type {
   AvailablePastorForFilter,
   PastorFilterGroups,
 } from '../../../services/graceShareFilterHelpers';
+import { useOrgSettings } from '../../../contexts/OrgSettingsContext';
 
 export type PastorFlatFilterSelectorProps = {
   /** @deprecated pastorGroups 사용 권장 */
@@ -86,9 +87,11 @@ export function PastorFlatFilterSelector({
   selectedPastorIds,
   onChange,
   searchable = true,
-  sectionTitle = '교역자 선택',
+  sectionTitle,
   className = '',
 }: PastorFlatFilterSelectorProps) {
+  const { pastorPhrases } = useOrgSettings();
+  const resolvedTitle = sectionTitle ?? pastorPhrases.pastorSelectSection;
   const [q, setQ] = useState('');
 
   const { current, historical, flat } = useMemo(() => {
@@ -133,7 +136,7 @@ export function PastorFlatFilterSelector({
   if (flat.length === 0) {
     return (
       <p className={`text-sm text-gray-500 px-1 py-2 ${className}`}>
-        선택할 수 있는 교역자가 없습니다.
+        {pastorPhrases.noSelectablePastor}
       </p>
     );
   }
@@ -141,7 +144,7 @@ export function PastorFlatFilterSelector({
   return (
     <div className={className}>
       <div className="flex items-center justify-between mb-2 gap-2">
-        <p className="text-sm font-bold text-gray-800">{sectionTitle}</p>
+        <p className="text-sm font-bold text-gray-800">{resolvedTitle}</p>
         {selectedPastorIds.length > 0 && (
           <span className="text-[11px] font-semibold text-primary-600">
             {selectedPastorIds.length}명 선택
@@ -155,7 +158,7 @@ export function PastorFlatFilterSelector({
           <input
             value={q}
             onChange={e => setQ(e.target.value)}
-            placeholder="교역자 이름을 검색하세요"
+            placeholder={pastorPhrases.searchPlaceholder}
             className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-gray-50 focus:bg-white focus:border-primary-400 focus:outline-none"
           />
         </div>
@@ -166,7 +169,7 @@ export function PastorFlatFilterSelector({
           <div>
             {historical.length > 0 && (
               <p className="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wide">
-                현재 교역자
+                {pastorPhrases.currentPastorsGroup}
               </p>
             )}
             {filteredCurrent.map(p => (
@@ -183,7 +186,7 @@ export function PastorFlatFilterSelector({
         {filteredHistorical.length > 0 && (
           <div>
             <p className="px-4 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-wide border-t border-gray-100">
-              이전에 공유한 교역자
+              {pastorPhrases.historicalSharedPastors}
             </p>
             {filteredHistorical.map(p => (
               <PastorCheckboxRow
