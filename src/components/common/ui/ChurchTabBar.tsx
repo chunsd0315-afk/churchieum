@@ -26,8 +26,8 @@ export function ChurchTabBar({ tabs, activeTab, onChange }: ChurchTabBarProps) {
             className={[
               'h-10 px-4 rounded-full text-sm font-semibold transition-all duration-150 flex items-center gap-1.5',
               active
-                ? 'bg-primary-500 text-white shadow-sm'
-                : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-300 hover:text-gray-800',
+                ? 'bg-primary-500 text-[#1A1A1A] shadow-sm'
+                : 'bg-white border border-[#ECECEC] text-gray-600 hover:border-gray-300 hover:text-gray-800',
             ].join(' ')}
           >
             {tab.label}
@@ -35,7 +35,7 @@ export function ChurchTabBar({ tabs, activeTab, onChange }: ChurchTabBarProps) {
               <span
                 className={[
                   'text-[11px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center',
-                  active ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500',
+                  active ? 'bg-black/10 text-[#1A1A1A]' : 'bg-gray-100 text-gray-500',
                 ].join(' ')}
               >
                 {tab.count}
@@ -63,8 +63,8 @@ export function ChurchFilterChip({ children, active = false, onClick }: ChurchFi
       className={[
         'h-[38px] px-3.5 rounded-full text-xs font-semibold transition-all duration-150 whitespace-nowrap',
         active
-          ? 'bg-primary-500 text-white shadow-sm'
-          : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-300 hover:text-gray-800',
+          ? 'bg-primary-500 text-[#1A1A1A] shadow-sm'
+          : 'bg-white border border-[#ECECEC] text-gray-600 hover:border-gray-300 hover:text-gray-800',
       ].join(' ')}
     >
       {children}

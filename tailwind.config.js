@@ -77,7 +77,7 @@ export default {
 
       fontWeight: {
         normal:   'var(--font-regular)',
-        medium:   'var(--font-semibold)',
+        medium:   'var(--font-medium)',
         semibold: 'var(--font-semibold)',
         bold:     'var(--font-bold)',
         extrabold: 'var(--font-bold)',

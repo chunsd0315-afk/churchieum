@@ -15,17 +15,17 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 const variantClasses: Record<ButtonVariant, string> = {
-  primary:   'bg-primary-500 text-white shadow-btn-primary hover:bg-primary-600 hover:shadow-btn-primary-hover active:scale-[0.98] disabled:opacity-50',
-  secondary: 'bg-white text-primary-600 border border-primary-200 hover:bg-primary-50 active:scale-[0.98] disabled:opacity-50',
-  outline:   'border border-primary-500 text-primary-500 hover:bg-primary-50 active:scale-[0.98] disabled:opacity-50',
-  ghost:     'text-gray-600 hover:bg-gray-100 active:scale-[0.98] disabled:opacity-50',
-  danger:    'bg-red-500 text-white hover:bg-red-600 active:scale-[0.98] disabled:opacity-50',
+  primary:   'bg-primary-500 text-[#1A1A1A] shadow-btn-primary hover:bg-primary-600 hover:shadow-btn-primary-hover active:scale-[0.97] disabled:opacity-50',
+  secondary: 'bg-white text-[#1A1A1A] border border-[#ECECEC] hover:bg-[#F5F5F5] active:scale-[0.97] disabled:opacity-50',
+  outline:   'border border-[#ECECEC] text-[#1A1A1A] hover:bg-primary-50 active:scale-[0.97] disabled:opacity-50',
+  ghost:     'text-gray-600 hover:bg-gray-100 active:scale-[0.97] disabled:opacity-50',
+  danger:    'bg-error-500 text-white hover:bg-error-600 active:scale-[0.97] disabled:opacity-50',
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: 'h-9 px-4 text-sm gap-1.5',
+  sm: 'h-10 px-4 text-sm gap-1.5',
   md: 'h-12 px-6 text-sm gap-2',
-  lg: 'h-14 px-8 text-base gap-2',
+  lg: 'h-12 px-8 text-base gap-2',
 };
 
 export function Button({

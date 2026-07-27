@@ -35,7 +35,7 @@ export default function PCLeftSidebar({ currentPage, onNavigate, onSwitchMode, i
 
   const modeSwitcher = isAdmin ? (
     <div className="flex gap-1 p-1 rounded-[10px]" style={{ background: '#F1F5F9' }}>
-      <button type="button" className="flex-1 py-1.5 bg-white rounded-[8px] text-[11px] font-bold shadow-sm" style={{ color: '#2563EB' }}>
+      <button type="button" className="flex-1 py-1.5 bg-white rounded-[8px] text-[11px] font-bold shadow-sm" style={{ color: '#B45309' }}>
         성도모드
       </button>
       <button

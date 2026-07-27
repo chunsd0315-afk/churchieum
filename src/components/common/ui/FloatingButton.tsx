@@ -33,14 +33,15 @@ export function FloatingButton({
       onClick={onClick}
       aria-label={label ?? '추가'}
       className={[
-        'fixed z-toast shadow-overlay text-white bg-primary-500',
+        'fixed z-toast text-[#1A1A1A] bg-primary-500',
         'flex items-center justify-center gap-2',
         'transition-[transform,box-shadow,background-color] duration-[var(--duration-base)]',
         'hover:bg-primary-600 hover:scale-105 active:scale-95',
-        isExtended ? 'px-5 h-14 rounded-full text-sm font-semibold' : 'w-14 h-14 rounded-full',
+        isExtended ? 'px-5 h-12 rounded-full text-sm font-semibold' : 'w-14 h-14 rounded-full',
         positionClasses[position],
         className,
       ].join(' ')}
+      style={{ boxShadow: '0 8px 24px rgba(255, 205, 0, 0.40)' }}
     >
       {icon}
       {label && <span>{label}</span>}

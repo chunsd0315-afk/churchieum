@@ -53,7 +53,7 @@ export function PlayerCard({
             type="button"
             onClick={togglePlay}
             aria-label={isPlaying ? '일시정지' : '재생'}
-            className={`${btnBase} w-10 h-10 bg-primary-500 text-white hover:bg-primary-600`}
+            className={`${btnBase} w-10 h-10 bg-primary-500 text-[#1A1A1A] hover:bg-primary-600`}
           >
             {isPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
           </button>
@@ -101,7 +101,7 @@ export function PlayerCard({
             type="button"
             onClick={togglePlay}
             aria-label={isPlaying ? '일시정지' : '재생'}
-            className={`${btnBase} w-14 h-14 bg-primary-500 text-white hover:bg-primary-600 shadow-btn-primary`}
+            className={`${btnBase} w-14 h-14 bg-primary-500 text-[#1A1A1A] hover:bg-primary-600 shadow-btn-primary`}
           >
             {isPlaying ? <Pause size={22} /> : <Play size={22} className="ml-0.5" />}
           </button>

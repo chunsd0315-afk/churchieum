@@ -95,14 +95,14 @@ export function TabBar({ tabs, activeTab, onChange, variant = 'pill', className 
               'flex items-center gap-1.5 px-4 h-9 rounded-full text-sm font-semibold whitespace-nowrap shrink-0',
               'transition-[background-color,color] duration-[var(--duration-base)]',
               isActive
-                ? 'bg-primary-500 text-white'
+                ? 'bg-primary-500 text-[#1A1A1A]'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-800',
             ].join(' ')}
           >
             {Icon && <Icon className="w-4 h-4" />}
             {tab.label}
             {tab.count !== undefined && (
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${isActive ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-500'}`}>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${isActive ? 'bg-black/10 text-[#1A1A1A]' : 'bg-gray-200 text-gray-500'}`}>
                 {tab.count}
               </span>
             )}

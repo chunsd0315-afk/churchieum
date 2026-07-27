@@ -14,7 +14,7 @@ type Props = {
   className?: string;
 };
 
-/** 역할 구분용 소형 배지 — 앱 전체 컬러는 블루 통일, 배지만 역할별 */
+/** 역할 구분용 소형 배지 — 역할별 따뜻한 톤 */
 export function RoleBadge({ label, mode, className = '' }: Props) {
   const style = BADGE_STYLES[mode];
   return (

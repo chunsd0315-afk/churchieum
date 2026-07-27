@@ -25,13 +25,13 @@ export function FilterBar({ filters, activeFilter, onChange, className = '' }: F
               'flex items-center gap-1 px-4 h-9 rounded-full text-sm font-medium whitespace-nowrap shrink-0',
               'transition-[background-color,color] duration-[var(--duration-base)]',
               isActive
-                ? 'bg-primary-500 text-white'
+                ? 'bg-primary-500 text-[#1A1A1A]'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-800',
             ].join(' ')}
           >
             {filter.label}
             {filter.count !== undefined && (
-              <span className={`text-[10px] px-1 rounded font-bold ${isActive ? 'text-white/70' : 'text-gray-400'}`}>
+              <span className={`text-[10px] px-1 rounded font-bold ${isActive ? 'text-black/50' : 'text-gray-400'}`}>
                 {filter.count}
               </span>
             )}

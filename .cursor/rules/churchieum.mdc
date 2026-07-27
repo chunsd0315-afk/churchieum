@@ -40,11 +40,11 @@ Every feature and page must follow these principles:
 
 ## Design System (summary)
 
-- **Colors:** Primary `#2563EB`, Secondary `#4F46E5`, Background `#F8FAFC`, Success `#16A34A`, Warning `#F59E0B`, Error `#DC2626`
-- **Font:** Pretendard — Regular 400, SemiBold 600, Bold 700
-- **Radius:** 16px (`rounded-card`, `rounded-btn`)
-- **Button height:** 56px (`btn-primary`, `h-btn`, `ChurchButton` md/lg)
-- **Philosophy:** Naver-like information structure + KidsNote warmth — large text, cards, generous spacing
+- **Colors:** Primary `#FFCD00`, Hover `#F5BE00`, Pressed `#E6B000`, Light `#FFF7D6`, Background `#FFFDF7`, Card `#FFFFFF`, Border `#ECECEC`
+- **Font:** Pretendard Variable — Regular 400, Medium 500, Bold 700
+- **Radius:** Card 24px (`rounded-card`), Button 18px (`rounded-btn`)
+- **Button height:** 48px (`btn-primary`, `h-btn`, `ChurchButton` md/lg)
+- **Philosophy:** KB Pay × 카카오페이 × Apple Soft-3D — warm yellow points, generous whitespace, premium Soft-3D icons
 
 ## UI Principles
 
@@ -82,7 +82,8 @@ import { ChurchButton } from '../components/common/ui/ChurchButton';
 
 - Icon + label together; icon-only buttons need `aria-label`.
 - Use `touch-target` class for list rows, icon buttons, and chips.
-- Empty states: icon + short Korean sentence + one clear next step.
+- Empty states: Soft-3D icon + short Korean sentence + one clear next step.
+- Menu icons: Soft-3D SVG (`components/common/icons/Soft3DIcons.tsx` via `MenuIcon`) — do not use Lucide line icons for home/sidebar menus.
 
 ### 자동 저장
 

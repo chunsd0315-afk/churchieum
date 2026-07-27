@@ -1,5 +1,5 @@
 /**
- * 교회이음 메뉴 아이콘 매핑 — v0.4 3D 젤리 + lucide fallback
+ * 교회이음 메뉴 아이콘 매핑 — Soft-3D Premium + lucide legacy reference
  */
 import type { LucideIcon } from 'lucide-react';
 import {

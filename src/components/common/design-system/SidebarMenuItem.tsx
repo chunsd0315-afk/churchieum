@@ -10,7 +10,7 @@ type Props<P extends string> = {
   onNavigate: (page: P) => void;
 };
 
-/** PC 사이드바 — 3D 아이콘 축소판 + 파란 캡슐 활성 */
+/** PC 사이드바 — Soft-3D 아이콘 + 연노랑 활성 */
 export function SidebarMenuItem<P extends string>({
   page,
   label,
@@ -22,19 +22,19 @@ export function SidebarMenuItem<P extends string>({
     <button
       type="button"
       onClick={() => onNavigate(page)}
-      className="w-full flex items-center gap-2.5 transition-all duration-200"
+      className="w-full flex items-center gap-2.5 transition-all duration-200 active:scale-[0.98]"
       style={{
-        height: 44,
+        height: 48,
         borderRadius: DS.radius.capsule,
         padding: '0 12px',
         fontSize: 14,
         fontWeight: isActive ? 700 : 500,
-        color: isActive ? DS.colors.textInverse : DS.colors.textPrimary,
-        background: isActive ? DS.colors.activeCapsule : 'transparent',
-        boxShadow: isActive ? DS.colors.activeCapsuleShadow : 'none',
+        color: DS.colors.textPrimary,
+        background: isActive ? DS.colors.activeBg : 'transparent',
+        boxShadow: 'none',
       }}
       onMouseEnter={e => {
-        if (!isActive) e.currentTarget.style.background = '#F1F5F9';
+        if (!isActive) e.currentTarget.style.background = DS.colors.bgGray;
       }}
       onMouseLeave={e => {
         if (!isActive) e.currentTarget.style.background = 'transparent';
@@ -42,6 +42,13 @@ export function SidebarMenuItem<P extends string>({
     >
       <MenuIcon iconKey={iconKey} variant="sidebar" active={isActive} />
       <span className="flex-1 text-left truncate">{label}</span>
+      {isActive && (
+        <span
+          className="shrink-0 rounded-full"
+          style={{ width: 6, height: 6, background: DS.colors.primary }}
+          aria-hidden
+        />
+      )}
     </button>
   );
 }

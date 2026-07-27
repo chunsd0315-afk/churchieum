@@ -73,7 +73,7 @@ export default function PCSidebar<P extends string>({
               type="button"
               onClick={() => fileInputRef.current?.click()}
               className="w-11 h-11 rounded-2xl overflow-hidden flex items-center justify-center shadow-sm relative"
-              style={{ background: 'linear-gradient(135deg, #2563EB 0%, #22C55E 100%)' }}
+              style={{ background: 'linear-gradient(135deg, #FFCD00 0%, #FF9D42 100%)' }}
               aria-label="프로필 사진 변경"
             >
               <UserProfileAvatar user={user} src={meta.profileImageUrl} size={44} rounded="2xl" />

@@ -58,7 +58,7 @@ export default function PCRightPanel() {
 
         {/* 오늘의 말씀 */}
         <section className="rounded-[20px] p-4 text-white relative overflow-hidden"
-          style={{ background: 'linear-gradient(135deg, #2563EB 0%, #16A34A 100%)' }}>
+          style={{ background: 'linear-gradient(135deg, #FFCD00 0%, #FF9D42 100%)' }}>
           <div className="absolute inset-0 opacity-10 pointer-events-none"
             style={{ backgroundImage: 'radial-gradient(circle at 80% 20%, white 0%, transparent 60%)' }} />
           <div className="relative z-10">

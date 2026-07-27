@@ -14,7 +14,7 @@ type Props = {
   item: HomeMenuCardItem;
 };
 
-/** PC 홈 메뉴 카드 — v0.4 블루 통일 + 3D 아이콘 */
+/** PC 홈 메뉴 카드 — Soft-3D 아이콘 중심 · Radius 24 */
 export function HomeMenuCard({ item }: Props) {
   return (
     <button
@@ -23,18 +23,26 @@ export function HomeMenuCard({ item }: Props) {
       aria-label={item.label}
       className={[
         'group w-full flex flex-col text-left',
-        'rounded-2xl border border-gray-200 bg-white',
-        'shadow-[0_8px_24px_rgba(15,23,42,0.06)]',
+        'bg-white',
         'transition-all duration-200',
-        'hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(15,23,42,0.08)]',
-        'active:scale-[0.98]',
+        'hover:scale-[1.03]',
+        'active:scale-[0.97]',
       ].join(' ')}
       style={{
         height: DS.layout.cardHeightDesktop,
-        padding: '22px 20px',
+        padding: '20px 18px',
+        borderRadius: DS.radius.card,
+        border: `1px solid ${DS.colors.borderCard}`,
+        boxShadow: DS.shadow.card,
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.boxShadow = DS.shadow.cardHover;
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.boxShadow = DS.shadow.card;
       }}
     >
-      <div className="flex items-center justify-center flex-1 min-h-0" style={{ marginBottom: 10 }}>
+      <div className="flex items-center justify-center flex-1 min-h-0" style={{ marginBottom: 8 }}>
         <MenuIcon iconKey={item.iconKey} variant="desktop" label={item.label} />
       </div>
       <p
@@ -50,7 +58,7 @@ export function HomeMenuCard({ item }: Props) {
       </p>
       <p
         className="line-clamp-2"
-        style={{ fontSize: 12, color: DS.colors.textMuted, lineHeight: 1.45 }}
+        style={{ fontSize: 12, color: DS.colors.textMuted, lineHeight: 1.5, fontWeight: 400 }}
       >
         {item.description}
       </p>
