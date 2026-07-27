@@ -27,7 +27,7 @@
   --height-btn:             48px;
 
   /* ── Typography (canonical) ────────────────────────── */
-  --font-family-brand:      'Pretendard Variable', 'Pretendard';
+  --font-family-brand:      'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-weight-regular:    400;
   --font-weight-medium:     500;
   --font-weight-semibold:   600;
@@ -39,6 +39,9 @@
   --color-sky-blue:      #4A8CFF;
   --color-soft-blue-bg:  #EEF4FF;
   --color-accent-yellow: #FFCD00;
+  --color-premium-yellow: #FFCD00;
+  --color-brand-title: #1A1A1A;
+  --color-brand-slogan: #666666;
   --color-primary-200: #FFEEA8;
   --color-primary-300: #FFE066;
   --color-primary-400: #FFD633;
@@ -729,6 +732,42 @@
 @keyframes fadeIn {
   from { opacity: 0; }
   to   { opacity: 1; }
+}
+
+/* 교회이음 프리미엄 브랜드 영역 */
+.churchieum-brand-font {
+  font-family: var(--font-family-brand);
+}
+
+.churchieum-brand-surface {
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.08);
+}
+
+.churchieum-brand-slogan {
+  text-wrap: balance;
+}
+
+@media (min-width: 768px) {
+  .churchieum-brand-slogan {
+    white-space: nowrap;
+  }
+}
+
+@keyframes churchieumBrandEnter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.churchieum-brand-enter .churchieum-brand-enter-item {
+  animation: churchieumBrandEnter 0.55s ease-out both;
 }
 @keyframes scaleIn {
   from { transform: scale(0.94); opacity: 0; }

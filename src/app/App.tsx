@@ -2,6 +2,7 @@
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { OrgSettingsProvider } from '../contexts/OrgSettingsContext';
 import { ToastProvider } from '../components/common/ui';
+import { ChurchieumBrandBlock } from '../components/common/ChurchieumBrandBlock';
 import LoginPage from './LoginPage';
 import ModeSelectPage from './ModeSelectPage';
 import { MemberLayout, type Page } from '../components/member/Layout';
@@ -295,34 +296,16 @@ function AppContent() {
 
 function LoadingScreen() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-500 via-primary-600 to-accent-500 flex items-center justify-center">
-      <div className="text-center">
-        <div className="relative w-24 h-24 mx-auto mb-6">
-          <div className="absolute inset-0 rounded-full bg-white/20 animate-ping"></div>
-          <div className="relative w-24 h-24 rounded-full bg-white flex items-center justify-center shadow-2xl">
-            <ChurchIcon className="w-12 h-12 text-primary-500" />
-          </div>
-        </div>
-        <h1 className="text-2xl font-bold text-white mb-2">교회이음</h1>
-        <p className="text-white/80 text-sm">교회를 잇고, 말씀을 잇고, 믿음을 잇다.</p>
-        <div className="mt-6 flex justify-center gap-1">
-          <div className="w-2 h-2 rounded-full bg-white/60 animate-bounce" style={{ animationDelay: '0ms' }}></div>
-          <div className="w-2 h-2 rounded-full bg-white/60 animate-bounce" style={{ animationDelay: '150ms' }}></div>
-          <div className="w-2 h-2 rounded-full bg-white/60 animate-bounce" style={{ animationDelay: '300ms' }}></div>
+    <div className="min-h-screen bg-gradient-to-br from-primary-500 via-primary-600 to-accent-500 flex items-center justify-center px-5">
+      <div className="flex flex-col items-center gap-6">
+        <ChurchieumBrandBlock logoSize={68} withSurface animate />
+        <div className="flex justify-center gap-1 churchieum-brand-enter-item" style={{ animationDelay: '200ms' }}>
+          <div className="w-2 h-2 rounded-full bg-white/60 animate-bounce" style={{ animationDelay: '0ms' }} />
+          <div className="w-2 h-2 rounded-full bg-white/60 animate-bounce" style={{ animationDelay: '150ms' }} />
+          <div className="w-2 h-2 rounded-full bg-white/60 animate-bounce" style={{ animationDelay: '300ms' }} />
         </div>
       </div>
     </div>
-  );
-}
-
-function ChurchIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M18 7c0-5.5-6-7-6-7s-6 1.5-6 7c0 1.5 1 3 3 4.5V21h6v-9.5c2-1.5 3-3 3-4.5z" />
-      <path d="M12 3v4" />
-      <path d="M9 21h6" />
-      <path d="M10 14h4" />
-    </svg>
   );
 }
 

@@ -26,7 +26,7 @@ export function DesktopHeader({
     <header className="sticky top-0 z-50 h-16 bg-white border-b border-gray-200 flex items-center px-5 gap-4 shrink-0">
       {/* Logo mark only — no "교회이음" text */}
       <div className="shrink-0">
-        <ChurchieumLogo size={32} variant="icon" />
+        <ChurchieumLogo size={32} variant="icon" premium />
       </div>
 
       {/* Church name + org */}

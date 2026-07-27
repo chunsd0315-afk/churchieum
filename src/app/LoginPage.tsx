@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth, PRIMARY_DEMO_ACCOUNTS } from '../contexts/AuthContext';
 import { resolveProfileImage, roleToProfileImageRole } from '../services/profileImage';
 import { Mail, Lock, User, Eye, EyeOff, Check } from 'lucide-react';
-import ChurchieumLogo from '../components/common/ChurchieumLogo';
+import { ChurchieumBrandBlock } from '../components/common/ChurchieumBrandBlock';
 
 // ─── Welcome Messages ─────────────────────────────────────────────────────────
 
@@ -214,16 +214,12 @@ export default function LoginPage({ onSuccess }: Props) {
       <div className="relative z-10 w-full max-w-[380px] mx-auto px-5 pt-12 pb-10 flex flex-col gap-7">
 
         {/* Brand block */}
-        <div className="flex flex-col items-center gap-5">
-          <ChurchieumLogo
-            variant="full"
-            size={76}
-            showText
-            showEnglish
-            showTagline
-            textColor="light"
-          />
-          <div className="flex flex-col items-center gap-1">
+        <div className="flex flex-col items-center gap-5 churchieum-brand-enter">
+          <ChurchieumBrandBlock logoSize={72} withSurface animate />
+          <div
+            className="flex flex-col items-center gap-1 churchieum-brand-enter-item"
+            style={{ animationDelay: '180ms' }}
+          >
             <div className="w-8 h-px" style={{ background: 'rgba(255,255,255,0.2)' }} />
             <p className="text-center text-[13px] font-medium leading-relaxed"
               style={{ color: 'rgba(255,255,255,0.62)' }}>

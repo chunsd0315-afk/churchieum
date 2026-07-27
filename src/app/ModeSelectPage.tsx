@@ -1,7 +1,7 @@
 ﻿import { Users, Settings, LogOut, ChevronRight, Shield, BookOpen } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import type { UserRole } from '../services/permissions';
-import ChurchieumLogo from '../components/common/ChurchieumLogo';
+import { ChurchieumBrandBlock } from '../components/common/ChurchieumBrandBlock';
 
 export type SelectableMode = 'member' | 'pastor' | 'admin';
 
@@ -21,8 +21,8 @@ export default function ModeSelectPage({ onSelectMode, userRole }: Props) {
       <div className="w-full max-w-sm">
 
         <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <ChurchieumLogo variant="full" size={56} showText showEnglish />
+          <div className="flex justify-center mb-6 pt-2">
+            <ChurchieumBrandBlock logoSize={56} animate />
           </div>
           <div className="flex flex-col items-center gap-1">
             <p className="font-bold text-gray-900" style={{ fontSize: '20px' }}>

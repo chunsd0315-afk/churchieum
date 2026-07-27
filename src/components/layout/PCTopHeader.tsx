@@ -54,7 +54,7 @@ export default function PCTopHeader({ showSettings = false, onSettingsClick }: P
     >
       {/* Left: logo + church · org (single line, PC only shell) */}
       <div className="flex items-center gap-3 min-w-0 flex-1 overflow-hidden">
-        <ChurchieumLogo variant="icon" size={36} className="shrink-0" />
+        <ChurchieumLogo variant="icon" size={36} className="shrink-0" premium />
         <div
           className="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap flex-1"
           title={pcOrgLabel ? headerTitle : meta.churchName}

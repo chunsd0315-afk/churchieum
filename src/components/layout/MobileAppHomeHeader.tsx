@@ -72,7 +72,7 @@ export function MobileAppHomeHeader({
       </div>
 
       <div className="px-4 pb-3 flex items-start gap-2.5 min-w-0">
-        <ChurchieumLogo variant="icon" size={28} className="shrink-0 mt-1" />
+        <ChurchieumLogo variant="icon" size={28} className="shrink-0 mt-1" premium />
         <div className="min-w-0 flex-1">
           <p
             className="font-bold leading-tight truncate"
