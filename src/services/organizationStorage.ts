@@ -661,8 +661,19 @@ export function getOrgTypes(): OrgTypeDef[] {
     .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
+export const ORG_META_CHANGED_EVENT = 'churchieum-org-meta-changed';
+
+export function notifyOrgMetaChanged(): void {
+  try {
+    window.dispatchEvent(new CustomEvent(ORG_META_CHANGED_EVENT));
+  } catch {
+    /* ignore */
+  }
+}
+
 export function saveOrgTypes(list: OrgTypeDef[]): void {
   saveJSON(LS_TYPES, list);
+  notifyOrgMetaChanged();
 }
 
 export function upsertOrgType(t: OrgTypeDef): void {
@@ -673,12 +684,56 @@ export function upsertOrgType(t: OrgTypeDef): void {
   saveOrgTypes(list);
 }
 
-export function deleteOrgType(id: string): boolean {
+export type OrgMetaDeleteResult =
+  | { ok: true }
+  | { ok: false; reason: 'in_use' | 'not_found' };
+
+export function isOrgTypeInUse(typeName: string): boolean {
+  return getAllOrganizations().some(o => o.type === typeName);
+}
+
+export function deleteOrgType(id: string): OrgMetaDeleteResult {
   const list = getOrgTypes();
   const item = list.find(t => t.id === id);
-  if (item?.isSystem) return false;
-  saveOrgTypes(list.filter(t => t.id !== id));
+  if (!item) return { ok: false, reason: 'not_found' };
+  if (isOrgTypeInUse(item.name)) return { ok: false, reason: 'in_use' };
+  saveJSON(LS_TYPES, list.filter(t => t.id !== id));
+  notifyOrgMetaChanged();
+  return { ok: true };
+}
+
+export function renameOrgType(id: string, newName: string): boolean {
+  const trimmed = newName.trim();
+  if (!trimmed) return false;
+  const list = getOrgTypes();
+  const item = list.find(t => t.id === id);
+  if (!item) return false;
+  const oldName = item.name;
+  const next = list.map(t => (t.id === id ? { ...t, name: trimmed } : t));
+  saveJSON(LS_TYPES, next);
+  if (oldName !== trimmed) {
+    const orgs = getAllOrganizations().map(o =>
+      o.type === oldName ? { ...o, type: trimmed, updatedAt: nowIso() } : o,
+    );
+    saveAllOrganizations(orgs);
+  }
+  notifyOrgMetaChanged();
   return true;
+}
+
+export function reorderOrgTypes(orderedIds: string[]): void {
+  const list = getOrgTypes();
+  const byId = new Map(list.map(t => [t.id, t]));
+  const reordered: OrgTypeDef[] = [];
+  orderedIds.forEach((id, i) => {
+    const row = byId.get(id);
+    if (row) reordered.push({ ...row, sortOrder: i + 1 });
+  });
+  for (const t of list) {
+    if (!orderedIds.includes(t.id)) reordered.push(t);
+  }
+  saveJSON(LS_TYPES, reordered);
+  notifyOrgMetaChanged();
 }
 
 // ─── Church roles (직분) ──────────────────────────────────────────────────────
@@ -691,6 +746,7 @@ export function getChurchRoles(): ChurchRole[] {
 
 export function saveChurchRoles(list: ChurchRole[]): void {
   saveJSON(LS_ROLES, list);
+  notifyOrgMetaChanged();
 }
 
 export function upsertChurchRole(r: ChurchRole): void {
@@ -701,12 +757,120 @@ export function upsertChurchRole(r: ChurchRole): void {
   saveChurchRoles(list);
 }
 
-export function deleteChurchRole(id: string): boolean {
+export function isChurchRoleInUse(role: Pick<ChurchRole, 'id' | 'name'>): boolean {
+  if (getAllMemberships().some(m => m.roleId === role.id || m.roleLabel === role.name)) {
+    return true;
+  }
+  const clergy = (() => {
+    try {
+      // Avoid static import cycle (clergyData → organizationStorage)
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { getAllClergy } = require('./clergyData') as typeof import('./clergyData');
+      return getAllClergy();
+    } catch {
+      return [];
+    }
+  })();
+  if (clergy.some(c => c.position === role.name || (c.position === '기타' && c.customPosition === role.name))) {
+    return true;
+  }
+  try {
+    const raw = localStorage.getItem('churchieum_demo_generated_v2');
+    if (raw) {
+      const data = JSON.parse(raw) as { members?: { position?: string }[] };
+      if (data.members?.some(m => m.position === role.name)) return true;
+    }
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
+export function deleteChurchRole(id: string): OrgMetaDeleteResult {
   const list = getChurchRoles();
   const item = list.find(r => r.id === id);
-  if (item?.isSystem) return false;
-  saveChurchRoles(list.filter(r => r.id !== id));
+  if (!item) return { ok: false, reason: 'not_found' };
+  if (isChurchRoleInUse(item)) return { ok: false, reason: 'in_use' };
+  saveJSON(LS_ROLES, list.filter(r => r.id !== id));
+  notifyOrgMetaChanged();
+  return { ok: true };
+}
+
+export function renameChurchRole(id: string, newName: string): boolean {
+  const trimmed = newName.trim();
+  if (!trimmed) return false;
+  const list = getChurchRoles();
+  const item = list.find(r => r.id === id);
+  if (!item) return false;
+  const oldName = item.name;
+  const nextRoles = list.map(r => (r.id === id ? { ...r, name: trimmed } : r));
+  saveJSON(LS_ROLES, nextRoles);
+
+  const memberships = getAllMemberships().map(m => {
+    if (m.roleId === id || m.roleLabel === oldName) {
+      return { ...m, roleId: id, roleLabel: trimmed };
+    }
+    return m;
+  });
+  saveJSON(LS_MEMBERS, memberships);
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { getAllClergy, updateClergy } = require('./clergyData') as typeof import('./clergyData');
+    for (const c of getAllClergy()) {
+      if (c.position === oldName) updateClergy(c.id, { position: trimmed });
+      else if (c.position === '기타' && c.customPosition === oldName) {
+        updateClergy(c.id, { customPosition: trimmed });
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+
+  try {
+    const raw = localStorage.getItem('churchieum_demo_generated_v2');
+    if (raw) {
+      const data = JSON.parse(raw) as { members?: { id: string; position?: string }[] };
+      if (data.members) {
+        let changed = false;
+        const members = data.members.map(m => {
+          if (m.position === oldName) {
+            changed = true;
+            return { ...m, position: trimmed };
+          }
+          return m;
+        });
+        if (changed) {
+          localStorage.setItem('churchieum_demo_generated_v2', JSON.stringify({ ...data, members }));
+        }
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+
+  notifyOrgMetaChanged();
   return true;
+}
+
+export function reorderChurchRoles(orderedIds: string[]): void {
+  const list = getChurchRoles();
+  const byId = new Map(list.map(r => [r.id, r]));
+  const reordered: ChurchRole[] = [];
+  orderedIds.forEach((id, i) => {
+    const row = byId.get(id);
+    if (row) reordered.push({ ...row, sortOrder: i + 1 });
+  });
+  for (const r of list) {
+    if (!orderedIds.includes(r.id)) reordered.push(r);
+  }
+  saveJSON(LS_ROLES, reordered);
+  notifyOrgMetaChanged();
+}
+
+/** 활성 직분 이름 목록 (정렬 순서 유지) */
+export function getChurchRoleNames(): string[] {
+  return getChurchRoles().filter(r => r.isActive).map(r => r.name);
 }
 
 // ─── Leaders ──────────────────────────────────────────────────────────────────

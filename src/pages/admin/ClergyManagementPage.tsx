@@ -10,11 +10,12 @@ import {
 import {
   getAllClergy, getClergyById, updateClergy, deleteClergy,
   getAssignmentsForClergy, addAssignment, removeAssignment, getAssignmentSummary,
-  POSITION_OPTIONS, POSITION_COLORS, positionLabel,
+  POSITION_OPTIONS, POSITION_COLORS, positionLabel, getPositionOptions,
   type ClergyMember, type StaffAssignment,
 } from '../../services/clergyData';
 import { getDistricts, getDepartments } from '../../services/orgData';
 import { useOrgSettings } from '../../contexts/OrgSettingsContext';
+import { useOrgMetaVersion } from '../../hooks/useOrgMeta';
 import { PageHeaderBar, ChurchList, CHURCH_LIST_ROW_CLASS } from '../../components/common/ui';
 import { resolveClergyProfileImage } from '../../services/profileImage';
 
@@ -262,6 +263,9 @@ function ResignModal({ clergy, onConfirm, onClose }: {
 function EditBasicInfoPanel({ clergy, onSave, onCancel }: {
   clergy: ClergyMember; onSave: (data: Partial<ClergyMember>) => void; onCancel: () => void;
 }) {
+  const metaVersion = useOrgMetaVersion();
+  void metaVersion;
+  const positionOptions = getPositionOptions();
   const [name, setName]       = useState(clergy.name);
   const [gender, setGender]   = useState<'남' | '여' | ''>(clergy.gender ?? '');
   const [phone, setPhone]     = useState(clergy.phone ?? '');
@@ -308,7 +312,7 @@ function EditBasicInfoPanel({ clergy, onSave, onCancel }: {
       <div>
         <label className="text-xs font-semibold text-gray-600 mb-1 block">직분</label>
         <div className="grid grid-cols-4 gap-1.5">
-          {POSITION_OPTIONS.map(pos => (
+          {positionOptions.map(pos => (
             <button key={pos} type="button" onClick={() => setPosition(pos)}
               className={`py-2 rounded-xl text-xs font-semibold transition-all border-2 ${position === pos ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}>
               {pos}
@@ -550,6 +554,8 @@ function ClergyCard({ clergy, assignments, onClick }: {
 type Props = { onNavigate?: (page: string) => void; initialFilter?: string };
 
 export default function ClergyManagementPage({ onNavigate: _onNavigate, initialFilter }: Props) {
+  const metaVersion = useOrgMetaVersion();
+  void metaVersion;
   const [list, setList] = useState<ClergyMember[]>(() => getAllClergy());
   const [detailId, setDetailId] = useState<string | null>(null);
   const [search, setSearch] = useState('');

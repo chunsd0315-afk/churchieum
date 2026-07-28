@@ -5,8 +5,8 @@ import type { RichMember } from './MemberListTab';
 import { updateDemoMember } from '../../services/demoData';
 import { getAllDistricts, getAllZones, getAllDepartments, getDistrictNameById, getZoneNameById, getDepartmentNamesByIds } from '../../services/orgData';
 import { useOrgSettings } from '../../contexts/OrgSettingsContext';
-
-const POSITION_OPTIONS = ['장로', '안수집사', '권사', '서리집사', '성도', '기타'] as const;
+import { getPositionOptions } from '../../services/clergyData';
+import { useOrgMetaVersion } from '../../hooks/useOrgMeta';
 
 type FormState = {
   name: string;
@@ -59,10 +59,14 @@ export default function MemberDetailSheet({
     ? member.departmentIds
     : (member.department_id ? [member.department_id] : []);
 
-  const initialPosition = POSITION_OPTIONS.includes(member.position as typeof POSITION_OPTIONS[number])
+  const metaVersion = useOrgMetaVersion();
+  void metaVersion;
+  const positionOptions = getPositionOptions();
+
+  const initialPosition = positionOptions.includes(member.position ?? '')
     ? (member.position ?? '성도')
     : (member.position ? '기타' : '성도');
-  const initialCustomPosition = POSITION_OPTIONS.includes(member.position as typeof POSITION_OPTIONS[number])
+  const initialCustomPosition = positionOptions.includes(member.position ?? '')
     ? ''
     : (member.position ?? '');
 
@@ -213,7 +217,7 @@ export default function MemberDetailSheet({
             <div>
               <FieldLabel>직분</FieldLabel>
               <div className="grid grid-cols-3 gap-2">
-                {POSITION_OPTIONS.map(pos => (
+                {positionOptions.map(pos => (
                   <button key={pos} type="button" onClick={() => f('position', pos)}
                     className={`py-2.5 rounded-xl text-xs font-semibold border-2 transition-all ${
                       form.position === pos

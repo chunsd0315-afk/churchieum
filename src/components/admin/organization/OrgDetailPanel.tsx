@@ -13,14 +13,13 @@ import {
   createOrganization,
   deleteOrganization,
   getAllOrganizations,
-  getChurchRoles,
   getDemoMemberCandidates,
   getMembershipsForOrg,
-  getOrgTypes,
   removeMembership,
   upsertOrganization,
   wouldCreateCycle,
 } from '../../../services/organizationStorage';
+import { useChurchRoles, useOrgTypes } from '../../../hooks/useOrgMeta';
 import {
   getAssigneesForOrg,
   removeAssignee,
@@ -52,12 +51,11 @@ export function OrgDetailPanel({
   const allOrgs = getAllOrganizations();
   const org = orgId ? allOrgs.find(o => o.id === orgId) ?? null : null;
   const [tab, setTab] = useState<DetailTab>('info');
-  const types = getOrgTypes().filter(t => t.isActive);
-  const roles = getChurchRoles().filter(r => r.isActive);
+  const types = useOrgTypes(true);
+  const roles = useChurchRoles(true);
   const candidates = useMemo(() => getDemoMemberCandidates(), []);
 
   const [name, setName] = useState('');
-  const [code, setCode] = useState('');
   const [type, setType] = useState(types[0]?.name ?? '기타');
   const [parentId, setParentId] = useState<string | null>(null);
   const [description, setDescription] = useState('');
@@ -75,11 +73,9 @@ export function OrgDetailPanel({
   const [editingAssignee, setEditingAssignee] = useState<OrganizationAssignee | null>(null);
 
   useEffect(() => {
-    const typesNow = getOrgTypes().filter(t => t.isActive);
     if (creating) {
       setName('');
-      setCode('');
-      setType(typesNow[0]?.name ?? '기타');
+      setType(types[0]?.name ?? '기타');
       setParentId(draftParentId);
       setDescription('');
       setSortOrder(1);
@@ -90,14 +86,13 @@ export function OrgDetailPanel({
     const current = orgId ? getAllOrganizations().find(o => o.id === orgId) : null;
     if (current) {
       setName(current.name);
-      setCode(current.code);
       setType(current.type);
       setParentId(current.parentId);
       setDescription(current.description);
       setSortOrder(current.sortOrder);
       setIsActive(current.isActive);
     }
-  }, [orgId, creating, draftParentId]);
+  }, [orgId, creating, draftParentId, types]);
 
   const refresh = () => setTick(t => t + 1);
   void tick;
@@ -149,7 +144,6 @@ export function OrgDetailPanel({
         type,
         parentId,
         description,
-        code: code || undefined,
       });
       toast.success('조직이 추가되었습니다.');
       onSaved(created.id);
@@ -163,7 +157,6 @@ export function OrgDetailPanel({
     upsertOrganization({
       ...org,
       name: name.trim(),
-      code: code.trim() || org.code,
       type,
       parentId,
       description,
@@ -227,7 +220,7 @@ export function OrgDetailPanel({
             {creating ? '새 조직 추가' : org?.name}
           </h3>
           <p className="text-[13px] text-gray-500 mt-0.5">
-            {creating ? '조직 정보를 입력한 뒤 저장하세요.' : `${org?.type} · ${org?.code}`}
+            {creating ? '조직 정보를 입력한 뒤 저장하세요.' : org?.type}
           </p>
         </div>
         {creating && (
@@ -258,9 +251,6 @@ export function OrgDetailPanel({
           <div className="space-y-3">
             <Field label="조직명">
               <input className={inputClass} value={name} onChange={e => setName(e.target.value)} placeholder="예: 1교구" />
-            </Field>
-            <Field label="조직코드">
-              <input className={inputClass} value={code} onChange={e => setCode(e.target.value)} placeholder="자동 생성 가능" />
             </Field>
             <Field label="조직종류">
               <select className={inputClass} value={type} onChange={e => setType(e.target.value)}>

@@ -7,6 +7,7 @@ import {
   getZoneNameById,
   getDepartmentNameById,
 } from './orgData';
+import { getChurchRoleNames } from './organizationStorage';
 
 const LS_CLERGY      = 'clergy_v1';
 const LS_ASSIGNMENTS = 'staff_assignments_v1';
@@ -289,6 +290,18 @@ export function deriveAssignmentType(a: Pick<StaffAssignment, 'districtId' | 'zo
 }
 
 export const POSITION_OPTIONS = ['담임목사', '목사', '전도사', '교육전도사', '간사', '직원', '기타'] as const;
+
+/** 교회 직분 목록 (조직관리 종류·직분 설정 순서) */
+export function getPositionOptions(): string[] {
+  const fromOrg = getChurchRoleNames();
+  if (fromOrg.length === 0) return [...POSITION_OPTIONS];
+  const extras = ['기타'];
+  const merged = [...fromOrg];
+  for (const e of extras) {
+    if (!merged.includes(e)) merged.push(e);
+  }
+  return merged;
+}
 
 export const POSITION_COLORS: Record<string, string> = {
   '담임목사':   'bg-amber-100 text-amber-700',
