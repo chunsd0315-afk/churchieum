@@ -27,11 +27,16 @@ import {
   type OrgZone,
 } from './orgData';
 import { removeAssigneesForOrganizations } from './orgAssigneeStorage';
+import { CHURCH_ID_LS_KEY, DEFAULT_CHURCH_ID } from './orgSettingsRemote';
+import { canAccessAdmin, type AppUser } from './permissions';
 
 // ─── New localStorage keys (do not rename casually) ───────────────────────────
 const LS_ORGS = 'org_nodes_v1';
-const LS_TYPES = 'org_types_v1';
-const LS_ROLES = 'org_church_roles_v1';
+const LS_TYPES_BASE = 'org_types_v1';
+const LS_ROLES_BASE = 'org_church_roles_v1';
+/** @deprecated legacy single-church key — migrate to scoped key on read */
+const LS_TYPES = LS_TYPES_BASE;
+const LS_ROLES = LS_ROLES_BASE;
 const LS_MEMBERS = 'org_memberships_v1';
 const LS_LEADERS = 'org_leaders_v1';
 const LS_PERMS = 'org_permissions_v1';
@@ -55,6 +60,52 @@ function nowIso() {
 
 function uid(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function resolveChurchIdForMeta(): string {
+  try {
+    return localStorage.getItem(CHURCH_ID_LS_KEY) || DEFAULT_CHURCH_ID;
+  } catch {
+    return DEFAULT_CHURCH_ID;
+  }
+}
+
+function scopedMetaKey(base: string): string {
+  return `${base}__${resolveChurchIdForMeta()}`;
+}
+
+function loadMetaArray<T>(base: string, defaults: T): T {
+  const scoped = scopedMetaKey(base);
+  try {
+    const raw = localStorage.getItem(scoped);
+    if (raw) return JSON.parse(raw) as T;
+  } catch { /* ignore */ }
+  const legacy = loadJSON<T>(base, defaults);
+  try {
+    if (localStorage.getItem(base)) saveJSON(scoped, legacy);
+  } catch { /* ignore */ }
+  return legacy;
+}
+
+function saveMetaArray<T>(base: string, data: T): void {
+  saveJSON(scopedMetaKey(base), data);
+}
+
+const DEMO_USER_LS = 'churchieum_demo_user';
+
+/** 조직 종류·직분 변경 — 최고관리자만 */
+export function canMutateOrgMeta(): boolean {
+  try {
+    const raw = localStorage.getItem(DEMO_USER_LS);
+    if (!raw) return false;
+    return canAccessAdmin(JSON.parse(raw) as AppUser);
+  } catch {
+    return false;
+  }
+}
+
+function assertOrgMetaMutation(): boolean {
+  return canMutateOrgMeta();
 }
 
 // ─── Defaults ─────────────────────────────────────────────────────────────────
@@ -219,8 +270,8 @@ function ensureSeeded(): void {
   }
   const orgs = seedFromLegacy();
   saveJSON(LS_ORGS, orgs);
-  saveJSON(LS_TYPES, DEFAULT_TYPES);
-  saveJSON(LS_ROLES, DEFAULT_ROLES);
+  saveMetaArray(LS_TYPES_BASE, DEFAULT_TYPES);
+  saveMetaArray(LS_ROLES_BASE, DEFAULT_ROLES);
   saveJSON(LS_LEADERS, seedLeadersFromLegacy(orgs));
   saveJSON(LS_MEMBERS, [] as OrganizationMember[]);
   saveJSON(LS_PERMS, [] as OrganizationPermission[]);
@@ -657,7 +708,7 @@ export function resolveOrganizationDropTarget(params: {
 
 export function getOrgTypes(): OrgTypeDef[] {
   ensureSeeded();
-  return loadJSON<OrgTypeDef[]>(LS_TYPES, DEFAULT_TYPES)
+  return loadMetaArray<OrgTypeDef[]>(LS_TYPES_BASE, DEFAULT_TYPES)
     .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
@@ -672,7 +723,8 @@ export function notifyOrgMetaChanged(): void {
 }
 
 export function saveOrgTypes(list: OrgTypeDef[]): void {
-  saveJSON(LS_TYPES, list);
+  if (!assertOrgMetaMutation()) return;
+  saveMetaArray(LS_TYPES_BASE, list);
   notifyOrgMetaChanged();
 }
 
@@ -693,16 +745,18 @@ export function isOrgTypeInUse(typeName: string): boolean {
 }
 
 export function deleteOrgType(id: string): OrgMetaDeleteResult {
+  if (!assertOrgMetaMutation()) return { ok: false, reason: 'not_found' };
   const list = getOrgTypes();
   const item = list.find(t => t.id === id);
   if (!item) return { ok: false, reason: 'not_found' };
   if (isOrgTypeInUse(item.name)) return { ok: false, reason: 'in_use' };
-  saveJSON(LS_TYPES, list.filter(t => t.id !== id));
+  saveMetaArray(LS_TYPES_BASE, list.filter(t => t.id !== id));
   notifyOrgMetaChanged();
   return { ok: true };
 }
 
 export function renameOrgType(id: string, newName: string): boolean {
+  if (!assertOrgMetaMutation()) return false;
   const trimmed = newName.trim();
   if (!trimmed) return false;
   const list = getOrgTypes();
@@ -710,7 +764,7 @@ export function renameOrgType(id: string, newName: string): boolean {
   if (!item) return false;
   const oldName = item.name;
   const next = list.map(t => (t.id === id ? { ...t, name: trimmed } : t));
-  saveJSON(LS_TYPES, next);
+  saveMetaArray(LS_TYPES_BASE, next);
   if (oldName !== trimmed) {
     const orgs = getAllOrganizations().map(o =>
       o.type === oldName ? { ...o, type: trimmed, updatedAt: nowIso() } : o,
@@ -722,6 +776,7 @@ export function renameOrgType(id: string, newName: string): boolean {
 }
 
 export function reorderOrgTypes(orderedIds: string[]): void {
+  if (!assertOrgMetaMutation()) return;
   const list = getOrgTypes();
   const byId = new Map(list.map(t => [t.id, t]));
   const reordered: OrgTypeDef[] = [];
@@ -732,7 +787,7 @@ export function reorderOrgTypes(orderedIds: string[]): void {
   for (const t of list) {
     if (!orderedIds.includes(t.id)) reordered.push(t);
   }
-  saveJSON(LS_TYPES, reordered);
+  saveMetaArray(LS_TYPES_BASE, reordered);
   notifyOrgMetaChanged();
 }
 
@@ -740,12 +795,13 @@ export function reorderOrgTypes(orderedIds: string[]): void {
 
 export function getChurchRoles(): ChurchRole[] {
   ensureSeeded();
-  return loadJSON<ChurchRole[]>(LS_ROLES, DEFAULT_ROLES)
+  return loadMetaArray<ChurchRole[]>(LS_ROLES_BASE, DEFAULT_ROLES)
     .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
 export function saveChurchRoles(list: ChurchRole[]): void {
-  saveJSON(LS_ROLES, list);
+  if (!assertOrgMetaMutation()) return;
+  saveMetaArray(LS_ROLES_BASE, list);
   notifyOrgMetaChanged();
 }
 
@@ -783,20 +839,31 @@ export function isChurchRoleInUse(role: Pick<ChurchRole, 'id' | 'name'>): boolea
   } catch {
     /* ignore */
   }
+  try {
+    const raw = localStorage.getItem('org_assignees_v1');
+    if (raw) {
+      const list = JSON.parse(raw) as { titleLabel?: string }[];
+      if (list.some(a => a.titleLabel === role.name)) return true;
+    }
+  } catch {
+    /* ignore */
+  }
   return false;
 }
 
 export function deleteChurchRole(id: string): OrgMetaDeleteResult {
+  if (!assertOrgMetaMutation()) return { ok: false, reason: 'not_found' };
   const list = getChurchRoles();
   const item = list.find(r => r.id === id);
   if (!item) return { ok: false, reason: 'not_found' };
   if (isChurchRoleInUse(item)) return { ok: false, reason: 'in_use' };
-  saveJSON(LS_ROLES, list.filter(r => r.id !== id));
+  saveMetaArray(LS_ROLES_BASE, list.filter(r => r.id !== id));
   notifyOrgMetaChanged();
   return { ok: true };
 }
 
 export function renameChurchRole(id: string, newName: string): boolean {
+  if (!assertOrgMetaMutation()) return false;
   const trimmed = newName.trim();
   if (!trimmed) return false;
   const list = getChurchRoles();
@@ -804,7 +871,7 @@ export function renameChurchRole(id: string, newName: string): boolean {
   if (!item) return false;
   const oldName = item.name;
   const nextRoles = list.map(r => (r.id === id ? { ...r, name: trimmed } : r));
-  saveJSON(LS_ROLES, nextRoles);
+  saveMetaArray(LS_ROLES_BASE, nextRoles);
 
   const memberships = getAllMemberships().map(m => {
     if (m.roleId === id || m.roleLabel === oldName) {
@@ -854,6 +921,7 @@ export function renameChurchRole(id: string, newName: string): boolean {
 }
 
 export function reorderChurchRoles(orderedIds: string[]): void {
+  if (!assertOrgMetaMutation()) return;
   const list = getChurchRoles();
   const byId = new Map(list.map(r => [r.id, r]));
   const reordered: ChurchRole[] = [];
@@ -864,7 +932,7 @@ export function reorderChurchRoles(orderedIds: string[]): void {
   for (const r of list) {
     if (!orderedIds.includes(r.id)) reordered.push(r);
   }
-  saveJSON(LS_ROLES, reordered);
+  saveMetaArray(LS_ROLES_BASE, reordered);
   notifyOrgMetaChanged();
 }
 

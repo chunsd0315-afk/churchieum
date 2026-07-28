@@ -7,12 +7,11 @@ import { MobileFullScreenPage } from '../../components/layout/ContentEditorLayou
 import { buildOrgTree } from '../../services/organizationStorage';
 import { OrgTreePanel } from '../../components/admin/organization/OrgTreePanel';
 import { OrgDetailPanel } from '../../components/admin/organization/OrgDetailPanel';
-import { OrgMetaSettings } from '../../components/admin/organization/OrgMetaSettings';
 import DistrictManagementPage from './DistrictManagementPage';
 import ZoneManagementPage from './ZoneManagementPage';
 import DepartmentManagementPage from './DepartmentManagementPage';
 
-type MainTab = 'tree' | 'meta' | 'legacy';
+type MainTab = 'tree' | 'legacy';
 type LegacyTab = 'district' | 'zone' | 'department';
 
 export default function OrganizationManagementPage() {
@@ -207,7 +206,6 @@ export default function OrganizationManagementPage() {
       <TabBar
         tabs={[
           { id: 'tree', label: '조직 트리' },
-          { id: 'meta', label: '종류·직분' },
           { id: 'legacy', label: '기존 분류' },
         ]}
         activeTab={mainTab}
@@ -243,7 +241,7 @@ export default function OrganizationManagementPage() {
             {mobileDetailOpen && (
               <MobileFullScreenPage
                 title={creating ? '조직 추가' : '조직 상세'}
-                description="기본정보·담당자·소속인원을 관리합니다."
+                description="기본정보·담당자·소속인원·종류·직분을 관리합니다."
                 onBack={() => {
                   setMobileDetailOpen(false);
                   setCreating(false);
@@ -255,8 +253,6 @@ export default function OrganizationManagementPage() {
           </div>
         </>
       )}
-
-      {mainTab === 'meta' && <OrgMetaSettings />}
 
       {mainTab === 'legacy' && (
         <div className="space-y-3">

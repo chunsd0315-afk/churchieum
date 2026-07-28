@@ -31,8 +31,10 @@ import { CHURCH_LIST_CLASS, CHURCH_LIST_ROW_CLASS } from '../../common/ui/Church
 import { useToast } from '../../common/ui';
 import { OrgAssigneePicker } from './OrgAssigneePicker';
 import { OrgAssigneeEditor } from './OrgAssigneeEditor';
+import { OrgMetaSettings } from './OrgMetaSettings';
+import { useAuth } from '../../../contexts/AuthContext';
 
-type DetailTab = 'info' | 'assignees' | 'members' | 'roles';
+type DetailTab = 'info' | 'assignees' | 'members' | 'meta';
 type AssigneeFilter = 'all' | OrganizationAssigneeType;
 
 type Props = {
@@ -48,6 +50,7 @@ export function OrgDetailPanel({
   orgId, draftParentId, creating, onCancelCreate, onSaved, onDeleted,
 }: Props) {
   const toast = useToast();
+  const { isAdmin } = useAuth();
   const allOrgs = getAllOrganizations();
   const org = orgId ? allOrgs.find(o => o.id === orgId) ?? null : null;
   const [tab, setTab] = useState<DetailTab>('info');
@@ -114,14 +117,6 @@ export function OrgDetailPanel({
       );
     });
   }, [assignees, assigneeFilter, assigneeQuery]);
-
-  const membersByRole = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const m of members) {
-      map.set(m.roleLabel, (map.get(m.roleLabel) ?? 0) + 1);
-    }
-    return map;
-  }, [members]);
 
   if (!creating && !org) {
     return (
@@ -237,7 +232,7 @@ export function OrgDetailPanel({
               { id: 'info', label: '기본정보' },
               { id: 'assignees', label: '담당자' },
               { id: 'members', label: '소속인원' },
-              { id: 'roles', label: '직분/역할' },
+              ...(isAdmin ? [{ id: 'meta' as const, label: '종류·직분' }] : []),
             ]}
             activeTab={tab}
             onChange={id => setTab(id as DetailTab)}
@@ -451,25 +446,8 @@ export function OrgDetailPanel({
           </div>
         )}
 
-        {!creating && tab === 'roles' && (
-          <div className="space-y-3">
-            <p className="text-[13px] text-gray-500">
-              교회 직분은 소속 인원 지정 시 사용합니다. 조직 내 역할(담당자용)은 「담당자」 탭에서 설정합니다.
-            </p>
-            <ul className={CHURCH_LIST_CLASS}>
-              {roles.map(r => (
-                <li key={r.id} className={`${CHURCH_LIST_ROW_CLASS} flex items-center justify-between`}>
-                  <span className="text-sm font-semibold text-gray-900">{r.name}</span>
-                  <span className="text-xs text-gray-500">
-                    이 조직 {membersByRole.get(r.name) ?? 0}명
-                  </span>
-                </li>
-              ))}
-              {roles.length === 0 && (
-                <p className="text-sm text-gray-400 text-center py-6">등록된 직분이 없습니다. 「종류·직분」에서 추가하세요.</p>
-              )}
-            </ul>
-          </div>
+        {!creating && tab === 'meta' && isAdmin && (
+          <OrgMetaSettings embedded />
         )}
       </div>
 
