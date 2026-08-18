@@ -41,7 +41,7 @@ export function PrayerWriteForm({ onBack, onSave, saving = false }: PrayerWriteF
       return;
     }
     if (share.visibility === 'organization_share' && share.sharedOrganizationIds.length === 0) {
-      toast.error('공유할 교구·부서를 선택해 주세요.');
+      toast.error('공유할 조직을 선택해 주세요.');
       return;
     }
 

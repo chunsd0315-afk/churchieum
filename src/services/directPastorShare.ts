@@ -246,9 +246,13 @@ function buildTreeNodes(
 /**
  * 직계 조직 담당 교역자 모델
  * - 성도/교역자: 소속·담당 + 상위만
- * - 최고관리자: 전체 활성 교역자 (트리는 빈 배열 — UI에서 flat 사용)
+ * - 최고관리자: 기본은 전체 활성 교역자 (필터용)
+ * - relatedOnly: 작성 공개범위 UI — 관리자도 직계 경로만, 전체 교회 목록 숨김
  */
-export function buildDirectPastorShareModel(user: AppUser | null): DirectPastorShareModel {
+export function buildDirectPastorShareModel(
+  user: AppUser | null,
+  opts?: { relatedOnly?: boolean },
+): DirectPastorShareModel {
   const empty: DirectPastorShareModel = {
     pastors: [],
     options: [],
@@ -259,7 +263,7 @@ export function buildDirectPastorShareModel(user: AppUser | null): DirectPastorS
   };
   if (!user) return empty;
 
-  if (isSuperAdmin(user)) {
+  if (isSuperAdmin(user) && !opts?.relatedOnly) {
     const pastors = getAllClergy()
       .filter(isPastoralClergy)
       .map(c => ({
@@ -294,7 +298,8 @@ export function buildDirectPastorShareModel(user: AppUser | null): DirectPastorS
   if (lineIds.length === 0) return empty;
 
   const meClergyId = getClergyByEmail(user.email)?.id ?? null;
-  const excludeSelf = user.role === 'pastor' ? meClergyId : null;
+  const excludeSelf =
+    user.role === 'pastor' || user.role === 'super_admin' ? meClergyId : null;
 
   const visibleTree = buildOrganizationTree({
     organizations,
@@ -354,9 +359,36 @@ export function buildDirectPastorShareModel(user: AppUser | null): DirectPastorS
   };
 }
 
-/** 작성·검증용 flat 목록 (관리자 전체 / 그 외 직계) */
+/** 작성·검증용 flat 목록 (작성 UI는 직계만) */
 export function getDirectShareablePastorsForWriter(user: AppUser | null): EligiblePastorRef[] {
-  return buildDirectPastorShareModel(user).pastors;
+  return buildDirectPastorShareModel(user, { relatedOnly: true }).pastors;
+}
+
+export type FlattenedPastorShareRow = {
+  organizationId: string;
+  organizationName: string;
+  depth: number;
+  pastors: DirectPastorOnOrg[];
+};
+
+/** 공개범위 UI용 — 관계 조직만 평탄화 */
+export function flattenDirectPastorShareRows(tree: DirectPastorOrgNode[]): FlattenedPastorShareRow[] {
+  const out: FlattenedPastorShareRow[] = [];
+  const walk = (nodes: DirectPastorOrgNode[]) => {
+    for (const n of nodes) {
+      if (n.pastors.length > 0) {
+        out.push({
+          organizationId: n.organizationId,
+          organizationName: n.organizationName,
+          depth: n.depth,
+          pastors: n.pastors,
+        });
+      }
+      walk(n.children);
+    }
+  };
+  walk(tree);
+  return out;
 }
 
 /** 스냅샷·이전 공유 대상 표시용 */

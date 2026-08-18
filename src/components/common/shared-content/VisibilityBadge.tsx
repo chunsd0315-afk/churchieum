@@ -1,16 +1,20 @@
 import type { VisibilityType } from '../../../types/sharedContent';
 import { migrateVisibility } from '../../../types/sharedContent';
-import { getVisibilityLabels, getDistrictDepartmentLabel } from '../../../services/orgTerminology';
+import { getPastorTerminologyPhrases } from '../../../services/orgTerminology';
+import { readOrgSettings } from '../../../contexts/OrgSettingsContext';
 import {
   getDistrictNameById,
   getZoneNameById,
   getDepartmentNameById,
 } from '../../../services/orgData';
 import { getAllClergy } from '../../../services/clergyData';
+import { getOrganizationById } from '../../../services/organizationStorage';
 import type { SharedContentLike } from '../../../services/sharedContentAccess';
 import { resolveSharedOrganizationIds } from '../../../services/sharedContentAccess';
 
 function orgName(id: string): string {
+  const org = getOrganizationById(id);
+  if (org?.name) return org.name;
   const d = getDistrictNameById(id);
   if (d && d !== '-') return d;
   const z = getZoneNameById(id);
@@ -20,15 +24,30 @@ function orgName(id: string): string {
   return id;
 }
 
+function organizationShareBadge(ids: string[]): string {
+  const names = ids.map(orgName).filter(Boolean);
+  if (names.length === 0) return '조직 공유';
+  if (names.length === 1) return `${names[0]} 공유`;
+  return `${names.length}개 조직 공유`;
+}
+
 export function VisibilityBadge({
   visibility,
+  sharedOrganizationIds,
   className = '',
 }: {
   visibility: VisibilityType | string;
+  sharedOrganizationIds?: string[];
   className?: string;
 }) {
   const v = migrateVisibility(visibility);
-  const labels = getVisibilityLabels();
+  const phrases = getPastorTerminologyPhrases(readOrgSettings());
+  const label =
+    v === 'private'
+      ? '나만 보기'
+      : v === 'pastor_share'
+        ? `담당 ${phrases.label}만`
+        : organizationShareBadge(sharedOrganizationIds ?? []);
   const colors: Record<VisibilityType, string> = {
     private: 'bg-gray-100 text-gray-600',
     pastor_share: 'bg-indigo-50 text-indigo-700',
@@ -38,7 +57,7 @@ export function VisibilityBadge({
     <span
       className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${colors[v]} ${className}`}
     >
-      {labels[v]}
+      {label}
     </span>
   );
 }
@@ -83,7 +102,7 @@ export function SharedTargetSummary({
 
   const orgs = resolveSharedOrganizationIds(content).map(orgName);
   if (orgs.length === 0) {
-    return <span className={`text-[12px] text-emerald-600 ${className}`}>{getDistrictDepartmentLabel()} 공유</span>;
+    return <span className={`text-[12px] text-emerald-600 ${className}`}>조직 공유</span>;
   }
   if (orgs.length === 1) {
     return (

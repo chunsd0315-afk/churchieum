@@ -12,6 +12,7 @@ import {
 } from '../../data/graceNotes';
 import { getAllProgresses, getPlanColor, type PlanId } from '../../data/readingPlans';
 import { GraceNoteShareSelector, defaultShareState, shareStateToInput, type GraceNoteShareState } from './GraceNoteShareSelector';
+import { composeSharedGroupIds } from '../../services/graceNoteShareScope';
 import { GraceRelatedSourceSelector } from './GraceRelatedSourceSelector';
 import { ReadingProgressList, buildReadingFormCtx } from './ReadingProgressPicker';
 import { CommentPermissionSetting } from './CommentPermissionSetting';
@@ -392,6 +393,21 @@ export function GraceNoteEditor({
     }
     if (!graceContent.trim()) {
       toast.error(`${contentLabel}을 입력해 주세요.`);
+      return;
+    }
+    if (share.visibility === 'pastor_share' && share.sharedPastorIds.length === 0) {
+      toast.error('공유할 담당 교역자를 선택해 주세요.');
+      return;
+    }
+    if (
+      share.visibility === 'organization_share'
+      && composeSharedGroupIds(
+        share.sharedUpperOrganizationIds,
+        share.sharedLowerOrganizationIds,
+        share.sharedDepartmentIds,
+      ).length === 0
+    ) {
+      toast.error('공유할 조직을 선택해 주세요.');
       return;
     }
     if (noteType === 'reading' && !activeReadingCtx && !existing?.sourceId) {

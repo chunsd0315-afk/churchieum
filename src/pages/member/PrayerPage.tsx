@@ -832,7 +832,10 @@ function PrayerCard({
       </div>
 
       <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
-        <VisibilityBadge visibility={prayer.visibility} />
+        <VisibilityBadge
+          visibility={prayer.visibility}
+          sharedOrganizationIds={prayer.sharedOrganizationIds}
+        />
         <PrayerStatusBadge status={prayer.status} />
         {!isOwn && showAuthor && <SharedTargetSummary content={prayer} />}
       </div>
