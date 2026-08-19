@@ -1,7 +1,7 @@
 ﻿import { useState, useMemo } from 'react';
 import {
   Megaphone, Pin, X, Calendar, Star, Paperclip, ImageIcon, Download,
-  Bell, SlidersHorizontal, LayoutGrid, List, Plus,
+  SlidersHorizontal, LayoutGrid, List, Plus,
 } from 'lucide-react';
 import { getAllAnnouncements, type Announcement } from '../../services/announcementStorage';
 import { buildNoticeScopeBadges } from '../../services/announcementHelpers';
@@ -20,8 +20,6 @@ import {
   type AnnouncementSearchFilter,
 } from '../../components/announcement/AnnouncementSearchPanel';
 import { getAllOrganizations } from '../../services/organizationStorage';
-
-type ImportanceFilter = 'all' | 'important' | 'regular';
 
 function isAnnouncementVisible(ann: Announcement, user: AppUser | null): boolean {
   if (!user) return ann.scope === 'all';
@@ -56,7 +54,6 @@ export default function AnnouncementPage() {
   const { isMobile } = useBreakpoint();
   const canCreate = isPastor || isAdmin;
 
-  const [importanceFilter, setImportanceFilter] = useState<ImportanceFilter>('all');
   const [viewMode, setViewMode] = useState<'card' | 'list'>('list');
   const effectiveViewMode = isMobile ? 'list' : viewMode;
   const [showSearch, setShowSearch] = useState(false);
@@ -113,19 +110,16 @@ export default function AnnouncementPage() {
           a.author.toLowerCase().includes(q)
         );
       })
-      .filter(a => {
-        if (importanceFilter === 'important') return isImportantNotice(a);
-        if (importanceFilter === 'regular') return !isImportantNotice(a);
-        return true;
-      });
-  }, [visibleAnnouncements, searchFilter, importanceFilter, orgMap]);
+  }, [visibleAnnouncements, searchFilter, orgMap]);
 
-  const pinned = useMemo(
-    () => filtered.filter(isImportantNotice).sort(byNewest),
-    [filtered],
-  );
-  const regular = useMemo(
-    () => filtered.filter(a => !isImportantNotice(a)).sort(byNewest),
+  // 중요·고정 우선, 이후 최신순 단일 목록
+  const sortedList = useMemo(
+    () => [...filtered].sort((a, b) => {
+      const aImp = isImportantNotice(a) ? 0 : 1;
+      const bImp = isImportantNotice(b) ? 0 : 1;
+      if (aImp !== bImp) return aImp - bImp;
+      return byNewest(a, b);
+    }),
     [filtered],
   );
 
@@ -138,12 +132,6 @@ export default function AnnouncementPage() {
   const handleCreate = () => {
     toast.info('관리자 모드의 공지 메뉴에서 등록·관리할 수 있습니다.');
   };
-
-  const filterTabs: { id: ImportanceFilter; label: string }[] = [
-    { id: 'all', label: '전체' },
-    { id: 'important', label: '중요공지' },
-    { id: 'regular', label: '일반공지' },
-  ];
 
   return (
     <div className="space-y-5 pb-24 md:pb-8 max-w-[900px] mx-auto">
@@ -167,24 +155,7 @@ export default function AnnouncementPage() {
 
       {/* 검색 · 필터 · 보기 */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-1.5 p-1 bg-gray-100 rounded-[14px] overflow-x-auto">
-            {filterTabs.map(tab => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setImportanceFilter(tab.id)}
-                className={`px-3.5 h-10 rounded-xl text-sm font-semibold whitespace-nowrap transition-colors touch-target ${
-                  importanceFilter === tab.id
-                    ? 'bg-white text-primary-700 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
+        <div className="flex items-center justify-end gap-3 flex-wrap">
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -286,49 +257,19 @@ export default function AnnouncementPage() {
         <AnnouncementFilterChips filter={searchFilter} onChange={f => { setSearchFilter(f); setDraftFilter(f); }} />
       )}
 
-      {filtered.length === 0 ? (
+      {sortedList.length === 0 ? (
         <EmptyState
           icon={Megaphone}
           title="공지사항이 없습니다"
           description="아직 등록된 공지사항이 없어요."
         />
+      ) : effectiveViewMode === 'list' ? (
+        <div className="church-list">
+          {sortedList.map(a => <AnnListCard key={a.id} item={a} onClick={() => setSelected(a)} />)}
+        </div>
       ) : (
-        <div className="space-y-5">
-          {pinned.length > 0 && importanceFilter !== 'regular' && (
-            <section>
-              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                <Pin className="w-3.5 h-3.5 text-amber-500" /> 중요 공지
-              </h3>
-              {effectiveViewMode === 'list' ? (
-                <div className="church-list">
-                  {pinned.map(a => <AnnListCard key={a.id} item={a} onClick={() => setSelected(a)} />)}
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-                  {pinned.map(a => <AnnGridCard key={a.id} item={a} onClick={() => setSelected(a)} />)}
-                </div>
-              )}
-            </section>
-          )}
-
-          {regular.length > 0 && importanceFilter !== 'important' && (
-            <section>
-              {pinned.length > 0 && importanceFilter === 'all' && (
-                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                  <Bell className="w-3.5 h-3.5" /> 일반 공지
-                </h3>
-              )}
-              {effectiveViewMode === 'list' ? (
-                <div className="church-list">
-                  {regular.map(a => <AnnListCard key={a.id} item={a} onClick={() => setSelected(a)} />)}
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-                  {regular.map(a => <AnnGridCard key={a.id} item={a} onClick={() => setSelected(a)} />)}
-                </div>
-              )}
-            </section>
-          )}
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+          {sortedList.map(a => <AnnGridCard key={a.id} item={a} onClick={() => setSelected(a)} />)}
         </div>
       )}
 
