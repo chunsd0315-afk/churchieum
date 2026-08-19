@@ -5,15 +5,21 @@ import {
 } from 'lucide-react';
 import { getAllAnnouncements, type Announcement } from '../../services/announcementStorage';
 import { buildNoticeScopeBadges } from '../../services/announcementHelpers';
-import { getAllDistricts, getZones, getAllDepartments } from '../../services/orgData';
 import { useAuth } from '../../contexts/AuthContext';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
 import type { AppUser } from '../../services/permissions';
 import { PageHeaderBar, useToast } from '../../components/common/ui';
 import StatusBadge from '../../components/layout/StatusBadge';
 import EmptyState from '../../components/layout/EmptyState';
-
-const SELECT = 'w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 text-gray-700';
+import {
+  AnnouncementSearchPanel,
+  AnnouncementFilterChips,
+  EMPTY_FILTER,
+  isFilterActive,
+  countActiveFilters,
+  type AnnouncementSearchFilter,
+} from '../../components/announcement/AnnouncementSearchPanel';
+import { getAllOrganizations } from '../../services/organizationStorage';
 
 type ImportanceFilter = 'all' | 'important' | 'regular';
 
@@ -57,62 +63,62 @@ export default function AnnouncementPage() {
   const [selected, setSelected] = useState<Announcement | null>(null);
   const [lightboxImg, setLightboxImg] = useState<string | null>(null);
 
-  const [fDistrict, setFDistrict] = useState('');
-  const [fZone, setFZone] = useState('');
-  const [fDept, setFDept] = useState('');
-  const [fDate, setFDate] = useState('');
-  const [fText, setFText] = useState('');
+  // 상세검색 필터 state
+  const [searchFilter, setSearchFilter] = useState<AnnouncementSearchFilter>(EMPTY_FILTER);
+  // 패널에서 편집 중인 임시 값 (Apply 전)
+  const [draftFilter, setDraftFilter] = useState<AnnouncementSearchFilter>(EMPTY_FILTER);
 
   const visibleAnnouncements = useMemo(
     () => getAllAnnouncements().filter(a => isAnnouncementVisible(a, user)),
     [user],
   );
 
-  const allDistricts = useMemo(() => getAllDistricts().filter(d => d.is_active), []);
-  const allDepts = useMemo(() => getAllDepartments().filter(d => d.is_active), []);
-
-  const districtOptions = useMemo(() => {
-    if (!user || user.role === 'super_admin') return allDistricts;
-    if (user.role === 'pastor') return allDistricts.filter(d => user.assignedDistrictIds?.includes(d.id));
-    return allDistricts.filter(d => d.id === user.districtId);
-  }, [user, allDistricts]);
-
-  const zonesInDistrict = useMemo(() => {
-    if (!fDistrict || fDistrict === 'church') return [];
-    const zones = getZones(fDistrict).filter(z => z.is_active);
-    if (!user || user.role === 'super_admin') return zones;
-    if (user.role === 'pastor') return zones.filter(z => user.assignedZoneIds?.includes(z.id));
-    return zones.filter(z => z.id === user.zoneId);
-  }, [fDistrict, user]);
-
-  const deptOptions = useMemo(() => {
-    if (!user || user.role === 'super_admin') return allDepts;
-    if (user.role === 'pastor') return allDepts.filter(d => user.assignedDepartmentIds?.includes(d.id));
-    return allDepts.filter(d => user.departmentIds?.includes(d.id));
-  }, [user, allDepts]);
+  // 조직 맵 (scope 필터에서 ID → scopeId 매핑용)
+  const orgMap = useMemo(
+    () => new Map(getAllOrganizations().map(o => [o.id, o])),
+    [],
+  );
 
   const filtered = useMemo(() => {
+    const f = searchFilter;
     return visibleAnnouncements
       .filter(a => {
-        if (!fDistrict && !fDept) return true;
-        if (fDistrict === 'church') return a.scope === 'all';
-        if (fZone) return a.scope === 'level2' && a.scopeId === fZone;
-        if (fDistrict) return a.scope === 'level1' && a.scopeId === fDistrict;
-        if (fDept) return a.scope === 'department' && a.scopeId === fDept;
+        // 내 조직 + 조직 선택이 있으면 해당 조직 공지만
+        if (f.scopeMode === 'my_org' && f.selectedOrgIds.length > 0) {
+          return f.selectedOrgIds.some(orgId => {
+            const org = orgMap.get(orgId);
+            if (!org) return false;
+            // scope=all → 항상 표시
+            if (a.scope === 'all') return true;
+            // scopeId 일치 또는 해당 org가 scopeId와 같은 경우
+            return a.scopeId === orgId || a.scopeId === org.id;
+          });
+        }
         return true;
       })
-      .filter(a => !fDate || a.date === fDate)
       .filter(a => {
-        if (!fText) return true;
-        const q = fText.toLowerCase();
-        return a.title.toLowerCase().includes(q) || a.content.toLowerCase().includes(q);
+        // 기간 필터 (date 필드 기준)
+        const { dateFrom, dateTo } = f;
+        if (!dateFrom && !dateTo) return true;
+        if (dateFrom && a.date < dateFrom) return false;
+        if (dateTo && a.date > dateTo) return false;
+        return true;
+      })
+      .filter(a => {
+        if (!f.keyword) return true;
+        const q = f.keyword.toLowerCase();
+        return (
+          a.title.toLowerCase().includes(q) ||
+          a.content.toLowerCase().includes(q) ||
+          a.author.toLowerCase().includes(q)
+        );
       })
       .filter(a => {
         if (importanceFilter === 'important') return isImportantNotice(a);
         if (importanceFilter === 'regular') return !isImportantNotice(a);
         return true;
       });
-  }, [visibleAnnouncements, fDistrict, fZone, fDept, fDate, fText, importanceFilter]);
+  }, [visibleAnnouncements, searchFilter, importanceFilter, orgMap]);
 
   const pinned = useMemo(
     () => filtered.filter(isImportantNotice).sort(byNewest),
@@ -124,11 +130,9 @@ export default function AnnouncementPage() {
   );
 
   const resetFilters = () => {
-    setFDistrict('');
-    setFZone('');
-    setFDept('');
-    setFDate('');
-    setFText('');
+    setSearchFilter(EMPTY_FILTER);
+    setDraftFilter(EMPTY_FILTER);
+    setShowSearch(false);
   };
 
   const handleCreate = () => {
@@ -184,9 +188,12 @@ export default function AnnouncementPage() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setShowSearch(s => !s)}
+              onClick={() => {
+                if (!showSearch) setDraftFilter(searchFilter);
+                setShowSearch(s => !s);
+              }}
               className={`flex items-center gap-2 px-4 rounded-[14px] border text-sm font-semibold transition-all touch-target ${
-                showSearch
+                showSearch || isFilterActive(searchFilter)
                   ? 'bg-primary-500 border-primary-500 text-white'
                   : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
               }`}
@@ -194,6 +201,13 @@ export default function AnnouncementPage() {
             >
               <SlidersHorizontal className="w-4 h-4" />
               상세검색
+              {countActiveFilters(searchFilter) > 0 && (
+                <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center ${
+                  showSearch ? 'bg-white/20' : 'bg-primary-100 text-primary-700'
+                }`}>
+                  {countActiveFilters(searchFilter)}
+                </span>
+              )}
             </button>
 
             {!isMobile && (
@@ -225,91 +239,51 @@ export default function AnnouncementPage() {
           </div>
         </div>
 
-        {/* 빠른 검색 */}
-        <input
-          type="search"
-          value={fText}
-          onChange={e => setFText(e.target.value)}
-          placeholder="제목 또는 내용 검색"
-          className={SELECT}
-        />
       </div>
 
-      {showSearch && (
-        <div className="bg-white border border-gray-200 rounded-[20px] p-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-semibold text-gray-600 mb-2 block">상위조직</label>
-              <select
-                value={fDistrict}
-                onChange={e => { setFDistrict(e.target.value); setFZone(''); }}
-                className={SELECT}
+      {/* 상세검색 패널 (PC: 확장 패널 / 모바일: BottomSheet) */}
+      {showSearch && isMobile && (
+        <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-end">
+          <div className="w-full bg-white rounded-t-[24px] shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-5 pt-4 pb-2">
+              <h3 className="text-base font-bold text-gray-900">상세검색</h3>
+              <button
+                type="button"
+                onClick={() => setShowSearch(false)}
+                className="p-2 rounded-xl text-gray-400 hover:bg-gray-100 touch-target"
               >
-                <option value="">전체</option>
-                <option value="church">교회공지</option>
-                {districtOptions.map(d => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
-                ))}
-              </select>
+                <X className="w-5 h-5" />
+              </button>
             </div>
-
-            <div>
-              <label className={`text-xs font-semibold mb-2 block ${
-                fDistrict && fDistrict !== 'church' ? 'text-gray-600' : 'text-gray-300'
-              }`}>하위조직</label>
-              <select
-                value={fZone}
-                onChange={e => setFZone(e.target.value)}
-                disabled={!fDistrict || fDistrict === 'church'}
-                className={`${SELECT} disabled:opacity-40 disabled:cursor-not-allowed`}
-              >
-                <option value="">전체</option>
-                {zonesInDistrict.map(z => (
-                  <option key={z.id} value={z.id}>{z.name}</option>
-                ))}
-              </select>
-            </div>
-
-            {deptOptions.length > 0 && (
-              <div>
-                <label className="text-xs font-semibold text-gray-600 mb-2 block">부서</label>
-                <select value={fDept} onChange={e => setFDept(e.target.value)} className={SELECT}>
-                  <option value="">전체</option>
-                  {deptOptions.map(d => (
-                    <option key={d.id} value={d.id}>{d.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <div>
-              <label className="text-xs font-semibold text-gray-600 mb-2 block">날짜</label>
-              <input
-                type="date"
-                value={fDate}
-                onChange={e => setFDate(e.target.value)}
-                className={SELECT}
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-end gap-2 mt-5 pt-4 border-t border-gray-100">
-            <button
-              type="button"
-              onClick={resetFilters}
-              className="px-5 py-2 border border-gray-200 rounded-[14px] text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
-            >
-              초기화
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowSearch(false)}
-              className="px-5 py-2 bg-primary-500 text-white rounded-[14px] text-sm font-bold hover:bg-primary-600 transition-colors"
-            >
-              조회
-            </button>
+            <AnnouncementSearchPanel
+              asSheet
+              value={draftFilter}
+              onChange={setDraftFilter}
+              onApply={() => {
+                setSearchFilter(draftFilter);
+                setShowSearch(false);
+              }}
+              onReset={resetFilters}
+            />
           </div>
         </div>
+      )}
+
+      {showSearch && !isMobile && (
+        <AnnouncementSearchPanel
+          value={draftFilter}
+          onChange={setDraftFilter}
+          onApply={() => {
+            setSearchFilter(draftFilter);
+            setShowSearch(false);
+          }}
+          onReset={resetFilters}
+        />
+      )}
+
+      {/* 적용된 필터 Chips */}
+      {isFilterActive(searchFilter) && !showSearch && (
+        <AnnouncementFilterChips filter={searchFilter} onChange={f => { setSearchFilter(f); setDraftFilter(f); }} />
       )}
 
       {filtered.length === 0 ? (
