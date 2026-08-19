@@ -6,6 +6,7 @@ import {
   Heart,
 } from 'lucide-react';
 import { BOOK_LIST } from '../../services/bibleVersesKR';
+import { BibleWordText } from '../../components/bible/BibleWordText';
 import {
   type BibleVerse, type SavedVerse,
   getChapter, hasChapterData,
@@ -808,10 +809,13 @@ function VerseRow({ verse, isHighlighted, isSelected, selectMode, onToggleSelect
           <span className={`shrink-0 font-bold text-xs mt-0.5 w-5 text-right leading-5 ${isHighlighted ? 'text-amber-600' : 'text-primary-500'}`}>
             {verse.verse}
           </span>
-          <p className="flex-1 text-gray-800 text-sm leading-relaxed select-text"
-            style={{ userSelect: 'text', WebkitUserSelect: 'text' }}>
-            {verse.text}
-          </p>
+          <BibleWordText
+            bookId={verse.book}
+            chapter={verse.chapter}
+            verse={verse.verse}
+            text={verse.text}
+            className="flex-1 text-gray-800 text-sm leading-relaxed"
+          />
           {!selectMode && (
             <span className="shrink-0 text-gray-200 mt-1">
               {showActions ? <ChevronLeft className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
