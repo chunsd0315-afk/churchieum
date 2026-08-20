@@ -1,6 +1,6 @@
-﻿import { useState, useMemo } from 'react';
+﻿import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
-  Megaphone, Pin, X, Calendar, Star, Paperclip, ImageIcon, Download,
+  Megaphone, Calendar, Star, Paperclip, ImageIcon,
   SlidersHorizontal, LayoutGrid, List, Plus,
 } from 'lucide-react';
 import { getAllAnnouncements, type Announcement } from '../../services/announcementStorage';
@@ -19,6 +19,8 @@ import {
   countActiveFilters,
   type AnnouncementSearchFilter,
 } from '../../components/announcement/AnnouncementSearchPanel';
+import { AnnouncementDetailView } from '../../components/announcement/AnnouncementDetailView';
+import { AnnouncementEditView } from '../../components/announcement/AnnouncementEditView';
 import { getAllOrganizations } from '../../services/organizationStorage';
 
 function isAnnouncementVisible(ann: Announcement, user: AppUser | null): boolean {
@@ -26,13 +28,13 @@ function isAnnouncementVisible(ann: Announcement, user: AppUser | null): boolean
   if (user.role === 'super_admin') return true;
   if (ann.scope === 'all') return true;
   if (user.role === 'pastor') {
-    if (ann.scope === 'level1')     return user.assignedDistrictIds?.includes(ann.scopeId ?? '')   ?? false;
-    if (ann.scope === 'level2')     return user.assignedZoneIds?.includes(ann.scopeId ?? '')       ?? false;
+    if (ann.scope === 'level1') return user.assignedDistrictIds?.includes(ann.scopeId ?? '') ?? false;
+    if (ann.scope === 'level2') return user.assignedZoneIds?.includes(ann.scopeId ?? '') ?? false;
     if (ann.scope === 'department') return user.assignedDepartmentIds?.includes(ann.scopeId ?? '') ?? false;
   }
   if (user.role === 'member') {
-    if (ann.scope === 'level1')     return ann.scopeId === user.districtId;
-    if (ann.scope === 'level2')     return ann.scopeId === user.zoneId;
+    if (ann.scope === 'level1') return ann.scopeId === user.districtId;
+    if (ann.scope === 'level2') return ann.scopeId === user.zoneId;
     if (ann.scope === 'department') return user.departmentIds?.includes(ann.scopeId ?? '') ?? false;
   }
   return false;
@@ -48,29 +50,184 @@ function byNewest(a: Announcement, b: Announcement): number {
   return (b.created_at ?? '').localeCompare(a.created_at ?? '');
 }
 
+// ─── History (은혜와 기도와 동일 패턴) ───────────────────────────────────────
+
+const HISTORY_KEY = 'churchieum_ann_layer';
+
+type AnnView = 'list' | 'detail' | 'edit';
+
+type AnnHistoryState = {
+  [HISTORY_KEY]: true;
+  layer: 'detail' | 'edit';
+  id: string;
+};
+
+function readAnnHistory(): AnnHistoryState | null {
+  const s = window.history.state as AnnHistoryState | null;
+  if (s?.[HISTORY_KEY] && (s.layer === 'detail' || s.layer === 'edit') && s.id) return s;
+  return null;
+}
+
 export default function AnnouncementPage() {
   const { user, isPastor, isAdmin } = useAuth();
   const toast = useToast();
   const { isMobile } = useBreakpoint();
-  const canCreate = isPastor || isAdmin;
+  const canManage = isPastor || isAdmin;
+
+  const [view, setView] = useState<AnnView>('list');
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [listTick, setListTick] = useState(0);
+  const pendingSaveDetailIdRef = useRef<string | null>(null);
+  const listScrollRef = useRef(0);
 
   const [viewMode, setViewMode] = useState<'card' | 'list'>('list');
   const effectiveViewMode = isMobile ? 'list' : viewMode;
   const [showSearch, setShowSearch] = useState(false);
-  const [selected, setSelected] = useState<Announcement | null>(null);
-  const [lightboxImg, setLightboxImg] = useState<string | null>(null);
 
-  // 상세검색 필터 state
   const [searchFilter, setSearchFilter] = useState<AnnouncementSearchFilter>(EMPTY_FILTER);
-  // 패널에서 편집 중인 임시 값 (Apply 전)
   const [draftFilter, setDraftFilter] = useState<AnnouncementSearchFilter>(EMPTY_FILTER);
+
+  const captureListScroll = useCallback(() => {
+    listScrollRef.current = window.scrollY || document.documentElement.scrollTop;
+  }, []);
+
+  const restoreListScroll = useCallback(() => {
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: listScrollRef.current, behavior: 'auto' });
+    });
+  }, []);
+
+  const goToList = useCallback(() => {
+    setDetailId(null);
+    setEditId(null);
+    setView('list');
+    restoreListScroll();
+  }, [restoreListScroll]);
+
+  const goToDetail = useCallback((id: string, opts?: { pushHistory?: boolean; replaceHistory?: boolean }) => {
+    setEditId(null);
+    setDetailId(id);
+    setView('detail');
+    const hist: AnnHistoryState = { [HISTORY_KEY]: true, layer: 'detail', id };
+    if (opts?.replaceHistory) {
+      window.history.replaceState(hist, '');
+    } else if (opts?.pushHistory) {
+      window.history.pushState(hist, '');
+    }
+  }, []);
+
+  const navToDetail = (id: string) => {
+    captureListScroll();
+    goToDetail(id, { pushHistory: true });
+  };
+
+  const handleDetailBack = useCallback(() => {
+    const hist = readAnnHistory();
+    if (hist?.layer === 'detail') {
+      window.history.back();
+      return;
+    }
+    goToList();
+  }, [goToList]);
+
+  const openEdit = useCallback((id: string, opts?: { fromDetail?: boolean }) => {
+    if (!opts?.fromDetail) {
+      captureListScroll();
+      setDetailId(id);
+      window.history.pushState(
+        { [HISTORY_KEY]: true, layer: 'detail', id } satisfies AnnHistoryState,
+        '',
+      );
+    }
+    setEditId(id);
+    setView('edit');
+    window.history.pushState(
+      { [HISTORY_KEY]: true, layer: 'edit', id } satisfies AnnHistoryState,
+      '',
+    );
+  }, [captureListScroll]);
+
+  const handleEditBack = useCallback(() => {
+    const id = editId ?? detailId;
+    const hist = readAnnHistory();
+    if (hist?.layer === 'edit') {
+      window.history.back();
+      return;
+    }
+    if (id) {
+      goToDetail(id);
+      return;
+    }
+    goToList();
+  }, [editId, detailId, goToDetail, goToList]);
+
+  const handleEditSave = useCallback((savedId: string) => {
+    setListTick(n => n + 1);
+    const hist = readAnnHistory();
+    if (hist?.layer === 'edit') {
+      pendingSaveDetailIdRef.current = savedId;
+      window.history.back();
+      return;
+    }
+    setEditId(null);
+    setDetailId(savedId);
+    setView('detail');
+  }, []);
+
+  const handleDetailDelete = useCallback(() => {
+    const hist = readAnnHistory();
+    if (hist?.layer === 'detail' || hist?.layer === 'edit') {
+      window.history.replaceState({}, '');
+    }
+    setListTick(n => n + 1);
+    goToList();
+  }, [goToList]);
+
+  useEffect(() => {
+    const onPopState = () => {
+      const pendingSaveId = pendingSaveDetailIdRef.current;
+      if (pendingSaveId) {
+        pendingSaveDetailIdRef.current = null;
+        setEditId(null);
+        setDetailId(pendingSaveId);
+        setView('detail');
+        window.history.replaceState(
+          { [HISTORY_KEY]: true, layer: 'detail', id: pendingSaveId } satisfies AnnHistoryState,
+          '',
+        );
+        return;
+      }
+
+      const hist = readAnnHistory();
+      if (hist?.layer === 'edit') {
+        setEditId(hist.id);
+        setDetailId(hist.id);
+        setView('edit');
+        return;
+      }
+      if (hist?.layer === 'detail') {
+        setEditId(null);
+        setDetailId(hist.id);
+        setView('detail');
+        return;
+      }
+      setEditId(null);
+      setDetailId(null);
+      setView('list');
+      restoreListScroll();
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [restoreListScroll]);
 
   const visibleAnnouncements = useMemo(
     () => getAllAnnouncements().filter(a => isAnnouncementVisible(a, user)),
-    [user],
+    // listTick: 수정·삭제 후 목록 갱신
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [user, listTick],
   );
 
-  // 조직 맵 (scope 필터에서 ID → scopeId 매핑용)
   const orgMap = useMemo(
     () => new Map(getAllOrganizations().map(o => [o.id, o])),
     [],
@@ -80,21 +237,17 @@ export default function AnnouncementPage() {
     const f = searchFilter;
     return visibleAnnouncements
       .filter(a => {
-        // 내 조직 + 조직 선택이 있으면 해당 조직 공지만
         if (f.scopeMode === 'my_org' && f.selectedOrgIds.length > 0) {
           return f.selectedOrgIds.some(orgId => {
             const org = orgMap.get(orgId);
             if (!org) return false;
-            // scope=all → 항상 표시
             if (a.scope === 'all') return true;
-            // scopeId 일치 또는 해당 org가 scopeId와 같은 경우
             return a.scopeId === orgId || a.scopeId === org.id;
           });
         }
         return true;
       })
       .filter(a => {
-        // 기간 필터 (date 필드 기준)
         const { dateFrom, dateTo } = f;
         if (!dateFrom && !dateTo) return true;
         if (dateFrom && a.date < dateFrom) return false;
@@ -109,10 +262,9 @@ export default function AnnouncementPage() {
           a.content.toLowerCase().includes(q) ||
           a.author.toLowerCase().includes(q)
         );
-      })
+      });
   }, [visibleAnnouncements, searchFilter, orgMap]);
 
-  // 중요·고정 우선, 이후 최신순 단일 목록
   const sortedList = useMemo(
     () => [...filtered].sort((a, b) => {
       const aImp = isImportantNotice(a) ? 0 : 1;
@@ -133,13 +285,39 @@ export default function AnnouncementPage() {
     toast.info('관리자 모드의 공지 메뉴에서 등록·관리할 수 있습니다.');
   };
 
+  // ─── Detail / Edit layers ─────────────────────────────────────────────────
+
+  if (view === 'detail' && detailId) {
+    return (
+      <AnnouncementDetailView
+        announcementId={detailId}
+        canManage={canManage}
+        onBack={handleDetailBack}
+        onEdit={() => openEdit(detailId, { fromDetail: true })}
+        onDelete={handleDetailDelete}
+      />
+    );
+  }
+
+  if (view === 'edit' && editId) {
+    return (
+      <AnnouncementEditView
+        announcementId={editId}
+        onBack={handleEditBack}
+        onSaved={handleEditSave}
+      />
+    );
+  }
+
+  // ─── List ─────────────────────────────────────────────────────────────────
+
   return (
     <div className="space-y-5 pb-24 md:pb-8 max-w-[900px] mx-auto">
       <PageHeaderBar
         title="공지사항"
         description="교회 소식과 중요한 안내를 확인하세요."
         action={
-          canCreate ? (
+          canManage ? (
             <button
               type="button"
               onClick={handleCreate}
@@ -150,10 +328,9 @@ export default function AnnouncementPage() {
             </button>
           ) : undefined
         }
-        mobileFab={canCreate ? { label: '공지 등록', onClick: handleCreate } : undefined}
+        mobileFab={canManage ? { label: '공지 등록', onClick: handleCreate } : undefined}
       />
 
-      {/* 검색 · 필터 · 보기 */}
       <div className="space-y-3">
         <div className="flex items-center justify-end gap-3 flex-wrap">
           <div className="flex items-center gap-2">
@@ -209,10 +386,8 @@ export default function AnnouncementPage() {
             )}
           </div>
         </div>
-
       </div>
 
-      {/* 상세검색 패널 (PC: 확장 패널 / 모바일: BottomSheet) */}
       {showSearch && isMobile && (
         <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-end">
           <div className="w-full bg-white rounded-t-[24px] shadow-2xl max-h-[90vh] overflow-y-auto">
@@ -223,7 +398,7 @@ export default function AnnouncementPage() {
                 onClick={() => setShowSearch(false)}
                 className="p-2 rounded-xl text-gray-400 hover:bg-gray-100 touch-target"
               >
-                <X className="w-5 h-5" />
+                ✕
               </button>
             </div>
             <AnnouncementSearchPanel
@@ -252,9 +427,11 @@ export default function AnnouncementPage() {
         />
       )}
 
-      {/* 적용된 필터 Chips */}
       {isFilterActive(searchFilter) && !showSearch && (
-        <AnnouncementFilterChips filter={searchFilter} onChange={f => { setSearchFilter(f); setDraftFilter(f); }} />
+        <AnnouncementFilterChips
+          filter={searchFilter}
+          onChange={f => { setSearchFilter(f); setDraftFilter(f); }}
+        />
       )}
 
       {sortedList.length === 0 ? (
@@ -265,108 +442,15 @@ export default function AnnouncementPage() {
         />
       ) : effectiveViewMode === 'list' ? (
         <div className="church-list">
-          {sortedList.map(a => <AnnListCard key={a.id} item={a} onClick={() => setSelected(a)} />)}
+          {sortedList.map(a => (
+            <AnnListCard key={a.id} item={a} onClick={() => navToDetail(a.id)} />
+          ))}
         </div>
       ) : (
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-          {sortedList.map(a => <AnnGridCard key={a.id} item={a} onClick={() => setSelected(a)} />)}
-        </div>
-      )}
-
-      {selected && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end md:items-center justify-center md:p-4">
-          <div className="bg-white w-full md:max-w-2xl md:rounded-3xl rounded-t-3xl max-h-[92vh] flex flex-col shadow-2xl">
-            <div className="sticky top-0 bg-white border-b border-gray-100 px-5 py-4 flex items-center justify-between flex-shrink-0 rounded-t-3xl">
-              <h3 className="font-bold text-gray-900">공지 상세</h3>
-              <button type="button" onClick={() => setSelected(null)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-5 py-5 space-y-4 pb-8">
-              {selected.images.length > 0 && (
-                <div
-                  className="w-full overflow-hidden rounded-[16px] bg-gray-100 cursor-pointer"
-                  style={{ aspectRatio: '16/7' }}
-                  onClick={() => setLightboxImg(selected.images[0])}
-                >
-                  <img src={selected.images[0]} alt="" className="w-full h-full object-cover" />
-                </div>
-              )}
-
-              <div>
-                <div className="flex flex-wrap items-center gap-1.5 mb-2">
-                  {buildNoticeScopeBadges(selected).map((b, i) => (
-                    <StatusBadge key={i} label={b.label} variant={b.variant} />
-                  ))}
-                  {selected.isPinned && (
-                    <span className="inline-flex items-center gap-0.5 px-2.5 font-bold bg-red-50 text-red-600 text-[11px] rounded-full"
-                      style={{ height: '22px' }}>
-                      <Pin className="w-2.5 h-2.5" /> 고정
-                    </span>
-                  )}
-                  {selected.isImportant && (
-                    <span className="inline-flex items-center gap-0.5 px-2.5 font-bold bg-amber-50 text-amber-600 text-[11px] rounded-full"
-                      style={{ height: '22px' }}>
-                      <Star className="w-2.5 h-2.5" /> 중요
-                    </span>
-                  )}
-                </div>
-                <h2 className="text-xl font-bold text-gray-900 leading-snug">{selected.title}</h2>
-                <p className="text-xs text-gray-400 mt-1.5 flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5" /> {selected.date}
-                  <span className="ml-1">{selected.author}</span>
-                </p>
-              </div>
-
-              <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{selected.content}</p>
-
-              {selected.images.length > 1 && (
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold text-gray-500 flex items-center gap-1.5">
-                    <ImageIcon className="w-3.5 h-3.5" /> 첨부 이미지 {selected.images.length}장
-                  </p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {selected.images.map((img, i) => (
-                      <button key={i} type="button" onClick={() => setLightboxImg(img)}
-                        className="aspect-video rounded-xl overflow-hidden border border-gray-200 hover:opacity-90 transition-opacity">
-                        <img src={img} alt="" className="w-full h-full object-cover" />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {selected.files.length > 0 && (
-                <div className="space-y-1.5">
-                  <p className="text-xs font-semibold text-gray-500 flex items-center gap-1.5">
-                    <Paperclip className="w-3.5 h-3.5" /> 첨부파일 {selected.files.length}개
-                  </p>
-                  {selected.files.map((f, i) => (
-                    <a key={i} href={f.data} download={f.name}
-                      className="flex items-center gap-3 px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl hover:bg-gray-100 transition-colors">
-                      <Paperclip className="w-4 h-4 text-gray-400 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-700 truncate">{f.name}</p>
-                        <p className="text-[10px] text-gray-400">{f.size}</p>
-                      </div>
-                      <Download className="w-4 h-4 text-primary-500 shrink-0" />
-                    </a>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {lightboxImg && (
-        <div className="fixed inset-0 z-[70] bg-black/90 flex items-center justify-center p-4"
-          onClick={() => setLightboxImg(null)}>
-          <img src={lightboxImg} alt="" className="max-w-full max-h-full rounded-2xl object-contain" />
-          <button type="button" className="absolute top-4 right-4 w-10 h-10 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center">
-            <X className="w-5 h-5 text-white" />
-          </button>
+          {sortedList.map(a => (
+            <AnnGridCard key={a.id} item={a} onClick={() => navToDetail(a.id)} />
+          ))}
         </div>
       )}
     </div>
