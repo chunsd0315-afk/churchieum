@@ -14,7 +14,6 @@ import {
   type OrgFilterTreeNode,
 } from '../../services/userOrganizationTree';
 import {
-  buildDirectPastorShareModel,
   getPastoralAssigneesForOrganization,
   type DirectPastorOnOrg,
 } from '../../services/directPastorShare';
@@ -99,17 +98,10 @@ export function AnnouncementVisibilitySelector({
     });
   }, [user, orgTick]);
 
-  const pastorModel = useMemo(
-    () => buildDirectPastorShareModel(user, { relatedOnly: true }),
-    [user, orgTick],
-  );
-
   const selectableOrgs = useMemo(() => {
     const flat = flattenOrgsWithDepth(orgTree).filter(x => x.node.selectable);
     return flat.map(({ node, depth }) => {
-      const pastors =
-        pastorModel.pastorsByOrgId.get(node.id)
-        ?? getPastoralAssigneesForOrganization(node.id);
+      const pastors = getPastoralAssigneesForOrganization(node.id);
       return {
         id: node.id,
         name: node.name,
@@ -118,7 +110,7 @@ export function AnnouncementVisibilitySelector({
         assigneeLine: formatAssigneeLine(pastors),
       };
     });
-  }, [orgTree, pastorModel]);
+  }, [orgTree]);
 
   const hasOrgTree = selectableOrgs.length > 0;
 

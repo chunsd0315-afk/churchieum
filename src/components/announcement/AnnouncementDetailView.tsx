@@ -112,8 +112,10 @@ export function AnnouncementDetailView({
   }
 
   const allowComments = resolveAnnouncementAllowComments(ann);
-  const comments = (ann.comments ?? []).filter(c => c.type === 'comment');
+  const comments = (Array.isArray(ann.comments) ? ann.comments : []).filter(c => c.type === 'comment');
   const commentCount = comments.length;
+  const images = Array.isArray(ann.images) ? ann.images : [];
+  const files = Array.isArray(ann.files) ? ann.files : [];
 
   const handleDelete = () => {
     deleteAnnouncement(ann.id);
@@ -310,14 +312,14 @@ export function AnnouncementDetailView({
               작성자 {ann.author} · {formatAnnouncementDateTime(ann)}
             </p>
 
-            {ann.images.length > 0 && (
+            {images.length > 0 && (
               <button
                 type="button"
                 className="w-full overflow-hidden rounded-[16px] bg-gray-100 cursor-pointer"
                 style={{ aspectRatio: '16/7' }}
-                onClick={() => setLightboxImg(ann.images[0])}
+                onClick={() => setLightboxImg(images[0])}
               >
-                <img src={ann.images[0]} alt="" className="w-full h-full object-cover" />
+                <img src={images[0]} alt="" className="w-full h-full object-cover" />
               </button>
             )}
 
@@ -327,13 +329,13 @@ export function AnnouncementDetailView({
               </p>
             </section>
 
-            {ann.images.length > 1 && (
+            {images.length > 1 && (
               <section className="pt-2 border-t border-gray-100 space-y-2">
                 <p className="text-xs font-bold text-gray-500 flex items-center gap-1.5">
-                  <ImageIcon className="w-3.5 h-3.5" /> 첨부 이미지 {ann.images.length}장
+                  <ImageIcon className="w-3.5 h-3.5" /> 첨부 이미지 {images.length}장
                 </p>
                 <div className="grid grid-cols-2 gap-2">
-                  {ann.images.map((img, i) => (
+                  {images.map((img, i) => (
                     <button
                       key={i}
                       type="button"
@@ -347,12 +349,12 @@ export function AnnouncementDetailView({
               </section>
             )}
 
-            {ann.files.length > 0 && (
+            {files.length > 0 && (
               <section className="pt-2 border-t border-gray-100 space-y-2">
                 <p className="text-xs font-bold text-gray-500 flex items-center gap-1.5">
-                  <Paperclip className="w-3.5 h-3.5" /> 첨부파일 {ann.files.length}개
+                  <Paperclip className="w-3.5 h-3.5" /> 첨부파일 {files.length}개
                 </p>
-                {ann.files.map((f, i) => (
+                {files.map((f, i) => (
                   <a
                     key={i}
                     href={f.data}

@@ -58,7 +58,7 @@ function byNewest(a: Announcement, b: Announcement): number {
   const bTs = b.created_at || b.date || '';
   const byCreated = bTs.localeCompare(aTs);
   if (byCreated !== 0) return byCreated;
-  return b.date.localeCompare(a.date);
+  return (b.date || '').localeCompare(a.date || '');
 }
 
 // ─── History (은혜와 기도와 동일 패턴) ───────────────────────────────────────
@@ -553,8 +553,11 @@ function AnnouncementListBody({
 }
 
 function AnnListCard({ item, onClick }: { item: Announcement; onClick: () => void }) {
-  const hasThumb = item.images.length > 0;
+  const images = Array.isArray(item.images) ? item.images : [];
+  const files = Array.isArray(item.files) ? item.files : [];
+  const hasThumb = images.length > 0;
   const important = isImportantNotice(item);
+  const preview = (item.content || '').split('\n').filter(Boolean)[0] ?? '';
 
   return (
     <button
@@ -567,14 +570,14 @@ function AnnListCard({ item, onClick }: { item: Announcement; onClick: () => voi
         {hasThumb && (
           <div className="block md:hidden shrink-0 overflow-hidden bg-gray-100 rounded-[12px]"
             style={{ width: '96px', height: '72px' }}>
-            <img src={item.images[0]} alt="" className="w-full h-full object-cover"
+            <img src={images[0]} alt="" className="w-full h-full object-cover"
               onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
           </div>
         )}
         {hasThumb && (
           <div className="hidden md:block shrink-0 overflow-hidden bg-gray-100 rounded-[12px]"
             style={{ width: '120px', height: '80px' }}>
-            <img src={item.images[0]} alt="" className="w-full h-full object-cover"
+            <img src={images[0]} alt="" className="w-full h-full object-cover"
               onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
           </div>
         )}
@@ -594,21 +597,23 @@ function AnnListCard({ item, onClick }: { item: Announcement; onClick: () => voi
           <h3 className="font-bold text-gray-900 leading-snug line-clamp-2" style={{ fontSize: '15px' }}>
             {item.title}
           </h3>
-          <p className="text-sm text-gray-500 mt-1 line-clamp-2 leading-snug">
-            {item.content.split('\n').filter(Boolean)[0]}
-          </p>
+          {preview && (
+            <p className="text-sm text-gray-500 mt-1 line-clamp-2 leading-snug">
+              {preview}
+            </p>
+          )}
           <div className="flex items-center gap-3 mt-1.5">
             <span className="text-[11px] text-gray-400 flex items-center gap-1">
-              <Calendar className="w-3 h-3" /> {formatAnnouncementDate(item) || item.date}
+              <Calendar className="w-3 h-3" /> {formatAnnouncementDate(item) || item.date || ''}
             </span>
             <span className="text-[11px] text-gray-400">{item.author}</span>
-            {(item.images.length > 0 || item.files.length > 0) && (
+            {(images.length > 0 || files.length > 0) && (
               <span className="text-[11px] text-gray-400 flex items-center gap-2 ml-auto">
-                {item.images.length > 0 && (
-                  <span className="flex items-center gap-0.5"><ImageIcon className="w-3 h-3" /> {item.images.length}</span>
+                {images.length > 0 && (
+                  <span className="flex items-center gap-0.5"><ImageIcon className="w-3 h-3" /> {images.length}</span>
                 )}
-                {item.files.length > 0 && (
-                  <span className="flex items-center gap-0.5"><Paperclip className="w-3 h-3" /> {item.files.length}</span>
+                {files.length > 0 && (
+                  <span className="flex items-center gap-0.5"><Paperclip className="w-3 h-3" /> {files.length}</span>
                 )}
               </span>
             )}
@@ -620,8 +625,10 @@ function AnnListCard({ item, onClick }: { item: Announcement; onClick: () => voi
 }
 
 function AnnGridCard({ item, onClick }: { item: Announcement; onClick: () => void }) {
-  const hasThumb = item.images.length > 0;
+  const images = Array.isArray(item.images) ? item.images : [];
+  const hasThumb = images.length > 0;
   const important = isImportantNotice(item);
+  const preview = (item.content || '').split('\n').filter(Boolean)[0] ?? '';
 
   return (
     <button
@@ -637,7 +644,7 @@ function AnnGridCard({ item, onClick }: { item: Announcement; onClick: () => voi
     >
       {hasThumb && (
         <div className="w-full overflow-hidden bg-gray-100" style={{ height: '140px' }}>
-          <img src={item.images[0]} alt="" className="w-full h-full object-cover"
+          <img src={images[0]} alt="" className="w-full h-full object-cover"
             onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
         </div>
       )}
@@ -654,12 +661,14 @@ function AnnGridCard({ item, onClick }: { item: Announcement; onClick: () => voi
           ))}
         </div>
         <h3 className="font-bold text-gray-900 text-sm leading-snug line-clamp-2 mb-1">{item.title}</h3>
-        <p className="text-xs text-gray-500 line-clamp-2 mb-3 leading-snug">
-          {item.content.split('\n').filter(Boolean)[0]}
-        </p>
+        {preview && (
+          <p className="text-xs text-gray-500 line-clamp-2 mb-3 leading-snug">
+            {preview}
+          </p>
+        )}
         <div className="flex items-center gap-2 text-[11px] text-gray-400 mt-auto">
           <Calendar className="w-3 h-3 shrink-0" />
-          <span>{formatAnnouncementDate(item) || item.date}</span>
+          <span>{formatAnnouncementDate(item) || item.date || ''}</span>
           <span className="ml-1">{item.author}</span>
         </div>
       </div>

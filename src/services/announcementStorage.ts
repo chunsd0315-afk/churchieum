@@ -280,10 +280,69 @@ const SEED: Announcement[] = [
 function load(): Announcement[] {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) return JSON.parse(raw) as Announcement[];
+    if (raw) {
+      const parsed = JSON.parse(raw) as unknown;
+      if (!Array.isArray(parsed)) {
+        save(SEED);
+        return SEED;
+      }
+      return parsed.map(normalizeAnnouncement);
+    }
   } catch {}
   save(SEED);
   return SEED;
+}
+
+/** 기존/불완전 레코드도 목록·상세가 깨지지 않도록 필드 보정 (데이터 삭제 없음) */
+function normalizeAnnouncement(raw: unknown): Announcement {
+  const a = (raw && typeof raw === 'object' ? raw : {}) as Partial<Announcement> & Record<string, unknown>;
+  const created =
+    (typeof a.created_at === 'string' && a.created_at)
+    || (typeof a.updated_at === 'string' && a.updated_at)
+    || (typeof a.date === 'string' && a.date)
+    || '';
+  const date =
+    (typeof a.date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(a.date) && a.date.slice(0, 10))
+    || (typeof created === 'string' && created.length >= 10 ? created.slice(0, 10) : '')
+    || '';
+
+  const scope = (
+    a.scope === 'all'
+    || a.scope === 'level1'
+    || a.scope === 'level2'
+    || a.scope === 'department'
+    || a.scope === 'organizations'
+  ) ? a.scope : 'all';
+
+  const category = (
+    a.category === '일반공지'
+    || a.category === '행사안내'
+    || a.category === '가정통신문'
+    || a.category === '기타'
+  ) ? a.category : '일반공지';
+
+  return {
+    id: typeof a.id === 'string' && a.id ? a.id : `ann-${Date.now()}`,
+    title: typeof a.title === 'string' ? a.title : '',
+    content: typeof a.content === 'string' ? a.content : '',
+    category,
+    scope,
+    scopeId: typeof a.scopeId === 'string' ? a.scopeId : undefined,
+    scopeName: typeof a.scopeName === 'string' ? a.scopeName : undefined,
+    sharedOrganizationIds: Array.isArray(a.sharedOrganizationIds)
+      ? a.sharedOrganizationIds.filter((id): id is string => typeof id === 'string' && !!id)
+      : [],
+    date,
+    isPinned: Boolean(a.isPinned),
+    isImportant: Boolean(a.isImportant),
+    author: typeof a.author === 'string' ? a.author : '',
+    images: Array.isArray(a.images) ? a.images.filter((x): x is string => typeof x === 'string') : [],
+    files: Array.isArray(a.files) ? (a.files as AttachFile[]) : [],
+    created_at: typeof a.created_at === 'string' ? a.created_at : (created || new Date().toISOString()),
+    updated_at: typeof a.updated_at === 'string' ? a.updated_at : undefined,
+    allowComments: a.allowComments !== false,
+    comments: Array.isArray(a.comments) ? (a.comments as AnnouncementComment[]) : [],
+  };
 }
 
 function save(list: Announcement[]) {
@@ -297,8 +356,10 @@ function save(list: Announcement[]) {
 
 export function getAllAnnouncements(): Announcement[] {
   return load().sort((a, b) => {
-    if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
-    return b.date.localeCompare(a.date);
+    if (Boolean(a.isPinned) !== Boolean(b.isPinned)) return a.isPinned ? -1 : 1;
+    const bd = b.date || b.created_at || '';
+    const ad = a.date || a.created_at || '';
+    return bd.localeCompare(ad);
   });
 }
 
@@ -446,11 +507,22 @@ export async function fileToBase64(file: File): Promise<string> {
 
 export const ACCEPT_FILES = '.pdf,.hwp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,image/*';
 
-/** 표시용 작성일시 — created_at 우선, 없으면 date */
-export function getAnnouncementTimestamp(ann: Pick<Announcement, 'created_at' | 'date' | 'updated_at'>): string {
-  if (ann.created_at && !Number.isNaN(Date.parse(ann.created_at))) return ann.created_at;
-  if (ann.date && /^\d{4}-\d{2}-\d{2}$/.test(ann.date)) return `${ann.date}T00:00:00`;
-  if (ann.updated_at && !Number.isNaN(Date.parse(ann.updated_at))) return ann.updated_at;
+/** 표시용 작성일시 — created_at → publishedAt → date → updated_at */
+export function getAnnouncementTimestamp(
+  ann: Pick<Announcement, 'created_at' | 'date' | 'updated_at'> | Record<string, unknown>,
+): string {
+  const r = ann as Record<string, unknown>;
+  const created = typeof r.created_at === 'string' ? r.created_at : '';
+  const date = typeof r.date === 'string' ? r.date : '';
+  const updated = typeof r.updated_at === 'string' ? r.updated_at : '';
+  const published = typeof r.publishedAt === 'string' ? r.publishedAt
+    : typeof r.publishDate === 'string' ? r.publishDate
+    : '';
+
+  if (created && !Number.isNaN(Date.parse(created))) return created;
+  if (published && !Number.isNaN(Date.parse(published))) return published;
+  if (date && /^\d{4}-\d{2}-\d{2}/.test(date)) return `${date.slice(0, 10)}T00:00:00`;
+  if (updated && !Number.isNaN(Date.parse(updated))) return updated;
   return '';
 }
 

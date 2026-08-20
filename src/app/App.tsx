@@ -71,7 +71,7 @@ class ErrorBoundary extends Component<
           <p className="font-semibold text-gray-800">페이지를 불러오지 못했습니다</p>
           <p className="text-sm text-gray-500">잠시 후 다시 시도해주세요.</p>
           <button
-            onClick={() => this.setState({ hasError: false })}
+            onClick={() => this.setState({ hasError: false, error: undefined })}
             className="mt-1 px-5 py-2 bg-primary-500 text-white rounded-full text-sm font-semibold hover:bg-primary-600 transition-colors"
           >
             다시 시도

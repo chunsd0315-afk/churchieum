@@ -4,7 +4,7 @@ import StatusBadge from '../../components/layout/StatusBadge';
 import EmptyState from '../../components/layout/EmptyState';
 import {
   Megaphone, Plus, Edit2, Trash2, Pin, Star,
-  Calendar, ImageIcon, Paperclip,
+  Calendar, ImageIcon, Paperclip, Bell,
   AlertTriangle, LayoutGrid, List,
   SlidersHorizontal,
 } from 'lucide-react';
@@ -652,7 +652,10 @@ type CardActions = {
 
 /* ─── List Card (default) ────────────────────────────────────────────────── */
 function AnnListCard({ ann, badges, onView, onEdit, onDelete, onTogglePin, onToggleImportant: _onToggleImportant, onNotify }: CardActions) {
-  const hasThumb = ann.images.length > 0;
+  const images = Array.isArray(ann.images) ? ann.images : [];
+  const files = Array.isArray(ann.files) ? ann.files : [];
+  const hasThumb = images.length > 0;
+  const preview = (ann.content || '').split('\n').filter(Boolean)[0] ?? '';
   return (
     <div
       className={`${CHURCH_LIST_ROW_CLASS} cursor-pointer ${
@@ -668,7 +671,7 @@ function AnnListCard({ ann, badges, onView, onEdit, onDelete, onTogglePin, onTog
             onClick={onView}
           >
             <img
-              src={ann.images[0]}
+              src={images[0]}
               alt=""
               className="w-full h-full object-cover"
               onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
@@ -683,7 +686,7 @@ function AnnListCard({ ann, badges, onView, onEdit, onDelete, onTogglePin, onTog
             onClick={onView}
           >
             <img
-              src={ann.images[0]}
+              src={images[0]}
               alt=""
               className="w-full h-full object-cover"
               onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
@@ -713,16 +716,16 @@ function AnnListCard({ ann, badges, onView, onEdit, onDelete, onTogglePin, onTog
           {/* Title */}
           <h4 className="font-bold text-gray-900 mb-1 leading-tight line-clamp-2" style={{ fontSize: '15px' }}>{ann.title}</h4>
           {/* Summary */}
-          <p className="text-sm text-gray-500 line-clamp-2 mb-1.5 md:mb-2">{ann.content.split('\n').filter(Boolean)[0]}</p>
+          {preview && <p className="text-sm text-gray-500 line-clamp-2 mb-1.5 md:mb-2">{preview}</p>}
           {/* Meta */}
           <div className="flex items-center gap-3 text-[12px] text-gray-400">
             <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{formatAnnouncementDate(ann)}</span>
             <span>{ann.author}</span>
-            {ann.images.length > 0 && (
-              <span className="flex items-center gap-0.5"><ImageIcon className="w-3 h-3" />{ann.images.length}</span>
+            {images.length > 0 && (
+              <span className="flex items-center gap-0.5"><ImageIcon className="w-3 h-3" />{images.length}</span>
             )}
-            {ann.files.length > 0 && (
-              <span className="flex items-center gap-0.5"><Paperclip className="w-3 h-3" />{ann.files.length}</span>
+            {files.length > 0 && (
+              <span className="flex items-center gap-0.5"><Paperclip className="w-3 h-3" />{files.length}</span>
             )}
           </div>
         </div>
@@ -737,7 +740,10 @@ function AnnListCard({ ann, badges, onView, onEdit, onDelete, onTogglePin, onTog
 
 /* ─── Grid Card ──────────────────────────────────────────────────────────── */
 function AnnGridCard({ ann, badges, onView, onEdit, onDelete, onTogglePin, onNotify }: CardActions) {
-  const hasThumb = ann.images.length > 0;
+  const images = Array.isArray(ann.images) ? ann.images : [];
+  const files = Array.isArray(ann.files) ? ann.files : [];
+  const hasThumb = images.length > 0;
+  const preview = (ann.content || '').split('\n').filter(Boolean)[0] ?? '';
   return (
     <div
       className={`bg-white border rounded-[20px] flex flex-col transition-all hover:shadow-lg hover:-translate-y-0.5 overflow-hidden ${
@@ -753,7 +759,7 @@ function AnnGridCard({ ann, badges, onView, onEdit, onDelete, onTogglePin, onNot
           onClick={onView}
         >
           <img
-            src={ann.images[0]}
+            src={images[0]}
             alt=""
             className="w-full h-full object-cover"
             onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
@@ -777,7 +783,7 @@ function AnnGridCard({ ann, badges, onView, onEdit, onDelete, onTogglePin, onNot
         {/* Title */}
         <h4 className="font-bold text-gray-900 mb-2 leading-snug line-clamp-2" style={{ fontSize: '15px' }}>{ann.title}</h4>
         {/* Summary */}
-        <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed mb-2">{ann.content.split('\n').filter(Boolean)[0]}</p>
+        {preview && <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed mb-2">{preview}</p>}
         {/* Author */}
         <p className="text-[12px] text-gray-400">{ann.author}</p>
       </div>
@@ -785,10 +791,10 @@ function AnnGridCard({ ann, badges, onView, onEdit, onDelete, onTogglePin, onNot
       <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
         <div className="flex items-center gap-2.5 text-[12px] text-gray-400">
           <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{formatAnnouncementDate(ann)}</span>
-          {(ann.images.length > 0 || ann.files.length > 0) && (
+          {(images.length > 0 || files.length > 0) && (
             <span className="flex items-center gap-1">
-              {ann.images.length > 0 && <><ImageIcon className="w-3 h-3" />{ann.images.length}</>}
-              {ann.files.length > 0 && <><Paperclip className="w-3 h-3" />{ann.files.length}</>}
+              {images.length > 0 && <><ImageIcon className="w-3 h-3" />{images.length}</>}
+              {files.length > 0 && <><Paperclip className="w-3 h-3" />{files.length}</>}
             </span>
           )}
         </div>
