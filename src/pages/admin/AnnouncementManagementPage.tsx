@@ -48,6 +48,7 @@ type FormData = {
   category: Category; customCategory: string;
   scope: Scope; scopeId: string;
   date: string; isPinned: boolean; isImportant: boolean;
+  allowComments: boolean;
   images: string[];
   files: AttachFile[];
 };
@@ -55,7 +56,7 @@ type FormData = {
 const EMPTY_FORM: FormData = {
   title: '', content: '', category: '일반공지', customCategory: '',
   scope: 'all', scopeId: '', date: new Date().toISOString().split('T')[0],
-  isPinned: false, isImportant: false, images: [], files: [],
+  isPinned: false, isImportant: false, allowComments: true, images: [], files: [],
 };
 
 function isFormDirty(form: FormData): boolean {
@@ -204,6 +205,7 @@ export default function AnnouncementManagementPage() {
       title: ann.title, content: ann.content, category: ann.category, customCategory: '',
       scope: ann.scope, scopeId: ann.scopeId ?? '', date: ann.date,
       isPinned: ann.isPinned, isImportant: ann.isImportant,
+      allowComments: ann.allowComments !== false,
       images: ann.images ?? [], files: ann.files ?? [],
     });
     setShowForm(true);
@@ -249,8 +251,10 @@ export default function AnnouncementManagementPage() {
       scope: form.scope, scopeId: form.scope !== 'all' ? form.scopeId : undefined,
       scopeName: form.scope !== 'all' ? getScopeName(form.scope, form.scopeId) : undefined,
       date: form.date, isPinned: form.isPinned, isImportant: form.isImportant,
+      allowComments: form.allowComments,
       author: editing?.author ?? '관리자',
       images: form.images, files: form.files,
+      comments: editing?.comments,
     };
     let savedId = editing?.id;
     if (editing) {
@@ -315,6 +319,7 @@ export default function AnnouncementManagementPage() {
             title: ann.title, content: ann.content, category: ann.category, customCategory: '',
             scope: ann.scope, scopeId: ann.scopeId ?? '', date: ann.date,
             isPinned: ann.isPinned, isImportant: ann.isImportant,
+            allowComments: ann.allowComments !== false,
             images: ann.images ?? [], files: ann.files ?? [],
           });
           setShowForm(true);
@@ -501,6 +506,8 @@ export default function AnnouncementManagementPage() {
           checked={form.isPinned} onChange={v => setForm(f => ({ ...f, isPinned: v }))} />
         <Toggle label="중요 공지" color="amber" icon={<Star className="w-3.5 h-3.5 text-amber-500" />}
           checked={form.isImportant} onChange={v => setForm(f => ({ ...f, isImportant: v }))} />
+        <Toggle label="댓글 허용" color="blue" icon={<Bell className="w-3.5 h-3.5 text-primary-500" />}
+          checked={form.allowComments} onChange={v => setForm(f => ({ ...f, allowComments: v }))} />
       </div>
     </div>
   );

@@ -7,6 +7,20 @@ export type AttachFile = {
   data: string;
 };
 
+/** 은혜와 기도 GraceNoteComment 와 호환되는 형태 */
+export type AnnouncementComment = {
+  id: string;
+  authorName: string;
+  authorId?: string;
+  authorPosition?: string;
+  content: string;
+  type: 'comment';
+  createdAt: string;
+  updatedAt?: string;
+};
+
+export const ANNOUNCEMENT_COMMENT_MAX_LENGTH = 500;
+
 export type Announcement = {
   id: string;
   title: string;
@@ -22,6 +36,9 @@ export type Announcement = {
   images: string[];
   files: AttachFile[];
   created_at: string;
+  /** 댓글 허용 (기본 true) */
+  allowComments?: boolean;
+  comments?: AnnouncementComment[];
 };
 
 const px = (id: number) =>
@@ -285,6 +302,93 @@ export function updateAnnouncement(id: string, data: Omit<Announcement, 'id' | '
 
 export function deleteAnnouncement(id: string): void {
   save(load().filter(a => a.id !== id));
+}
+
+export function getAnnouncementById(id: string): Announcement | null {
+  return load().find(a => a.id === id) ?? null;
+}
+
+/** 미설정 시 댓글 허용(기본 true) */
+export function resolveAnnouncementAllowComments(ann: Pick<Announcement, 'allowComments'>): boolean {
+  return ann.allowComments !== false;
+}
+
+export function addAnnouncementComment(
+  announcementId: string,
+  authorName: string,
+  content: string,
+  options?: { authorId?: string; authorPosition?: string },
+): AnnouncementComment | null {
+  const list = load();
+  const idx = list.findIndex(a => a.id === announcementId);
+  if (idx < 0) return null;
+  if (!resolveAnnouncementAllowComments(list[idx])) return null;
+
+  const trimmed = content.trim().slice(0, ANNOUNCEMENT_COMMENT_MAX_LENGTH);
+  if (!trimmed) return null;
+
+  const now = new Date().toISOString();
+  const comment: AnnouncementComment = {
+    id: `anc-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+    authorName,
+    authorId: options?.authorId,
+    authorPosition: options?.authorPosition,
+    content: trimmed,
+    type: 'comment',
+    createdAt: now,
+    updatedAt: now,
+  };
+  list[idx] = {
+    ...list[idx],
+    comments: [...(list[idx].comments ?? []), comment],
+  };
+  save(list);
+  return comment;
+}
+
+export function updateAnnouncementComment(
+  announcementId: string,
+  commentId: string,
+  content: string,
+  actor: { userId?: string; isAdmin?: boolean },
+): boolean {
+  const list = load();
+  const idx = list.findIndex(a => a.id === announcementId);
+  if (idx < 0) return false;
+  const comments = list[idx].comments ?? [];
+  const cIdx = comments.findIndex(c => c.id === commentId);
+  if (cIdx < 0) return false;
+  const target = comments[cIdx];
+  const isOwner = Boolean(actor.userId && target.authorId && target.authorId === actor.userId);
+  if (!isOwner && !actor.isAdmin) return false;
+  const trimmed = content.trim().slice(0, ANNOUNCEMENT_COMMENT_MAX_LENGTH);
+  if (!trimmed) return false;
+  const next = [...comments];
+  next[cIdx] = { ...target, content: trimmed, updatedAt: new Date().toISOString() };
+  list[idx] = { ...list[idx], comments: next };
+  save(list);
+  return true;
+}
+
+export function deleteAnnouncementComment(
+  announcementId: string,
+  commentId: string,
+  actor: { userId?: string; isAdmin?: boolean },
+): boolean {
+  const list = load();
+  const idx = list.findIndex(a => a.id === announcementId);
+  if (idx < 0) return false;
+  const comments = list[idx].comments ?? [];
+  const target = comments.find(c => c.id === commentId);
+  if (!target) return false;
+  const isOwner = Boolean(actor.userId && target.authorId && target.authorId === actor.userId);
+  if (!isOwner && !actor.isAdmin) return false;
+  list[idx] = {
+    ...list[idx],
+    comments: comments.filter(c => c.id !== commentId),
+  };
+  save(list);
+  return true;
 }
 
 export function formatFileSize(bytes: number): string {

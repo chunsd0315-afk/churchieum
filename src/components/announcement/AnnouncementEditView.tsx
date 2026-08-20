@@ -34,6 +34,7 @@ type FormData = {
   date: string;
   isPinned: boolean;
   isImportant: boolean;
+  allowComments: boolean;
   images: string[];
   files: AttachFile[];
 };
@@ -62,6 +63,7 @@ export function AnnouncementEditView({ announcementId, onBack, onSaved }: Props)
     date: existing?.date ?? new Date().toISOString().slice(0, 10),
     isPinned: existing?.isPinned ?? false,
     isImportant: existing?.isImportant ?? false,
+    allowComments: existing?.allowComments !== false,
     images: existing?.images ?? [],
     files: existing?.files ?? [],
   }));
@@ -112,9 +114,11 @@ export function AnnouncementEditView({ announcementId, onBack, onSaved }: Props)
       date: form.date,
       isPinned: form.isPinned,
       isImportant: form.isImportant,
+      allowComments: form.allowComments,
       author: existing.author,
       images: form.images,
       files: form.files,
+      comments: existing.comments,
     });
     onSaved(announcementId);
   };
@@ -266,6 +270,15 @@ export function AnnouncementEditView({ announcementId, onBack, onSaved }: Props)
               className="rounded border-gray-300 text-primary-500 focus:ring-primary-400"
             />
             상단 고정
+          </label>
+          <label className="inline-flex items-center gap-2 text-sm text-gray-700 touch-target">
+            <input
+              type="checkbox"
+              checked={form.allowComments}
+              onChange={e => setForm(f => ({ ...f, allowComments: e.target.checked }))}
+              className="rounded border-gray-300 text-primary-500 focus:ring-primary-400"
+            />
+            댓글 허용
           </label>
         </div>
 
