@@ -3,7 +3,7 @@ import {
   Megaphone, Calendar, Star, Paperclip, ImageIcon,
   SlidersHorizontal, LayoutGrid, List, Plus,
 } from 'lucide-react';
-import { getAllAnnouncements, type Announcement } from '../../services/announcementStorage';
+import { getAllAnnouncements, formatAnnouncementDate, type Announcement } from '../../services/announcementStorage';
 import { buildNoticeScopeBadges } from '../../services/announcementHelpers';
 import { useAuth } from '../../contexts/AuthContext';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
@@ -22,11 +22,20 @@ import {
 import { AnnouncementDetailView } from '../../components/announcement/AnnouncementDetailView';
 import { AnnouncementEditView } from '../../components/announcement/AnnouncementEditView';
 import { getAllOrganizations } from '../../services/organizationStorage';
+import { getUserCoreOrganizationIds } from '../../services/userOrganizationTree';
 
 function isAnnouncementVisible(ann: Announcement, user: AppUser | null): boolean {
   if (!user) return ann.scope === 'all';
   if (user.role === 'super_admin') return true;
   if (ann.scope === 'all') return true;
+
+  if (ann.scope === 'organizations') {
+    const shared = ann.sharedOrganizationIds ?? [];
+    if (shared.length === 0) return false;
+    const core = getUserCoreOrganizationIds(user);
+    return shared.some(id => core.includes(id));
+  }
+
   if (user.role === 'pastor') {
     if (ann.scope === 'level1') return user.assignedDistrictIds?.includes(ann.scopeId ?? '') ?? false;
     if (ann.scope === 'level2') return user.assignedZoneIds?.includes(ann.scopeId ?? '') ?? false;
@@ -45,9 +54,11 @@ function isImportantNotice(a: Announcement): boolean {
 }
 
 function byNewest(a: Announcement, b: Announcement): number {
-  const byDate = b.date.localeCompare(a.date);
-  if (byDate !== 0) return byDate;
-  return (b.created_at ?? '').localeCompare(a.created_at ?? '');
+  const aTs = a.created_at || a.date || '';
+  const bTs = b.created_at || b.date || '';
+  const byCreated = bTs.localeCompare(aTs);
+  if (byCreated !== 0) return byCreated;
+  return b.date.localeCompare(a.date);
 }
 
 // ─── History (은혜와 기도와 동일 패턴) ───────────────────────────────────────
@@ -149,14 +160,17 @@ export default function AnnouncementPage() {
   }, [captureListScroll]);
 
   const handleEditBack = useCallback(() => {
-    const id = editId ?? detailId;
     const hist = readAnnHistory();
     if (hist?.layer === 'edit') {
       window.history.back();
       return;
     }
-    if (id) {
-      goToDetail(id);
+    if (editId && editId !== '__new__') {
+      goToDetail(editId);
+      return;
+    }
+    if (detailId) {
+      goToDetail(detailId);
       return;
     }
     goToList();
@@ -201,6 +215,12 @@ export default function AnnouncementPage() {
 
       const hist = readAnnHistory();
       if (hist?.layer === 'edit') {
+        if (hist.id === '__new__') {
+          setEditId('__new__');
+          setDetailId(null);
+          setView('edit');
+          return;
+        }
         setEditId(hist.id);
         setDetailId(hist.id);
         setView('edit');
@@ -242,6 +262,7 @@ export default function AnnouncementPage() {
             const org = orgMap.get(orgId);
             if (!org) return false;
             if (a.scope === 'all') return true;
+            if (a.sharedOrganizationIds?.includes(orgId)) return true;
             return a.scopeId === orgId || a.scopeId === org.id;
           });
         }
@@ -282,14 +303,25 @@ export default function AnnouncementPage() {
   };
 
   const handleCreate = () => {
-    toast.info('관리자 모드의 공지 메뉴에서 등록·관리할 수 있습니다.');
+    if (!canManage) {
+      toast.info('관리자 모드의 공지 메뉴에서 등록·관리할 수 있습니다.');
+      return;
+    }
+    captureListScroll();
+    setEditId('__new__');
+    setDetailId(null);
+    setView('edit');
+    window.history.pushState(
+      { [HISTORY_KEY]: true, layer: 'edit', id: '__new__' } satisfies AnnHistoryState,
+      '',
+    );
   };
 
   // ─── Detail / Edit layers (목록은 display:none 유지 — 스크롤·필터 보존) ───
 
   const showList = view === 'list' || view === 'detail' || view === 'edit';
   const showDetail = view === 'detail' && Boolean(detailId);
-  const showEdit = view === 'edit' && Boolean(editId);
+  const showEdit = view === 'edit';
 
   return (
     <>
@@ -328,9 +360,9 @@ export default function AnnouncementPage() {
         />
       )}
 
-      {showEdit && editId && (
+      {showEdit && (
         <AnnouncementEditView
-          announcementId={editId}
+          announcementId={editId === '__new__' ? null : editId}
           onBack={handleEditBack}
           onSaved={handleEditSave}
         />
@@ -567,7 +599,7 @@ function AnnListCard({ item, onClick }: { item: Announcement; onClick: () => voi
           </p>
           <div className="flex items-center gap-3 mt-1.5">
             <span className="text-[11px] text-gray-400 flex items-center gap-1">
-              <Calendar className="w-3 h-3" /> {item.date}
+              <Calendar className="w-3 h-3" /> {formatAnnouncementDate(item) || item.date}
             </span>
             <span className="text-[11px] text-gray-400">{item.author}</span>
             {(item.images.length > 0 || item.files.length > 0) && (
@@ -627,7 +659,7 @@ function AnnGridCard({ item, onClick }: { item: Announcement; onClick: () => voi
         </p>
         <div className="flex items-center gap-2 text-[11px] text-gray-400 mt-auto">
           <Calendar className="w-3 h-3 shrink-0" />
-          <span>{item.date}</span>
+          <span>{formatAnnouncementDate(item) || item.date}</span>
           <span className="ml-1">{item.author}</span>
         </div>
       </div>

@@ -3,27 +3,24 @@ import { PageHeaderBar, ChurchDropdownMenu, ChurchList, CHURCH_LIST_ROW_CLASS } 
 import StatusBadge from '../../components/layout/StatusBadge';
 import EmptyState from '../../components/layout/EmptyState';
 import {
-  Megaphone, Plus, Edit2, Trash2, X, Pin, Star,
-  Calendar, Bell, ImageIcon, Paperclip, Upload,
-  AlertTriangle, Download, Save, LayoutGrid, List,
+  Megaphone, Plus, Edit2, Trash2, Pin, Star,
+  Calendar, ImageIcon, Paperclip,
+  AlertTriangle, LayoutGrid, List,
   SlidersHorizontal,
 } from 'lucide-react';
 import {
-  getAllAnnouncements, addAnnouncement, updateAnnouncement, deleteAnnouncement,
-  fileToBase64, formatFileSize, ACCEPT_FILES,
-  type Announcement, type AttachFile,
+  getAllAnnouncements, updateAnnouncement, deleteAnnouncement,
+  formatAnnouncementDate,
+  type Announcement,
 } from '../../services/announcementStorage';
 import {
   getAllDistricts, getZones, getAllDepartments,
 } from '../../services/orgData';
 import { useOrgSettings } from '../../contexts/OrgSettingsContext';
-import ContentEditorLayout from '../../components/layout/ContentEditorLayout';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
 import { buildNoticeScopeBadges, type ScopeBadge } from '../../services/announcementHelpers';
 import { AnnouncementDetailView } from '../../components/announcement/AnnouncementDetailView';
-
-type Category = Announcement['category'];
-type Scope = Announcement['scope'];
+import { AnnouncementEditView } from '../../components/announcement/AnnouncementEditView';
 
 const HISTORY_KEY = 'churchieum_admin_ann_layer';
 type AnnAdminHistory = { [HISTORY_KEY]: true; layer: 'detail' | 'edit'; id: string };
@@ -33,48 +30,13 @@ function readAdminAnnHistory(): AnnAdminHistory | null {
   return null;
 }
 
-const CAT_COLOR: Record<string, string> = {
-  '일반공지':  'text-primary-600 bg-primary-50 border-primary-200',
-  '행사안내':  'text-emerald-600 bg-emerald-50 border-emerald-200',
-  '가정통신문': 'text-amber-600 bg-amber-50 border-amber-200',
-  '기타':     'text-gray-600 bg-gray-50 border-gray-200',
-};
-
-const INPUT = 'w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400';
 const SELECT = 'w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 text-gray-700';
 
-type FormData = {
-  title: string; content: string;
-  category: Category; customCategory: string;
-  scope: Scope; scopeId: string;
-  date: string; isPinned: boolean; isImportant: boolean;
-  allowComments: boolean;
-  images: string[];
-  files: AttachFile[];
-};
-
-const EMPTY_FORM: FormData = {
-  title: '', content: '', category: '일반공지', customCategory: '',
-  scope: 'all', scopeId: '', date: new Date().toISOString().split('T')[0],
-  isPinned: false, isImportant: false, allowComments: true, images: [], files: [],
-};
-
-function isFormDirty(form: FormData): boolean {
-  return !!(form.title.trim() || form.content.trim() || form.images.length || form.files.length);
-}
-
 export default function AnnouncementManagementPage() {
-  const { l1, l2, dept, settings } = useOrgSettings();
+  const { l1, l2, dept } = useOrgSettings();
   const { isMobile } = useBreakpoint();
   const districts   = getAllDistricts().filter(d => d.is_active);
   const departments = getAllDepartments().filter(d => d.is_active);
-
-  const scopeOptions: { value: Scope; label: string }[] = [
-    { value: 'all',        label: '전체 공개' },
-    ...(settings.level1Enabled     ? [{ value: 'level1'     as Scope, label: `${l1} 공개` }] : []),
-    ...(settings.level2Enabled     ? [{ value: 'level2'     as Scope, label: `${l2} 공개` }] : []),
-    ...(settings.departmentEnabled ? [{ value: 'department' as Scope, label: `${dept} 공개` }] : []),
-  ];
 
   /* ─── List state ─────────────────────────────────────────────────── */
   const [data, setData]           = useState<Announcement[]>(() => getAllAnnouncements());
@@ -102,14 +64,11 @@ export default function AnnouncementManagementPage() {
   /* ─── Form state ─────────────────────────────────────────────────── */
   const [showForm, setShowForm]   = useState(false);
   const [editing, setEditing]     = useState<Announcement | null>(null);
-  const [form, setForm]           = useState<FormData>(EMPTY_FORM);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [returnToDetailId, setReturnToDetailId] = useState<string | null>(null);
   const pendingSaveDetailIdRef = useRef<string | null>(null);
   const listScrollRef = useRef(0);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [lightboxImg, setLightboxImg]   = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
   const [toast, setToast]         = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -117,25 +76,30 @@ export default function AnnouncementManagementPage() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const imgInputRef  = useRef<HTMLInputElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const scopeOrgs = useMemo(() => {
-    if (form.scope === 'level1') return districts.map(d => ({ id: d.id, name: d.name }));
-    if (form.scope === 'level2') return getZones().filter(z => z.is_active).map(z => ({ id: z.id, name: z.name }));
-    if (form.scope === 'department') return departments.map(d => ({ id: d.id, name: d.name }));
-    return [];
-  }, [form.scope, districts, departments]);
-
   /* ─── Filter logic ─────────────────────────────────────────────── */
   const filtered = useMemo(() => {
     return data
       .filter(a => {
         if (!fDistrict && !fDept) return true;
         if (fDistrict === 'church') return a.scope === 'all';
-        if (fZone) return a.scope === 'level2' && a.scopeId === fZone;
-        if (fDistrict) return a.scope === 'level1' && a.scopeId === fDistrict;
-        if (fDept) return a.scope === 'department' && a.scopeId === fDept;
+        if (fZone) {
+          return (
+            (a.scope === 'level2' && a.scopeId === fZone)
+            || (a.scope === 'organizations' && a.sharedOrganizationIds?.includes(fZone))
+          );
+        }
+        if (fDistrict) {
+          return (
+            (a.scope === 'level1' && a.scopeId === fDistrict)
+            || (a.scope === 'organizations' && a.sharedOrganizationIds?.includes(fDistrict))
+          );
+        }
+        if (fDept) {
+          return (
+            (a.scope === 'department' && a.scopeId === fDept)
+            || (a.scope === 'organizations' && a.sharedOrganizationIds?.includes(fDept))
+          );
+        }
         return true;
       })
       .filter(a => !fDate || a.date === fDate)
@@ -185,7 +149,6 @@ export default function AnnouncementManagementPage() {
     setReturnToDetailId(null);
     setDetailId(null);
     setEditing(null);
-    setForm(EMPTY_FORM);
     setShowForm(true);
   };
 
@@ -201,13 +164,6 @@ export default function AnnouncementManagementPage() {
       captureListScroll();
     }
     setEditing(ann);
-    setForm({
-      title: ann.title, content: ann.content, category: ann.category, customCategory: '',
-      scope: ann.scope, scopeId: ann.scopeId ?? '', date: ann.date,
-      isPinned: ann.isPinned, isImportant: ann.isImportant,
-      allowComments: ann.allowComments !== false,
-      images: ann.images ?? [], files: ann.files ?? [],
-    });
     setShowForm(true);
   };
 
@@ -217,7 +173,7 @@ export default function AnnouncementManagementPage() {
   };
 
   const handleBack = () => {
-    if (isFormDirty(form) && !window.confirm('작성 중인 내용이 있습니다.\n나가시겠습니까?')) return;
+    if (!window.confirm('작성 중인 내용이 있을 수 있습니다.\n나가시겠습니까?')) return;
     const hist = readAdminAnnHistory();
     if (hist?.layer === 'edit') {
       window.history.back();
@@ -235,33 +191,7 @@ export default function AnnouncementManagementPage() {
     setEditing(null);
   };
 
-  const getScopeName = (scope: Scope, scopeId: string) => {
-    if (scope === 'level1') return districts.find(d => d.id === scopeId)?.name ?? '';
-    if (scope === 'level2') return getZones().find(z => z.id === scopeId)?.name ?? '';
-    if (scope === 'department') return departments.find(d => d.id === scopeId)?.name ?? '';
-    return '';
-  };
-
-  const handleSubmit = (e: React.FormEvent | React.MouseEvent) => {
-    e.preventDefault();
-    const finalCat: Category = form.category === '기타' && form.customCategory.trim()
-      ? form.customCategory.trim() as Category : form.category;
-    const payload: Omit<Announcement, 'id' | 'created_at'> = {
-      title: form.title, content: form.content, category: finalCat,
-      scope: form.scope, scopeId: form.scope !== 'all' ? form.scopeId : undefined,
-      scopeName: form.scope !== 'all' ? getScopeName(form.scope, form.scopeId) : undefined,
-      date: form.date, isPinned: form.isPinned, isImportant: form.isImportant,
-      allowComments: form.allowComments,
-      author: editing?.author ?? '관리자',
-      images: form.images, files: form.files,
-      comments: editing?.comments,
-    };
-    let savedId = editing?.id;
-    if (editing) {
-      updateAnnouncement(editing.id, payload);
-    } else {
-      savedId = addAnnouncement(payload).id;
-    }
+  const handleFormSaved = (savedId: string) => {
     setData(getAllAnnouncements());
     setShowForm(false);
     setEditing(null);
@@ -278,7 +208,7 @@ export default function AnnouncementManagementPage() {
       return;
     }
     setReturnToDetailId(null);
-    setDetailId(null);
+    goToDetail(savedId, { pushHistory: true });
   };
 
   const handleDelete = (id: string) => {
@@ -315,13 +245,6 @@ export default function AnnouncementManagementPage() {
         if (ann) {
           setReturnToDetailId(ann.id);
           setEditing(ann);
-          setForm({
-            title: ann.title, content: ann.content, category: ann.category, customCategory: '',
-            scope: ann.scope, scopeId: ann.scopeId ?? '', date: ann.date,
-            isPinned: ann.isPinned, isImportant: ann.isImportant,
-            allowComments: ann.allowComments !== false,
-            images: ann.images ?? [], files: ann.files ?? [],
-          });
           setShowForm(true);
           setDetailId(ann.id);
         }
@@ -347,170 +270,16 @@ export default function AnnouncementManagementPage() {
   const togglePin = (id: string) => {
     const ann = data.find(a => a.id === id);
     if (!ann) return;
-    updateAnnouncement(id, { ...ann, isPinned: !ann.isPinned });
+    updateAnnouncement(id, { isPinned: !ann.isPinned });
     setData(getAllAnnouncements());
   };
 
   const toggleImportant = (id: string) => {
     const ann = data.find(a => a.id === id);
     if (!ann) return;
-    updateAnnouncement(id, { ...ann, isImportant: !ann.isImportant });
+    updateAnnouncement(id, { isImportant: !ann.isImportant });
     setData(getAllAnnouncements());
   };
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
-    if (!files.length) return;
-    setUploading(true);
-    const base64s = await Promise.all(files.map(f => fileToBase64(f)));
-    setForm(prev => ({ ...prev, images: [...prev.images, ...base64s] }));
-    setUploading(false);
-    if (imgInputRef.current) imgInputRef.current.value = '';
-  };
-
-  const removeImage = (idx: number) =>
-    setForm(prev => ({ ...prev, images: prev.images.filter((_, i) => i !== idx) }));
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
-    if (!files.length) return;
-    setUploading(true);
-    const attached: AttachFile[] = await Promise.all(files.map(async f => ({
-      name: f.name, size: formatFileSize(f.size), type: f.type, data: await fileToBase64(f),
-    })));
-    setForm(prev => ({ ...prev, files: [...prev.files, ...attached] }));
-    setUploading(false);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  const removeFile = (idx: number) =>
-    setForm(prev => ({ ...prev, files: prev.files.filter((_, i) => i !== idx) }));
-
-  /* ─── Form fields (unchanged) ───────────────────────────────────── */
-  const formFields = (
-    <div className="space-y-5">
-      <div>
-        <label className="text-xs font-semibold text-gray-600 mb-2 block">공지 유형</label>
-        <div className="flex gap-2 flex-wrap">
-          {(['일반공지','행사안내','가정통신문','기타'] as Category[]).map(cat => (
-            <button type="button" key={cat}
-              onClick={() => setForm(f => ({ ...f, category: cat, customCategory: '' }))}
-              className={`px-3.5 py-2 rounded-xl text-xs font-semibold border-2 transition-all ${
-                form.category === cat
-                  ? 'border-primary-500 bg-primary-50 text-primary-700'
-                  : 'border-gray-200 text-gray-500 hover:border-gray-300'
-              }`}>{cat}</button>
-          ))}
-        </div>
-        {form.category === '기타' && (
-          <input type="text" value={form.customCategory}
-            onChange={e => setForm(f => ({ ...f, customCategory: e.target.value }))}
-            placeholder="카테고리 직접 입력" className={`${INPUT} mt-2`} />
-        )}
-      </div>
-      <div>
-        <label className="text-xs font-semibold text-gray-600 mb-2 block">공개 범위</label>
-        <div className="flex gap-2 flex-wrap">
-          {scopeOptions.map(opt => (
-            <button type="button" key={opt.value}
-              onClick={() => setForm(f => ({ ...f, scope: opt.value, scopeId: '' }))}
-              className={`px-3.5 py-2 rounded-xl text-xs font-semibold border-2 transition-all ${
-                form.scope === opt.value
-                  ? 'border-primary-500 bg-primary-50 text-primary-700'
-                  : 'border-gray-200 text-gray-500 hover:border-gray-300'
-              }`}>{opt.label}</button>
-          ))}
-        </div>
-        {form.scope !== 'all' && scopeOrgs.length > 0 && (
-          <select value={form.scopeId} onChange={e => setForm(f => ({ ...f, scopeId: e.target.value }))}
-            className={`${INPUT} mt-2`}>
-            <option value="">전체 {form.scope === 'level1' ? l1 : form.scope === 'level2' ? l2 : dept}</option>
-            {scopeOrgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-          </select>
-        )}
-      </div>
-      <div>
-        <label className="text-xs font-semibold text-gray-600 mb-2 block">제목 *</label>
-        <input type="text" value={form.title}
-          onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-          placeholder="공지 제목을 입력하세요" required className={INPUT} />
-      </div>
-      <div>
-        <label className="text-xs font-semibold text-gray-600 mb-2 block">게시일</label>
-        <input type="date" value={form.date}
-          onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className={INPUT} />
-      </div>
-      <div>
-        <label className="text-xs font-semibold text-gray-600 mb-2 block">내용 *</label>
-        <textarea value={form.content}
-          onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
-          placeholder="공지 내용을 입력하세요" required rows={6}
-          className={`${INPUT} resize-none`} />
-      </div>
-      <div>
-        <label className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1.5">
-          <ImageIcon className="w-3.5 h-3.5 text-gray-400" /> 이미지 첨부
-        </label>
-        <input ref={imgInputRef} type="file" accept="image/*" multiple className="hidden"
-          onChange={handleImageUpload} />
-        <button type="button" onClick={() => imgInputRef.current?.click()} disabled={uploading}
-          className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-500 hover:border-primary-300 hover:text-primary-600 transition-colors">
-          <Upload className="w-4 h-4" />
-          {uploading ? '업로드 중...' : '이미지 선택 (여러 장 가능)'}
-        </button>
-        {form.images.length > 0 && (
-          <div className="grid grid-cols-4 gap-2 mt-3">
-            {form.images.map((img, i) => (
-              <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-gray-200">
-                <img src={img} alt="" className="w-full h-full object-cover" />
-                <button type="button" onClick={() => removeImage(i)}
-                  className="absolute top-1 right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white shadow">
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-      <div>
-        <label className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1.5">
-          <Paperclip className="w-3.5 h-3.5 text-gray-400" /> 파일 첨부
-        </label>
-        <input ref={fileInputRef} type="file" accept={ACCEPT_FILES} multiple className="hidden"
-          onChange={handleFileUpload} />
-        <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}
-          className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-500 hover:border-primary-300 hover:text-primary-600 transition-colors">
-          <Paperclip className="w-4 h-4" />
-          {uploading ? '업로드 중...' : 'PDF, HWP, DOC, XLS, PPT, ZIP 등'}
-        </button>
-        {form.files.length > 0 && (
-          <div className="space-y-1.5 mt-2">
-            {form.files.map((f, i) => (
-              <div key={i} className="flex items-center gap-3 px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl">
-                <Paperclip className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-700 truncate">{f.name}</p>
-                  <p className="text-[10px] text-gray-400">{f.size}</p>
-                </div>
-                <button type="button" onClick={() => removeFile(i)}
-                  className="p-1 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-lg">
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-      <div className="flex gap-6 pt-1">
-        <Toggle label="상단 고정" color="red" icon={<Pin className="w-3.5 h-3.5 text-red-500" />}
-          checked={form.isPinned} onChange={v => setForm(f => ({ ...f, isPinned: v }))} />
-        <Toggle label="중요 공지" color="amber" icon={<Star className="w-3.5 h-3.5 text-amber-500" />}
-          checked={form.isImportant} onChange={v => setForm(f => ({ ...f, isImportant: v }))} />
-        <Toggle label="댓글 허용" color="blue" icon={<Bell className="w-3.5 h-3.5 text-primary-500" />}
-          checked={form.allowComments} onChange={v => setForm(f => ({ ...f, allowComments: v }))} />
-      </div>
-    </div>
-  );
 
   /* ── 상세 전체 페이지 (은혜와 기도와 동일) ── */
   if (detailId && !showForm) {
@@ -570,22 +339,11 @@ export default function AnnouncementManagementPage() {
   /* ── 작성/수정 화면 ── */
   if (showForm) {
     return (
-      <ContentEditorLayout
-        title={editing ? '공지사항 수정' : '공지사항 작성'}
+      <AnnouncementEditView
+        announcementId={editing?.id}
         onBack={handleBack}
-        saveButton={
-          <button onClick={handleSubmit as React.MouseEventHandler}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white font-semibold transition-colors"
-            style={{ background: '#2563EB', fontSize: '13px' }}>
-            <Save className="w-4 h-4" />
-            {editing ? '수정 완료' : '등록'}
-          </button>
-        }
-      >
-        <div className="bg-white rounded-[20px] p-6" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-          {formFields}
-        </div>
-      </ContentEditorLayout>
+        onSaved={handleFormSaved}
+      />
     );
   }
 
@@ -833,17 +591,6 @@ export default function AnnouncementManagementPage() {
         </div>
       )}
 
-      {/* Lightbox */}
-      {lightboxImg && (
-        <div className="fixed inset-0 z-[70] bg-black/90 flex items-center justify-center p-4"
-          onClick={() => setLightboxImg(null)}>
-          <img src={lightboxImg} alt="" className="max-w-full max-h-full rounded-2xl object-contain" />
-          <button className="absolute top-4 right-4 w-10 h-10 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-colors">
-            <X className="w-5 h-5 text-white" />
-          </button>
-        </div>
-      )}
-
       {/* Toast */}
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[80] pointer-events-none">
@@ -851,7 +598,6 @@ export default function AnnouncementManagementPage() {
             className="flex items-center gap-2.5 px-5 py-3 bg-gray-900 text-white text-sm font-semibold shadow-xl animate-fade-in"
             style={{ borderRadius: '14px', whiteSpace: 'nowrap' }}
           >
-            <Bell className="w-4 h-4 text-primary-400 shrink-0" />
             {toast}
           </div>
         </div>
@@ -892,21 +638,6 @@ function CardMenu({ ann, onEdit, onDelete, onTogglePin, onNotify }: {
         },
       ]}
     />
-  );
-}
-
-/* ─── Toggle ─────────────────────────────────────────────────────────────── */
-function Toggle({ label, color, icon, checked, onChange }: {
-  label: string; color: string; icon: React.ReactNode;
-  checked: boolean; onChange: (v: boolean) => void;
-}) {
-  return (
-    <label className="flex items-center gap-2.5 cursor-pointer select-none" onClick={() => onChange(!checked)}>
-      <div className={`w-9 h-5 rounded-full transition-colors relative ${checked ? `bg-${color}-500` : 'bg-gray-200'}`}>
-        <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${checked ? 'translate-x-4' : 'translate-x-0.5'}`} />
-      </div>
-      <span className="text-sm text-gray-700 flex items-center gap-1">{icon} {label}</span>
-    </label>
   );
 }
 
@@ -985,7 +716,7 @@ function AnnListCard({ ann, badges, onView, onEdit, onDelete, onTogglePin, onTog
           <p className="text-sm text-gray-500 line-clamp-2 mb-1.5 md:mb-2">{ann.content.split('\n').filter(Boolean)[0]}</p>
           {/* Meta */}
           <div className="flex items-center gap-3 text-[12px] text-gray-400">
-            <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{ann.date}</span>
+            <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{formatAnnouncementDate(ann)}</span>
             <span>{ann.author}</span>
             {ann.images.length > 0 && (
               <span className="flex items-center gap-0.5"><ImageIcon className="w-3 h-3" />{ann.images.length}</span>
@@ -1053,7 +784,7 @@ function AnnGridCard({ ann, badges, onView, onEdit, onDelete, onTogglePin, onNot
       {/* Footer */}
       <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
         <div className="flex items-center gap-2.5 text-[12px] text-gray-400">
-          <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{ann.date}</span>
+          <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{formatAnnouncementDate(ann)}</span>
           {(ann.images.length > 0 || ann.files.length > 0) && (
             <span className="flex items-center gap-1">
               {ann.images.length > 0 && <><ImageIcon className="w-3 h-3" />{ann.images.length}</>}

@@ -25,17 +25,30 @@ export type Announcement = {
   id: string;
   title: string;
   content: string;
+  /** 레거시 호환 — 신규 작성에서는 '일반공지' 고정 */
   category: '일반공지' | '행사안내' | '가정통신문' | '기타';
-  scope: 'all' | 'level1' | 'level2' | 'department';
+  /**
+   * 공개범위
+   * - all: 전체 공개
+   * - organizations: 내 조직과 공유 (sharedOrganizationIds)
+   * - level1/level2/department: 레거시 단일 조직 공지
+   */
+  scope: 'all' | 'level1' | 'level2' | 'department' | 'organizations';
   scopeId?: string;
   scopeName?: string;
+  /** 내 조직과 공유 — 선택 조직 ID */
+  sharedOrganizationIds?: string[];
+  /** 목록·기간 필터용 YYYY-MM-DD (created_at 기준 자동) */
   date: string;
+  /** 레거시 — 신규 작성에서는 false */
   isPinned: boolean;
+  /** 레거시 — 신규 작성에서는 false */
   isImportant: boolean;
   author: string;
   images: string[];
   files: AttachFile[];
   created_at: string;
+  updated_at?: string;
   /** 댓글 허용 (기본 true) */
   allowComments?: boolean;
   comments?: AnnouncementComment[];
@@ -289,15 +302,40 @@ export function getAllAnnouncements(): Announcement[] {
   });
 }
 
-export function addAnnouncement(data: Omit<Announcement, 'id' | 'created_at'>): Announcement {
+export function addAnnouncement(data: Omit<Announcement, 'id' | 'created_at' | 'date'> & { date?: string }): Announcement {
   const list = load();
-  const ann: Announcement = { ...data, id: `ann-${Date.now()}`, created_at: new Date().toISOString() };
+  const now = new Date();
+  const created_at = now.toISOString();
+  const date = data.date ?? created_at.slice(0, 10);
+  const ann: Announcement = {
+    ...data,
+    date,
+    id: `ann-${Date.now()}`,
+    created_at,
+    updated_at: created_at,
+    category: data.category ?? '일반공지',
+    isPinned: data.isPinned ?? false,
+    isImportant: data.isImportant ?? false,
+  };
   save([ann, ...list]);
   return ann;
 }
 
-export function updateAnnouncement(id: string, data: Omit<Announcement, 'id' | 'created_at'>): void {
-  save(load().map(a => a.id === id ? { ...a, ...data } : a));
+export function updateAnnouncement(
+  id: string,
+  data: Partial<Omit<Announcement, 'id' | 'created_at'>>,
+): void {
+  save(load().map(a => {
+    if (a.id !== id) return a;
+    const now = new Date().toISOString();
+    return {
+      ...a,
+      ...data,
+      created_at: a.created_at,
+      date: a.date,
+      updated_at: now,
+    };
+  }));
 }
 
 export function deleteAnnouncement(id: string): void {
@@ -407,3 +445,38 @@ export async function fileToBase64(file: File): Promise<string> {
 }
 
 export const ACCEPT_FILES = '.pdf,.hwp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,image/*';
+
+/** 표시용 작성일시 — created_at 우선, 없으면 date */
+export function getAnnouncementTimestamp(ann: Pick<Announcement, 'created_at' | 'date' | 'updated_at'>): string {
+  if (ann.created_at && !Number.isNaN(Date.parse(ann.created_at))) return ann.created_at;
+  if (ann.date && /^\d{4}-\d{2}-\d{2}$/.test(ann.date)) return `${ann.date}T00:00:00`;
+  if (ann.updated_at && !Number.isNaN(Date.parse(ann.updated_at))) return ann.updated_at;
+  return '';
+}
+
+/** 목록용: 2026.08.20 */
+export function formatAnnouncementDate(ann: Pick<Announcement, 'created_at' | 'date' | 'updated_at'>): string {
+  const ts = getAnnouncementTimestamp(ann);
+  if (!ts) return '';
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}.${m}.${day}`;
+}
+
+/** 상세용: 2026.08.20 22:37 (created_at 있으면 시각 포함) */
+export function formatAnnouncementDateTime(ann: Pick<Announcement, 'created_at' | 'date' | 'updated_at'>): string {
+  const ts = getAnnouncementTimestamp(ann);
+  if (!ts) return '';
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  if (!ann.created_at || !ann.created_at.includes('T')) return `${y}.${m}.${day}`;
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${y}.${m}.${day} ${hh}:${mm}`;
+}

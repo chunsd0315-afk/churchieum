@@ -17,6 +17,7 @@ import {
   deleteAnnouncementComment,
   resolveAnnouncementAllowComments,
   ANNOUNCEMENT_COMMENT_MAX_LENGTH,
+  formatAnnouncementDateTime,
   type Announcement,
   type AnnouncementComment,
 } from '../../services/announcementStorage';
@@ -28,13 +29,6 @@ import { resolveCommentAuthorId } from '../../services/graceCommentAuthorMeta';
 import { useAuth } from '../../contexts/AuthContext';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
 import type { GraceNoteComment } from '../../data/graceNotes';
-
-function formatDisplayDate(date: string): string {
-  if (!date) return '';
-  // ISO → 2026.08.20 / already YYYY-MM-DD
-  const d = date.includes('T') ? date.slice(0, 10) : date;
-  return d.replace(/-/g, '.');
-}
 
 function toGraceComment(c: AnnouncementComment): GraceNoteComment {
   return {
@@ -90,8 +84,10 @@ export function AnnouncementDetailView({
   );
 
   const relatedOrganizationIds = useMemo(() => {
-    if (!ann?.scopeId) return [];
-    return [ann.scopeId];
+    if (!ann) return [];
+    if (ann.sharedOrganizationIds?.length) return ann.sharedOrganizationIds;
+    if (ann.scopeId) return [ann.scopeId];
+    return [];
   }, [ann]);
 
   if (!ann) {
@@ -311,7 +307,7 @@ export function AnnouncementDetailView({
             <h2 className="text-xl font-bold text-gray-900 leading-snug">{ann.title}</h2>
 
             <p className="text-[13px] font-medium text-gray-500">
-              작성자 {ann.author} · {formatDisplayDate(ann.date)}
+              작성자 {ann.author} · {formatAnnouncementDateTime(ann)}
             </p>
 
             {ann.images.length > 0 && (
