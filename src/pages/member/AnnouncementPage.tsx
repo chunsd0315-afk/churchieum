@@ -1,4 +1,4 @@
-﻿import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+﻿import { useState, useMemo, useEffect, useCallback, useRef, type Dispatch, type SetStateAction } from 'react';
 import {
   Megaphone, Calendar, Star, Paperclip, ImageIcon,
   SlidersHorizontal, LayoutGrid, List, Plus,
@@ -285,32 +285,95 @@ export default function AnnouncementPage() {
     toast.info('관리자 모드의 공지 메뉴에서 등록·관리할 수 있습니다.');
   };
 
-  // ─── Detail / Edit layers ─────────────────────────────────────────────────
+  // ─── Detail / Edit layers (목록은 display:none 유지 — 스크롤·필터 보존) ───
 
-  if (view === 'detail' && detailId) {
-    return (
-      <AnnouncementDetailView
-        announcementId={detailId}
-        canManage={canManage}
-        onBack={handleDetailBack}
-        onEdit={() => openEdit(detailId, { fromDetail: true })}
-        onDelete={handleDetailDelete}
-      />
-    );
-  }
+  const showList = view === 'list' || view === 'detail' || view === 'edit';
+  const showDetail = view === 'detail' && Boolean(detailId);
+  const showEdit = view === 'edit' && Boolean(editId);
 
-  if (view === 'edit' && editId) {
-    return (
-      <AnnouncementEditView
-        announcementId={editId}
-        onBack={handleEditBack}
-        onSaved={handleEditSave}
-      />
-    );
-  }
+  return (
+    <>
+      {showList && (
+        <div
+          style={{ display: view === 'list' ? undefined : 'none' }}
+          aria-hidden={view !== 'list'}
+        >
+          <AnnouncementListBody
+            canManage={canManage}
+            isMobile={isMobile}
+            effectiveViewMode={effectiveViewMode}
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+            showSearch={showSearch}
+            setShowSearch={setShowSearch}
+            searchFilter={searchFilter}
+            setSearchFilter={setSearchFilter}
+            draftFilter={draftFilter}
+            setDraftFilter={setDraftFilter}
+            resetFilters={resetFilters}
+            sortedList={sortedList}
+            onCreate={handleCreate}
+            onOpenDetail={navToDetail}
+          />
+        </div>
+      )}
 
-  // ─── List ─────────────────────────────────────────────────────────────────
+      {showDetail && detailId && (
+        <AnnouncementDetailView
+          announcementId={detailId}
+          canManage={canManage}
+          onBack={handleDetailBack}
+          onEdit={() => openEdit(detailId, { fromDetail: true })}
+          onDelete={handleDetailDelete}
+        />
+      )}
 
+      {showEdit && editId && (
+        <AnnouncementEditView
+          announcementId={editId}
+          onBack={handleEditBack}
+          onSaved={handleEditSave}
+        />
+      )}
+    </>
+  );
+}
+
+type ListBodyProps = {
+  canManage: boolean;
+  isMobile: boolean;
+  effectiveViewMode: 'card' | 'list';
+  viewMode: 'card' | 'list';
+  setViewMode: (m: 'card' | 'list') => void;
+  showSearch: boolean;
+  setShowSearch: Dispatch<SetStateAction<boolean>>;
+  searchFilter: AnnouncementSearchFilter;
+  setSearchFilter: (f: AnnouncementSearchFilter) => void;
+  draftFilter: AnnouncementSearchFilter;
+  setDraftFilter: (f: AnnouncementSearchFilter) => void;
+  resetFilters: () => void;
+  sortedList: Announcement[];
+  onCreate: () => void;
+  onOpenDetail: (id: string) => void;
+};
+
+function AnnouncementListBody({
+  canManage,
+  isMobile,
+  effectiveViewMode,
+  viewMode,
+  setViewMode,
+  showSearch,
+  setShowSearch,
+  searchFilter,
+  setSearchFilter,
+  draftFilter,
+  setDraftFilter,
+  resetFilters,
+  sortedList,
+  onCreate,
+  onOpenDetail,
+}: ListBodyProps) {
   return (
     <div className="space-y-5 pb-24 md:pb-8 max-w-[900px] mx-auto">
       <PageHeaderBar
@@ -320,7 +383,7 @@ export default function AnnouncementPage() {
           canManage ? (
             <button
               type="button"
-              onClick={handleCreate}
+              onClick={onCreate}
               className="inline-flex items-center gap-2 h-12 px-4 rounded-[14px] bg-primary-500 text-white text-sm font-bold hover:bg-primary-600 touch-target"
             >
               <Plus className="w-4 h-4" />
@@ -328,7 +391,7 @@ export default function AnnouncementPage() {
             </button>
           ) : undefined
         }
-        mobileFab={canManage ? { label: '공지 등록', onClick: handleCreate } : undefined}
+        mobileFab={canManage ? { label: '공지 등록', onClick: onCreate } : undefined}
       />
 
       <div className="space-y-3">
@@ -443,13 +506,13 @@ export default function AnnouncementPage() {
       ) : effectiveViewMode === 'list' ? (
         <div className="church-list">
           {sortedList.map(a => (
-            <AnnListCard key={a.id} item={a} onClick={() => navToDetail(a.id)} />
+            <AnnListCard key={a.id} item={a} onClick={() => onOpenDetail(a.id)} />
           ))}
         </div>
       ) : (
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
           {sortedList.map(a => (
-            <AnnGridCard key={a.id} item={a} onClick={() => navToDetail(a.id)} />
+            <AnnGridCard key={a.id} item={a} onClick={() => onOpenDetail(a.id)} />
           ))}
         </div>
       )}

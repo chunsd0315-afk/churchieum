@@ -1,4 +1,4 @@
-﻿import { useState, useMemo, useRef } from 'react';
+﻿import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { PageHeaderBar, ChurchDropdownMenu, ChurchList, CHURCH_LIST_ROW_CLASS } from '../../components/common/ui';
 import StatusBadge from '../../components/layout/StatusBadge';
 import EmptyState from '../../components/layout/EmptyState';
@@ -20,9 +20,18 @@ import { useOrgSettings } from '../../contexts/OrgSettingsContext';
 import ContentEditorLayout from '../../components/layout/ContentEditorLayout';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
 import { buildNoticeScopeBadges, type ScopeBadge } from '../../services/announcementHelpers';
+import { AnnouncementDetailView } from '../../components/announcement/AnnouncementDetailView';
 
 type Category = Announcement['category'];
 type Scope = Announcement['scope'];
+
+const HISTORY_KEY = 'churchieum_admin_ann_layer';
+type AnnAdminHistory = { [HISTORY_KEY]: true; layer: 'detail' | 'edit'; id: string };
+function readAdminAnnHistory(): AnnAdminHistory | null {
+  const st = window.history.state as AnnAdminHistory | null;
+  if (st?.[HISTORY_KEY] && (st.layer === 'detail' || st.layer === 'edit') && st.id) return st;
+  return null;
+}
 
 const CAT_COLOR: Record<string, string> = {
   '일반공지':  'text-primary-600 bg-primary-50 border-primary-200',
@@ -93,7 +102,10 @@ export default function AnnouncementManagementPage() {
   const [showForm, setShowForm]   = useState(false);
   const [editing, setEditing]     = useState<Announcement | null>(null);
   const [form, setForm]           = useState<FormData>(EMPTY_FORM);
-  const [showDetail, setShowDetail] = useState<Announcement | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [returnToDetailId, setReturnToDetailId] = useState<string | null>(null);
+  const pendingSaveDetailIdRef = useRef<string | null>(null);
+  const listScrollRef = useRef(0);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [lightboxImg, setLightboxImg]   = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -145,8 +157,48 @@ export default function AnnouncementManagementPage() {
   const regular = filtered.filter(a => !a.isPinned);
 
   /* ─── CRUD handlers ─────────────────────────────────────────────── */
-  const openNew  = () => { setEditing(null); setForm(EMPTY_FORM); setShowForm(true); };
-  const openEdit = (ann: Announcement) => {
+  const captureListScroll = useCallback(() => {
+    listScrollRef.current = window.scrollY || document.documentElement.scrollTop;
+  }, []);
+
+  const restoreListScroll = useCallback(() => {
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: listScrollRef.current, behavior: 'auto' });
+    });
+  }, []);
+
+  const goToDetail = useCallback((id: string, opts?: { pushHistory?: boolean }) => {
+    setShowForm(false);
+    setEditing(null);
+    setReturnToDetailId(null);
+    setDetailId(id);
+    if (opts?.pushHistory) {
+      window.history.pushState(
+        { [HISTORY_KEY]: true, layer: 'detail', id } satisfies AnnAdminHistory,
+        '',
+      );
+    }
+  }, []);
+
+  const openNew = () => {
+    setReturnToDetailId(null);
+    setDetailId(null);
+    setEditing(null);
+    setForm(EMPTY_FORM);
+    setShowForm(true);
+  };
+
+  const openEdit = (ann: Announcement, opts?: { fromDetail?: boolean }) => {
+    if (opts?.fromDetail) {
+      setReturnToDetailId(ann.id);
+      window.history.pushState(
+        { [HISTORY_KEY]: true, layer: 'edit', id: ann.id } satisfies AnnAdminHistory,
+        '',
+      );
+    } else {
+      setReturnToDetailId(null);
+      captureListScroll();
+    }
     setEditing(ann);
     setForm({
       title: ann.title, content: ann.content, category: ann.category, customCategory: '',
@@ -157,9 +209,28 @@ export default function AnnouncementManagementPage() {
     setShowForm(true);
   };
 
+  const openDetail = (ann: Announcement) => {
+    captureListScroll();
+    goToDetail(ann.id, { pushHistory: true });
+  };
+
   const handleBack = () => {
     if (isFormDirty(form) && !window.confirm('작성 중인 내용이 있습니다.\n나가시겠습니까?')) return;
-    setShowForm(false); setEditing(null);
+    const hist = readAdminAnnHistory();
+    if (hist?.layer === 'edit') {
+      window.history.back();
+      return;
+    }
+    if (returnToDetailId) {
+      const id = returnToDetailId;
+      setShowForm(false);
+      setEditing(null);
+      setReturnToDetailId(null);
+      setDetailId(id);
+      return;
+    }
+    setShowForm(false);
+    setEditing(null);
   };
 
   const getScopeName = (scope: Scope, scopeId: string) => {
@@ -181,17 +252,92 @@ export default function AnnouncementManagementPage() {
       author: editing?.author ?? '관리자',
       images: form.images, files: form.files,
     };
-    if (editing) { updateAnnouncement(editing.id, payload); } else { addAnnouncement(payload); }
+    let savedId = editing?.id;
+    if (editing) {
+      updateAnnouncement(editing.id, payload);
+    } else {
+      savedId = addAnnouncement(payload).id;
+    }
     setData(getAllAnnouncements());
-    setShowForm(false); setEditing(null);
+    setShowForm(false);
+    setEditing(null);
+
+    const hist = readAdminAnnHistory();
+    if (hist?.layer === 'edit' && savedId) {
+      pendingSaveDetailIdRef.current = savedId;
+      window.history.back();
+      return;
+    }
+    if (returnToDetailId && savedId) {
+      setReturnToDetailId(null);
+      setDetailId(savedId);
+      return;
+    }
+    setReturnToDetailId(null);
+    setDetailId(null);
   };
 
   const handleDelete = (id: string) => {
     deleteAnnouncement(id);
     setData(getAllAnnouncements());
     setDeleteConfirm(null);
-    setShowDetail(null);
+    const hist = readAdminAnnHistory();
+    if (hist?.layer === 'detail' || hist?.layer === 'edit') {
+      window.history.replaceState({}, '');
+    }
+    setDetailId(null);
+    setReturnToDetailId(null);
+    setShowForm(false);
   };
+
+  useEffect(() => {
+    const onPopState = () => {
+      const pendingSaveId = pendingSaveDetailIdRef.current;
+      if (pendingSaveId) {
+        pendingSaveDetailIdRef.current = null;
+        setShowForm(false);
+        setEditing(null);
+        setReturnToDetailId(null);
+        setDetailId(pendingSaveId);
+        window.history.replaceState(
+          { [HISTORY_KEY]: true, layer: 'detail', id: pendingSaveId } satisfies AnnAdminHistory,
+          '',
+        );
+        return;
+      }
+      const hist = readAdminAnnHistory();
+      if (hist?.layer === 'edit') {
+        const ann = getAllAnnouncements().find(a => a.id === hist.id);
+        if (ann) {
+          setReturnToDetailId(ann.id);
+          setEditing(ann);
+          setForm({
+            title: ann.title, content: ann.content, category: ann.category, customCategory: '',
+            scope: ann.scope, scopeId: ann.scopeId ?? '', date: ann.date,
+            isPinned: ann.isPinned, isImportant: ann.isImportant,
+            images: ann.images ?? [], files: ann.files ?? [],
+          });
+          setShowForm(true);
+          setDetailId(ann.id);
+        }
+        return;
+      }
+      if (hist?.layer === 'detail') {
+        setShowForm(false);
+        setEditing(null);
+        setReturnToDetailId(null);
+        setDetailId(hist.id);
+        return;
+      }
+      setShowForm(false);
+      setEditing(null);
+      setReturnToDetailId(null);
+      setDetailId(null);
+      restoreListScroll();
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [restoreListScroll]);
 
   const togglePin = (id: string) => {
     const ann = data.find(a => a.id === id);
@@ -358,6 +504,61 @@ export default function AnnouncementManagementPage() {
       </div>
     </div>
   );
+
+  /* ── 상세 전체 페이지 (은혜와 기도와 동일) ── */
+  if (detailId && !showForm) {
+    return (
+      <>
+        <AnnouncementDetailView
+          announcementId={detailId}
+          canManage
+          onBack={() => {
+            const hist = readAdminAnnHistory();
+            if (hist?.layer === 'detail') {
+              window.history.back();
+              return;
+            }
+            setDetailId(null);
+            restoreListScroll();
+          }}
+          onEdit={() => {
+            const ann = data.find(a => a.id === detailId) ?? getAllAnnouncements().find(a => a.id === detailId);
+            if (ann) openEdit(ann, { fromDetail: true });
+          }}
+          onDelete={() => {
+            setData(getAllAnnouncements());
+            const hist = readAdminAnnHistory();
+            if (hist?.layer === 'detail' || hist?.layer === 'edit') {
+              window.history.replaceState({}, '');
+            }
+            setDetailId(null);
+            restoreListScroll();
+          }}
+        />
+        {deleteConfirm && (
+          <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-12 h-12 rounded-2xl bg-red-100 flex items-center justify-center">
+                  <AlertTriangle className="w-6 h-6 text-red-500" />
+                </div>
+                <div>
+                  <p className="font-bold text-gray-900">공지 삭제</p>
+                  <p className="text-sm text-gray-500">이 공지를 삭제하시겠습니까?</p>
+                </div>
+              </div>
+              <div className="flex gap-2 mt-4">
+                <button type="button" onClick={() => setDeleteConfirm(null)}
+                  className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-medium">취소</button>
+                <button type="button" onClick={() => handleDelete(deleteConfirm)}
+                  className="flex-1 py-2.5 bg-red-500 text-white rounded-xl text-sm font-semibold hover:bg-red-600">삭제</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
 
   /* ── 작성/수정 화면 ── */
   if (showForm) {
@@ -549,7 +750,7 @@ export default function AnnouncementManagementPage() {
                 <ChurchList>
                   {pinned.map(ann => (
                     <AnnListCard key={ann.id} ann={ann} badges={buildNoticeScopeBadges(ann)}
-                      onView={() => setShowDetail(ann)} onEdit={() => openEdit(ann)}
+                      onView={() => openDetail(ann)} onEdit={() => openEdit(ann)}
                       onDelete={() => setDeleteConfirm(ann.id)}
                       onTogglePin={() => togglePin(ann.id)} onToggleImportant={() => toggleImportant(ann.id)}
                       onNotify={() => showToast('알림이 발송되었습니다.')} />
@@ -559,7 +760,7 @@ export default function AnnouncementManagementPage() {
                 <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {pinned.map(ann => (
                     <AnnGridCard key={ann.id} ann={ann} badges={buildNoticeScopeBadges(ann)}
-                      onView={() => setShowDetail(ann)} onEdit={() => openEdit(ann)}
+                      onView={() => openDetail(ann)} onEdit={() => openEdit(ann)}
                       onDelete={() => setDeleteConfirm(ann.id)}
                       onTogglePin={() => togglePin(ann.id)} onToggleImportant={() => toggleImportant(ann.id)}
                       onNotify={() => showToast('알림이 발송되었습니다.')} />
@@ -580,7 +781,7 @@ export default function AnnouncementManagementPage() {
                 <ChurchList>
                   {regular.map(ann => (
                     <AnnListCard key={ann.id} ann={ann} badges={buildNoticeScopeBadges(ann)}
-                      onView={() => setShowDetail(ann)} onEdit={() => openEdit(ann)}
+                      onView={() => openDetail(ann)} onEdit={() => openEdit(ann)}
                       onDelete={() => setDeleteConfirm(ann.id)}
                       onTogglePin={() => togglePin(ann.id)} onToggleImportant={() => toggleImportant(ann.id)}
                       onNotify={() => showToast('알림이 발송되었습니다.')} />
@@ -590,7 +791,7 @@ export default function AnnouncementManagementPage() {
                 <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {regular.map(ann => (
                     <AnnGridCard key={ann.id} ann={ann} badges={buildNoticeScopeBadges(ann)}
-                      onView={() => setShowDetail(ann)} onEdit={() => openEdit(ann)}
+                      onView={() => openDetail(ann)} onEdit={() => openEdit(ann)}
                       onDelete={() => setDeleteConfirm(ann.id)}
                       onTogglePin={() => togglePin(ann.id)} onToggleImportant={() => toggleImportant(ann.id)}
                       onNotify={() => showToast('알림이 발송되었습니다.')} />
@@ -599,91 +800,6 @@ export default function AnnouncementManagementPage() {
               )}
             </section>
           )}
-        </div>
-      )}
-
-      {/* Detail Modal */}
-      {showDetail && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl flex flex-col max-h-[90vh]">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
-              <h3 className="font-bold text-gray-900">공지 상세</h3>
-              <div className="flex items-center gap-2">
-                <button onClick={() => { setShowDetail(null); openEdit(showDetail); }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-xl">
-                  <Edit2 className="w-3.5 h-3.5" /> 수정
-                </button>
-                <button onClick={() => setDeleteConfirm(showDetail.id)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-500 hover:bg-red-50 rounded-xl">
-                  <Trash2 className="w-3.5 h-3.5" /> 삭제
-                </button>
-                <button onClick={() => setShowDetail(null)} className="p-2 hover:bg-gray-100 rounded-xl">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
-              <div className="flex flex-wrap items-center gap-2">
-                {buildNoticeScopeBadges(showDetail).map((b, i) => (
-                  <StatusBadge key={i} label={b.label} variant={b.variant} />
-                ))}
-                <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${CAT_COLOR[showDetail.category] ?? 'bg-gray-50 text-gray-500 border-gray-200'}`}>
-                  {showDetail.category}
-                </span>
-                {showDetail.isPinned && (
-                  <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-red-50 text-red-600 border border-red-200 flex items-center gap-1">
-                    <Pin className="w-3 h-3" /> 고정
-                  </span>
-                )}
-                {showDetail.isImportant && (
-                  <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-50 text-amber-600 border border-amber-200 flex items-center gap-1">
-                    <Star className="w-3 h-3" /> 중요
-                  </span>
-                )}
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">{showDetail.title}</h2>
-                <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-400">
-                  <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {showDetail.date}</span>
-                  <span>{showDetail.author}</span>
-                </div>
-              </div>
-              <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{showDetail.content}</p>
-              {showDetail.images.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold text-gray-500 flex items-center gap-1.5">
-                    <ImageIcon className="w-3.5 h-3.5" /> 첨부 이미지 {showDetail.images.length}장
-                  </p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {showDetail.images.map((img, i) => (
-                      <button key={i} onClick={() => setLightboxImg(img)}
-                        className="aspect-video rounded-xl overflow-hidden border border-gray-200 hover:opacity-90 transition-opacity">
-                        <img src={img} alt="" className="w-full h-full object-cover" />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {showDetail.files.length > 0 && (
-                <div className="space-y-1.5">
-                  <p className="text-xs font-semibold text-gray-500 flex items-center gap-1.5">
-                    <Paperclip className="w-3.5 h-3.5" /> 첨부파일 {showDetail.files.length}개
-                  </p>
-                  {showDetail.files.map((f, i) => (
-                    <a key={i} href={f.data} download={f.name}
-                      className="flex items-center gap-3 px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl hover:bg-gray-100 transition-colors">
-                      <Paperclip className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-700 truncate">{f.name}</p>
-                        <p className="text-[10px] text-gray-400">{f.size}</p>
-                      </div>
-                      <Download className="w-4 h-4 text-primary-500 flex-shrink-0" />
-                    </a>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
         </div>
       )}
 
