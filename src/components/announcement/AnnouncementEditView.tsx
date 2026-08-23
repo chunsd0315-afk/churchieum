@@ -18,6 +18,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { getOrganizationPathLabel } from '../../services/userOrganizationTree';
 import ContentEditorLayout, { ContentFormCard } from '../layout/ContentEditorLayout';
+import { ContentEditorDetailSettings } from '../layout/ContentEditorDetailSettings';
 import {
   AnnouncementVisibilitySelector,
   defaultAnnouncementVisibility,
@@ -123,6 +124,15 @@ export function AnnouncementEditView({
     title.trim().length > 0 &&
     content.trim().length > 0 &&
     (visibility.mode === 'all' || visibility.sharedOrganizationIds.length > 0);
+
+  const detailSettingsActiveCount = useMemo(() => {
+    let count = 0;
+    if (visibility.mode !== 'all') count += 1;
+    if (!allowComments) count += 1;
+    return count;
+  }, [visibility.mode, allowComments]);
+
+  const detailSettingsDefaultOpen = Boolean(!isCreate && detailSettingsActiveCount > 0);
 
   const handleSave = () => {
     setError('');
@@ -305,26 +315,31 @@ export function AnnouncementEditView({
           )}
         </div>
 
-        <AnnouncementVisibilitySelector value={visibility} onChange={setVisibility} />
+        <ContentEditorDetailSettings
+          activeCount={detailSettingsActiveCount}
+          defaultOpen={detailSettingsDefaultOpen}
+        >
+          <AnnouncementVisibilitySelector value={visibility} onChange={setVisibility} />
 
-        <label className="inline-flex items-center gap-3 text-sm text-gray-700 touch-target min-h-[48px]">
-          <span className="font-semibold text-gray-800">댓글 허용</span>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={allowComments}
-            onClick={() => setAllowComments(v => !v)}
-            className={`relative w-12 h-7 rounded-full transition-colors ${
-              allowComments ? 'bg-primary-500' : 'bg-gray-300'
-            }`}
-          >
-            <span
-              className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${
-                allowComments ? 'translate-x-5' : 'translate-x-0'
+          <label className="inline-flex items-center gap-3 text-sm text-gray-700 touch-target min-h-[48px]">
+            <span className="font-semibold text-gray-800">댓글 허용</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={allowComments}
+              onClick={() => setAllowComments(v => !v)}
+              className={`relative w-12 h-7 rounded-full transition-colors ${
+                allowComments ? 'bg-primary-500' : 'bg-gray-300'
               }`}
-            />
-          </button>
-        </label>
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${
+                  allowComments ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </label>
+        </ContentEditorDetailSettings>
 
         {error && (
           <p className="text-sm text-red-600 bg-red-50 rounded-xl px-3 py-2">{error}</p>

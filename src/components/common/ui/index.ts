@@ -183,5 +183,8 @@ export type { ChurchDropdownMenuProps, ChurchDropdownItem, ChurchDropdownLayer }
 export { ChurchConfirmDialog } from './ChurchConfirmDialog';
 export type { ChurchConfirmDialogProps } from './ChurchConfirmDialog';
 
+export { DetailSettingsButton } from './DetailSettingsButton';
+export type { DetailSettingsButtonProps } from './DetailSettingsButton';
+
 export { ChurchMediaThumbnail } from './ChurchMediaThumbnail';
 export type { ChurchMediaThumbnailProps, ChurchMediaSize } from './ChurchMediaThumbnail';

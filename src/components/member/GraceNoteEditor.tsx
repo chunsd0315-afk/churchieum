@@ -19,6 +19,7 @@ import { CommentPermissionSetting } from './CommentPermissionSetting';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../common/ui';
 import ContentEditorLayout, { ContentFormCard } from '../layout/ContentEditorLayout';
+import { ContentEditorDetailSettings } from '../layout/ContentEditorDetailSettings';
 import { getEligiblePastorsForUser } from '../../services/graceNoteShareScope';
 import { buildSharedPastorSnapshots } from '../../services/graceShareFilterHelpers';
 import { GRACE_CONTENT_MAX_LENGTH, GRACE_MENU_LABEL, graceContentFieldLabel } from '../../services/graceNoteDisplay';
@@ -431,6 +432,15 @@ export function GraceNoteEditor({
     && !saved;
   const saveLabel = editId ? '수정사항 저장' : '저장';
 
+  const detailSettingsActiveCount = useMemo(() => {
+    let count = 0;
+    if (share.visibility !== 'private') count += 1;
+    if (share.visibility !== 'private' && !allowComments) count += 1;
+    return count;
+  }, [share.visibility, allowComments]);
+
+  const detailSettingsDefaultOpen = Boolean(editId && detailSettingsActiveCount > 0);
+
   const saveBtn = needsReadingPick ? undefined : (
     <button
       type="button"
@@ -640,34 +650,37 @@ export function GraceNoteEditor({
             />
           )}
 
-          {/* 공개범위 */}
-          <GraceNoteShareSelector
-            value={share}
-            onChange={next => {
-              const wasPrivate = share.visibility === 'private';
-              const nowPrivate = next.visibility === 'private';
-              if (!wasPrivate && nowPrivate) {
-                allowBeforePrivateRef.current = allowComments;
-                setAllowComments(false);
-              } else if (wasPrivate && !nowPrivate) {
-                setAllowComments(allowBeforePrivateRef.current);
-              }
-              setShare(next);
-            }}
-            existingPastorSnapshots={existing?.sharedPastorSnapshots}
-          />
+          <ContentEditorDetailSettings
+            activeCount={detailSettingsActiveCount}
+            defaultOpen={detailSettingsDefaultOpen}
+          >
+            <GraceNoteShareSelector
+              value={share}
+              onChange={next => {
+                const wasPrivate = share.visibility === 'private';
+                const nowPrivate = next.visibility === 'private';
+                if (!wasPrivate && nowPrivate) {
+                  allowBeforePrivateRef.current = allowComments;
+                  setAllowComments(false);
+                } else if (wasPrivate && !nowPrivate) {
+                  setAllowComments(allowBeforePrivateRef.current);
+                }
+                setShare(next);
+              }}
+              existingPastorSnapshots={existing?.sharedPastorSnapshots}
+            />
 
-          {/* 댓글 설정 */}
-          <CommentPermissionSetting
-            visibility={share.visibility}
-            allowComments={allowComments}
-            onChange={next => {
-              setAllowComments(next);
-              if (share.visibility !== 'private') {
-                allowBeforePrivateRef.current = next;
-              }
-            }}
-          />
+            <CommentPermissionSetting
+              visibility={share.visibility}
+              allowComments={allowComments}
+              onChange={next => {
+                setAllowComments(next);
+                if (share.visibility !== 'private') {
+                  allowBeforePrivateRef.current = next;
+                }
+              }}
+            />
+          </ContentEditorDetailSettings>
         </ContentFormCard>
       )}
     </ContentEditorLayout>

@@ -1,4 +1,5 @@
-import { Filter, Search, X } from 'lucide-react';
+import { Search, X } from 'lucide-react';
+import { DetailSettingsButton } from '../ui/DetailSettingsButton';
 import { SharedContentFilterChips, type SharedContentFilterChip } from './SharedContentFilterChips';
 
 export type SharedContentListToolbarProps = {
@@ -44,20 +45,10 @@ export function SharedContentListToolbar({
             </button>
           )}
         </div>
-        <button
-          type="button"
+        <DetailSettingsButton
           onClick={onOpenDetailSettings}
-          aria-label="상세설정"
-          className={`shrink-0 flex items-center justify-center gap-1.5 px-4 py-3 rounded-2xl text-sm font-semibold touch-target min-h-[48px] min-w-[88px] ${
-            activeFilterCount > 0 ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700'
-          }`}
-        >
-          <Filter className="w-4 h-4" aria-hidden />
-          상세설정
-          {activeFilterCount > 0 && (
-            <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded-full">{activeFilterCount}</span>
-          )}
-        </button>
+          activeCount={activeFilterCount}
+        />
       </div>
 
       <SharedContentFilterChips chips={chips} onResetAll={onResetFilters} />
