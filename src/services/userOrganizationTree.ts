@@ -164,8 +164,29 @@ export function getUserVisibleOrganizationIdsForMode(
   if (mode === 'super_admin' && scope === 'all') {
     return getUserVisibleOrganizationIds(user, 'all');
   }
-  // 성도·교역자·관리자(내 조직) — 전체 교회 트리 미노출
+  // 교역자·최고관리자(내 조직): 소속·담당 + 상위 경로 + 담당 하위
+  if (mode === 'pastor' || mode === 'super_admin') {
+    return getPastorAccessibleOrganizationIds(user);
+  }
+  // 성도: 소속 + 직계 상위만 (형제·무관 조직 제외)
   return getUserVisibleOrganizationIds(user, 'mine');
+}
+
+/**
+ * 상세설정·조직 선택에 표시할 조직 ID.
+ * 역할별 UI는 같고, 여기서만 범위를 나눕니다.
+ */
+export function getAccessibleOrganizationsForUser(
+  user: AppUser | null,
+  opts?: { fullTree?: boolean },
+): string[] {
+  if (!user) return [];
+  const mode = resolveOrgTreeMode(user);
+  return getUserVisibleOrganizationIdsForMode(
+    user,
+    mode,
+    opts?.fullTree && mode === 'super_admin' ? 'all' : 'mine',
+  );
 }
 
 /**

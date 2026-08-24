@@ -10,17 +10,21 @@
  */
 
 import { useMemo, useState } from 'react';
-import { X, ChevronDown, ChevronUp, Globe, Building2, Calendar, Search } from 'lucide-react';
+import { Check, X, ChevronDown, ChevronUp, Globe, Building2, Calendar, Search } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   getUserOrganizationTree,
-  flattenOrgFilterTree,
-  getUserVisibleOrganizationIds,
+  collectTreeNodeIds,
+  resolveOrgTreeMode,
   type OrgFilterTreeNode,
 } from '../../services/userOrganizationTree';
-import { getUserCoreOrganizationIds } from '../../services/userOrganizationTree';
 import { getAllOrganizations } from '../../services/organizationStorage';
 import { isSuperAdmin } from '../../services/permissions';
+import {
+  getPastoralAssigneesForOrganization,
+  type DirectPastorOnOrg,
+} from '../../services/directPastorShare';
+import type { Announcement } from '../../services/announcementStorage';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -35,6 +39,8 @@ export type AnnouncementSearchFilter = {
   dateFrom: string;
   dateTo: string;
   keyword: string;
+  /** 최고관리자: 내 조직 대신 교회 전체 트리 */
+  showFullOrgTree: boolean;
 };
 
 export const EMPTY_FILTER: AnnouncementSearchFilter = {
@@ -44,6 +50,7 @@ export const EMPTY_FILTER: AnnouncementSearchFilter = {
   dateFrom: '',
   dateTo: '',
   keyword: '',
+  showFullOrgTree: false,
 };
 
 export function isFilterActive(f: AnnouncementSearchFilter): boolean {
@@ -53,7 +60,8 @@ export function isFilterActive(f: AnnouncementSearchFilter): boolean {
     f.datePreset !== 'all' ||
     !!f.dateFrom ||
     !!f.dateTo ||
-    !!f.keyword
+    !!f.keyword ||
+    f.showFullOrgTree
   );
 }
 
@@ -72,6 +80,7 @@ export function countDetailSettingFilters(f: AnnouncementSearchFilter): number {
   if (f.scopeMode !== 'all') n++;
   if (f.selectedOrgIds.length > 0) n++;
   if (f.datePreset !== 'all' || f.dateFrom || f.dateTo) n++;
+  if (f.showFullOrgTree) n++;
   return n;
 }
 
@@ -104,6 +113,80 @@ function getPresetDates(preset: DatePreset): { from: string; to: string } {
   return { from: '', to: '' };
 }
 
+function formatAssigneeLine(pastors: DirectPastorOnOrg[]): string {
+  if (pastors.length === 0) return '담당 교역자 없음';
+  const first = `${pastors[0].name}${pastors[0].position ? ` ${pastors[0].position}` : ''}`.trim();
+  if (pastors.length === 1) return `담당 : ${first}`;
+  return `담당 : ${first} 외 ${pastors.length - 1}명`;
+}
+
+function announcementOrgIds(a: Announcement): string[] {
+  const ids = [...(a.sharedOrganizationIds ?? [])];
+  if (a.scopeId) ids.push(a.scopeId);
+  return [...new Set(ids.filter(Boolean))];
+}
+
+function announcementDateKey(a: Announcement): string {
+  const raw = a.created_at || a.date || '';
+  return raw.slice(0, 10);
+}
+
+/** 상세설정 조건 매칭 — 공개범위·조직·기간·검색어. 열람 권한은 호출측에서 먼저 적용. */
+export function announcementMatchesDetailFilter(
+  a: Announcement,
+  f: AnnouncementSearchFilter,
+  myOrgFallbackIds: string[],
+  orgNameById: Map<string, string>,
+): boolean {
+  if (f.scopeMode === 'my_org') {
+    const target = f.selectedOrgIds.length > 0 ? f.selectedOrgIds : myOrgFallbackIds;
+    if (target.length === 0) return false;
+    const ids = announcementOrgIds(a);
+    if (!ids.some(id => target.includes(id))) return false;
+  }
+
+  const { dateFrom, dateTo } = f;
+  if (dateFrom || dateTo) {
+    const key = announcementDateKey(a);
+    if (dateFrom && key && key < dateFrom) return false;
+    if (dateTo && key && key > dateTo) return false;
+    if (!key && (dateFrom || dateTo)) return false;
+  }
+
+  if (f.keyword) {
+    const q = f.keyword.toLowerCase();
+    const orgNames = announcementOrgIds(a)
+      .map(id => orgNameById.get(id) ?? '')
+      .join(' ');
+    const hay = [
+      a.title || '',
+      a.content || '',
+      a.author || '',
+      a.scopeName || '',
+      orgNames,
+    ].join(' ').toLowerCase();
+    if (!hay.includes(q)) return false;
+  }
+
+  return true;
+}
+
+export function collectAnnouncementSelectableOrgIds(tree: OrgFilterTreeNode[]): string[] {
+  return tree.flatMap(n => collectTreeNodeIds(n, true));
+}
+
+export function getAnnouncementMyOrgSelectableIds(
+  user: Parameters<typeof getUserOrganizationTree>[0]['user'],
+  showFullOrgTree = false,
+): string[] {
+  const tree = getUserOrganizationTree({
+    user,
+    mode: resolveOrgTreeMode(user),
+    scope: showFullOrgTree && isSuperAdmin(user) ? 'all' : 'mine',
+  });
+  return collectAnnouncementSelectableOrgIds(tree);
+}
+
 // ─── Org node row ─────────────────────────────────────────────────────────────
 
 function OrgRow({
@@ -119,13 +202,15 @@ function OrgRow({
 }) {
   const [open, setOpen] = useState(true);
   const isSelected = selectedIds.has(node.id);
+  const pastors = getPastoralAssigneesForOrganization(node.id);
+  const assigneeLine = formatAssigneeLine(pastors);
 
   return (
     <div>
       <button
         type="button"
         onClick={() => node.selectable && onToggle(node.id)}
-        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-[14px] text-left transition-colors touch-target ${
+        className={`w-full flex items-start gap-3 px-3 py-2.5 min-h-[52px] rounded-[14px] text-left transition-colors touch-target ${
           isSelected
             ? 'bg-primary-50 border border-primary-200 text-primary-800'
             : node.selectable
@@ -135,36 +220,36 @@ function OrgRow({
         style={{ paddingLeft: `${12 + depth * 16}px` }}
         disabled={!node.selectable}
       >
-        {/* Checkbox */}
         <span
-          className={`shrink-0 w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
+          className={`mt-0.5 shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors ${
             isSelected
               ? 'bg-primary-500 border-primary-500'
               : 'border-gray-300 bg-white'
           }`}
+          aria-hidden
         >
-          {isSelected && (
-            <svg viewBox="0 0 10 8" className="w-2.5 h-2.5 fill-white">
-              <path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          )}
+          {isSelected && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
         </span>
 
         <span className="flex-1 min-w-0">
-          <span className={`text-sm font-semibold ${isSelected ? 'text-primary-800' : ''}`}>
+          <span className={`block text-sm font-semibold ${isSelected ? 'text-primary-800' : 'text-gray-900'}`}>
             {node.name}
           </span>
-          {node.description && (
-            <span className="text-[11px] text-gray-400 ml-1.5">{node.description}</span>
-          )}
+          <span
+            className={`block text-[12px] mt-0.5 ${
+              pastors.length === 0 ? 'text-amber-700' : 'text-gray-500'
+            }`}
+          >
+            {assigneeLine}
+          </span>
         </span>
 
-        {/* 자식 펼치기 */}
         {node.children.length > 0 && (
           <button
             type="button"
             onClick={e => { e.stopPropagation(); setOpen(o => !o); }}
-            className="shrink-0 p-1 rounded hover:bg-gray-100 text-gray-400"
+            className="shrink-0 p-1 rounded hover:bg-gray-100 text-gray-400 touch-target min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center"
+            aria-label={open ? '접기' : '펼치기'}
           >
             {open ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>
@@ -211,23 +296,19 @@ const DATE_PRESETS: { id: DatePreset; label: string }[] = [
 export function AnnouncementSearchPanel({ value, onChange, onApply, onReset, asSheet = false }: Props) {
   const { user } = useAuth();
   const isAdmin = isSuperAdmin(user);
+  const treeMode = resolveOrgTreeMode(user);
 
-  // 전체 조직 보기 (최고관리자 전용)
-  const [showAllOrgs, setShowAllOrgs] = useState(false);
+  const showAllOrgs = isAdmin && value.showFullOrgTree;
 
-  // 내 조직 트리
-  const myOrgTree = useMemo(
-    () => getUserOrganizationTree({ user, scope: 'mine' }),
-    [user],
+  const displayTree = useMemo(
+    () => getUserOrganizationTree({
+      user,
+      mode: treeMode,
+      scope: showAllOrgs ? 'all' : 'mine',
+    }),
+    [user, treeMode, showAllOrgs],
   );
 
-  // 전체 조직 트리 (최고관리자)
-  const allOrgTree = useMemo(() => {
-    if (!isAdmin || !showAllOrgs) return [];
-    return getUserOrganizationTree({ user, scope: 'all' });
-  }, [user, isAdmin, showAllOrgs]);
-
-  const displayTree = showAllOrgs && isAdmin ? allOrgTree : myOrgTree;
   const selectedIds = new Set(value.selectedOrgIds);
 
   const toggleOrg = (id: string) => {
@@ -317,7 +398,11 @@ export function AnnouncementSearchPanel({ value, onChange, onApply, onReset, asS
               {isAdmin && (
                 <button
                   type="button"
-                  onClick={() => { setShowAllOrgs(v => !v); onChange({ ...value, selectedOrgIds: [] }); }}
+                  onClick={() => onChange({
+                    ...value,
+                    showFullOrgTree: !showAllOrgs,
+                    selectedOrgIds: [],
+                  })}
                   className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition-colors ${
                     showAllOrgs
                       ? 'bg-primary-50 border-primary-300 text-primary-700'
@@ -335,7 +420,7 @@ export function AnnouncementSearchPanel({ value, onChange, onApply, onReset, asS
               소속된 조직 정보가 없습니다.
             </p>
           ) : (
-            <div className="border border-gray-200 rounded-[16px] overflow-hidden max-h-52 overflow-y-auto">
+            <div className="border border-gray-200 rounded-[16px] overflow-hidden max-h-[40vh] md:max-h-52 overflow-y-auto overscroll-contain">
               <div className="p-2 space-y-0.5">
                 {displayTree.map(node => (
                   <OrgRow
@@ -490,6 +575,13 @@ export function AnnouncementFilterChips({
     chips.push({
       label: presetLabel,
       remove: () => onChange({ ...filter, datePreset: 'all', dateFrom: '', dateTo: '' }),
+    });
+  }
+
+  if (filter.showFullOrgTree) {
+    chips.push({
+      label: '전체 조직 보기',
+      remove: () => onChange({ ...filter, showFullOrgTree: false, selectedOrgIds: [] }),
     });
   }
 

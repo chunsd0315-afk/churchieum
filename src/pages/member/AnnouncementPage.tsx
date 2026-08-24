@@ -3,10 +3,9 @@ import {
   Megaphone, Calendar, Star, Paperclip, ImageIcon, Plus, Search, X,
 } from 'lucide-react';
 import { getAllAnnouncements, formatAnnouncementDate, type Announcement } from '../../services/announcementStorage';
-import { buildNoticeScopeBadges } from '../../services/announcementHelpers';
+import { buildNoticeScopeBadges, isAnnouncementVisible } from '../../services/announcementHelpers';
 import { useAuth } from '../../contexts/AuthContext';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
-import type { AppUser } from '../../services/permissions';
 import {
   PageHeaderBar,
   useToast,
@@ -24,37 +23,13 @@ import {
   EMPTY_FILTER,
   isFilterActive,
   countDetailSettingFilters,
+  announcementMatchesDetailFilter,
+  getAnnouncementMyOrgSelectableIds,
   type AnnouncementSearchFilter,
 } from '../../components/announcement/AnnouncementSearchPanel';
 import { AnnouncementDetailView } from '../../components/announcement/AnnouncementDetailView';
 import { AnnouncementEditView } from '../../components/announcement/AnnouncementEditView';
 import { getAllOrganizations } from '../../services/organizationStorage';
-import { getUserCoreOrganizationIds } from '../../services/userOrganizationTree';
-
-function isAnnouncementVisible(ann: Announcement, user: AppUser | null): boolean {
-  if (!user) return ann.scope === 'all';
-  if (user.role === 'super_admin') return true;
-  if (ann.scope === 'all') return true;
-
-  if (ann.scope === 'organizations') {
-    const shared = ann.sharedOrganizationIds ?? [];
-    if (shared.length === 0) return false;
-    const core = getUserCoreOrganizationIds(user);
-    return shared.some(id => core.includes(id));
-  }
-
-  if (user.role === 'pastor') {
-    if (ann.scope === 'level1') return user.assignedDistrictIds?.includes(ann.scopeId ?? '') ?? false;
-    if (ann.scope === 'level2') return user.assignedZoneIds?.includes(ann.scopeId ?? '') ?? false;
-    if (ann.scope === 'department') return user.assignedDepartmentIds?.includes(ann.scopeId ?? '') ?? false;
-  }
-  if (user.role === 'member') {
-    if (ann.scope === 'level1') return ann.scopeId === user.districtId;
-    if (ann.scope === 'level2') return ann.scopeId === user.zoneId;
-    if (ann.scope === 'department') return user.departmentIds?.includes(ann.scopeId ?? '') ?? false;
-  }
-  return false;
-}
 
 function isImportantNotice(a: Announcement): boolean {
   return a.isPinned || a.isImportant;
@@ -260,52 +235,22 @@ export default function AnnouncementPage() {
     [user, listTick],
   );
 
-  const orgMap = useMemo(
-    () => new Map(getAllOrganizations().map(o => [o.id, o])),
+  const orgNameById = useMemo(
+    () => new Map(getAllOrganizations().map(o => [o.id, o.name])),
     [],
   );
 
-  const filtered = useMemo(() => {
-    const f = searchFilter;
-    return visibleAnnouncements
-      .filter(a => {
-        if (f.scopeMode === 'my_org' && f.selectedOrgIds.length > 0) {
-          return f.selectedOrgIds.some(orgId => {
-            const org = orgMap.get(orgId);
-            if (!org) return false;
-            if (a.scope === 'all') return true;
-            if (a.sharedOrganizationIds?.includes(orgId)) return true;
-            return a.scopeId === orgId || a.scopeId === org.id;
-          });
-        }
-        return true;
-      })
-      .filter(a => {
-        const { dateFrom, dateTo } = f;
-        if (!dateFrom && !dateTo) return true;
-        if (dateFrom && a.date < dateFrom) return false;
-        if (dateTo && a.date > dateTo) return false;
-        return true;
-      })
-      .filter(a => {
-        if (!f.keyword) return true;
-        const q = f.keyword.toLowerCase();
-        const orgName =
-          (a.scopeId ? orgMap.get(a.scopeId)?.name : '') ||
-          a.scopeName ||
-          '';
-        const sharedOrgNames = (a.sharedOrganizationIds ?? [])
-          .map(id => orgMap.get(id)?.name ?? '')
-          .join(' ');
-        return (
-          (a.title || '').toLowerCase().includes(q) ||
-          (a.content || '').toLowerCase().includes(q) ||
-          (a.author || '').toLowerCase().includes(q) ||
-          orgName.toLowerCase().includes(q) ||
-          sharedOrgNames.toLowerCase().includes(q)
-        );
-      });
-  }, [visibleAnnouncements, searchFilter, orgMap]);
+  const myOrgFallbackIds = useMemo(
+    () => getAnnouncementMyOrgSelectableIds(user, searchFilter.showFullOrgTree),
+    [user, searchFilter.showFullOrgTree],
+  );
+
+  const filtered = useMemo(
+    () => visibleAnnouncements.filter(a =>
+      announcementMatchesDetailFilter(a, searchFilter, myOrgFallbackIds, orgNameById),
+    ),
+    [visibleAnnouncements, searchFilter, myOrgFallbackIds, orgNameById],
+  );
 
   const sortedList = useMemo(
     () => [...filtered].sort((a, b) => {
@@ -429,6 +374,13 @@ function AnnouncementListBody({
     setDraftFilter({ ...draftFilter, keyword });
   };
 
+  const handleDraftChange = (f: AnnouncementSearchFilter) => {
+    setDraftFilter(f);
+    if (f.keyword !== searchFilter.keyword) {
+      setSearchFilter({ ...searchFilter, keyword: f.keyword });
+    }
+  };
+
   return (
     <div className="space-y-5 pb-24 md:pb-8 max-w-[900px] mx-auto">
       <PageHeaderBar
@@ -503,7 +455,7 @@ function AnnouncementListBody({
             <AnnouncementSearchPanel
               asSheet
               value={draftFilter}
-              onChange={setDraftFilter}
+              onChange={handleDraftChange}
               onApply={() => {
                 setSearchFilter(draftFilter);
                 setShowSearch(false);
@@ -517,7 +469,7 @@ function AnnouncementListBody({
       {showSearch && !isMobile && (
         <AnnouncementSearchPanel
           value={draftFilter}
-          onChange={setDraftFilter}
+          onChange={handleDraftChange}
           onApply={() => {
             setSearchFilter(draftFilter);
             setShowSearch(false);

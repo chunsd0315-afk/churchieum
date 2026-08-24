@@ -11,13 +11,22 @@ import {
   formatAnnouncementDate,
   type Announcement,
 } from '../../services/announcementStorage';
-import {
-  getAllDistricts, getZones, getAllDepartments,
-} from '../../services/orgData';
-import { useOrgSettings } from '../../contexts/OrgSettingsContext';
-import { buildNoticeScopeBadges, type ScopeBadge } from '../../services/announcementHelpers';
+import { buildNoticeScopeBadges, isAnnouncementVisible, type ScopeBadge } from '../../services/announcementHelpers';
 import { AnnouncementDetailView } from '../../components/announcement/AnnouncementDetailView';
 import { AnnouncementEditView } from '../../components/announcement/AnnouncementEditView';
+import {
+  AnnouncementSearchPanel,
+  AnnouncementFilterChips,
+  EMPTY_FILTER,
+  isFilterActive,
+  countDetailSettingFilters,
+  announcementMatchesDetailFilter,
+  getAnnouncementMyOrgSelectableIds,
+  type AnnouncementSearchFilter,
+} from '../../components/announcement/AnnouncementSearchPanel';
+import { getAllOrganizations } from '../../services/organizationStorage';
+import { useAuth } from '../../contexts/AuthContext';
+import { useBreakpoint } from '../../hooks/useBreakpoint';
 
 const HISTORY_KEY = 'churchieum_admin_ann_layer';
 type AnnAdminHistory = { [HISTORY_KEY]: true; layer: 'detail' | 'edit'; id: string };
@@ -27,12 +36,9 @@ function readAdminAnnHistory(): AnnAdminHistory | null {
   return null;
 }
 
-const SELECT = 'w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 text-gray-700';
-
 export default function AnnouncementManagementPage() {
-  const { l1, l2, dept } = useOrgSettings();
-  const districts   = getAllDistricts().filter(d => d.is_active);
-  const departments = getAllDepartments().filter(d => d.is_active);
+  const { user } = useAuth();
+  const { isMobile } = useBreakpoint();
 
   /* ─── List state ─────────────────────────────────────────────────── */
   const [data, setData]           = useState<Announcement[]>(() => getAllAnnouncements());
@@ -44,23 +50,8 @@ export default function AnnouncementManagementPage() {
     writeStoredViewMode('announcement', mode);
   };
   const [showSearch, setShowSearch] = useState(false);
-
-  /* advanced filters */
-  const [fDistrict, setFDistrict] = useState('');   // '' | 'church' | district.id
-  const [fZone, setFZone]         = useState('');
-  const [fDept, setFDept]         = useState('');
-  const [fDate, setFDate]         = useState('');
-  const [fText, setFText]         = useState('');
-
-  /* zones for selected district */
-  const zonesInDistrict = useMemo(() => {
-    if (!fDistrict || fDistrict === 'church') return [];
-    return getZones(fDistrict).filter(z => z.is_active);
-  }, [fDistrict]);
-
-  const resetFilters = () => {
-    setFDistrict(''); setFZone(''); setFDept(''); setFDate(''); setFText('');
-  };
+  const [searchFilter, setSearchFilter] = useState<AnnouncementSearchFilter>(EMPTY_FILTER);
+  const [draftFilter, setDraftFilter] = useState<AnnouncementSearchFilter>(EMPTY_FILTER);
 
   /* ─── Form state ─────────────────────────────────────────────────── */
   const [showForm, setShowForm]   = useState(false);
@@ -78,46 +69,48 @@ export default function AnnouncementManagementPage() {
   };
 
   /* ─── Filter logic ─────────────────────────────────────────────── */
-  const filtered = useMemo(() => {
-    return data
-      .filter(a => {
-        if (!fDistrict && !fDept) return true;
-        if (fDistrict === 'church') return a.scope === 'all';
-        if (fZone) {
-          return (
-            (a.scope === 'level2' && a.scopeId === fZone)
-            || (a.scope === 'organizations' && a.sharedOrganizationIds?.includes(fZone))
-          );
-        }
-        if (fDistrict) {
-          return (
-            (a.scope === 'level1' && a.scopeId === fDistrict)
-            || (a.scope === 'organizations' && a.sharedOrganizationIds?.includes(fDistrict))
-          );
-        }
-        if (fDept) {
-          return (
-            (a.scope === 'department' && a.scopeId === fDept)
-            || (a.scope === 'organizations' && a.sharedOrganizationIds?.includes(fDept))
-          );
-        }
-        return true;
-      })
-      .filter(a => !fDate || a.date === fDate)
-      .filter(a => {
-        if (!fText) return true;
-        const q = fText.toLowerCase();
-        return (
-          a.title.toLowerCase().includes(q) ||
-          a.content.toLowerCase().includes(q) ||
-          a.author.toLowerCase().includes(q)
-        );
-      })
+  const visibleData = useMemo(
+    () => data.filter(a => isAnnouncementVisible(a, user)),
+    [data, user],
+  );
+
+  const orgNameById = useMemo(
+    () => new Map(getAllOrganizations().map(o => [o.id, o.name])),
+    [],
+  );
+
+  const myOrgFallbackIds = useMemo(
+    () => getAnnouncementMyOrgSelectableIds(user, searchFilter.showFullOrgTree),
+    [user, searchFilter.showFullOrgTree],
+  );
+
+  const filtered = useMemo(
+    () => visibleData
+      .filter(a => announcementMatchesDetailFilter(a, searchFilter, myOrgFallbackIds, orgNameById))
       .sort((a, b) => {
         if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
         return b.date.localeCompare(a.date);
-      });
-  }, [data, fDistrict, fZone, fDept, fDate, fText]);
+      }),
+    [visibleData, searchFilter, myOrgFallbackIds, orgNameById],
+  );
+
+  const resetFilters = () => {
+    setSearchFilter(EMPTY_FILTER);
+    setDraftFilter(EMPTY_FILTER);
+    setShowSearch(false);
+  };
+
+  const setKeyword = (keyword: string) => {
+    setSearchFilter({ ...searchFilter, keyword });
+    setDraftFilter({ ...draftFilter, keyword });
+  };
+
+  const handleDraftChange = (f: AnnouncementSearchFilter) => {
+    setDraftFilter(f);
+    if (f.keyword !== searchFilter.keyword) {
+      setSearchFilter({ ...searchFilter, keyword: f.keyword });
+    }
+  };
 
   const pinned  = filtered.filter(a => a.isPinned);
   const regular = filtered.filter(a => !a.isPinned);
@@ -372,15 +365,15 @@ export default function AnnouncementManagementPage() {
         <div className="relative flex-1 min-w-0">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
-            value={fText}
-            onChange={e => setFText(e.target.value)}
+            value={searchFilter.keyword}
+            onChange={e => setKeyword(e.target.value)}
             placeholder="키워드, 제목, 내용 검색"
             className="w-full pl-12 pr-12 py-3 rounded-2xl border border-gray-200 text-sm bg-white min-h-[48px] focus:border-primary-400 focus:outline-none"
           />
-          {fText && (
+          {searchFilter.keyword && (
             <button
               type="button"
-              onClick={() => setFText('')}
+              onClick={() => setKeyword('')}
               className="absolute right-4 top-1/2 -translate-y-1/2 touch-target"
               aria-label="검색어 지우기"
             >
@@ -390,8 +383,12 @@ export default function AnnouncementManagementPage() {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <DetailSettingsButton
-            onClick={() => setShowSearch(s => !s)}
+            onClick={() => {
+              if (!showSearch) setDraftFilter(searchFilter);
+              setShowSearch(s => !s);
+            }}
             active={showSearch}
+            activeCount={countDetailSettingFilters(searchFilter)}
             aria-expanded={showSearch}
             className="flex-1 sm:flex-none"
           />
@@ -399,95 +396,51 @@ export default function AnnouncementManagementPage() {
         </div>
       </div>
 
-      {/* Advanced search panel */}
-      {showSearch && (
-        <div className="bg-white border border-gray-200 rounded-[20px] p-6">
-          <div className="grid grid-cols-2 gap-4">
-            {/* 상위조직 */}
-            <div>
-              <label className="text-xs font-semibold text-gray-600 mb-2 block">{l1}</label>
-              <select
-                value={fDistrict}
-                onChange={e => { setFDistrict(e.target.value); setFZone(''); }}
-                className={SELECT}
+      {showSearch && isMobile && (
+        <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-end">
+          <div className="w-full bg-white rounded-t-[24px] shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-5 pt-4 pb-2">
+              <h3 className="text-base font-bold text-gray-900">상세설정</h3>
+              <button
+                type="button"
+                onClick={() => setShowSearch(false)}
+                className="p-2 rounded-xl text-gray-400 hover:bg-gray-100 touch-target"
+                aria-label="닫기"
               >
-                <option value="">전체</option>
-                <option value="church">교회공지</option>
-                {districts.map(d => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
-                ))}
-              </select>
+                ✕
+              </button>
             </div>
-
-            {/* 하위조직 */}
-            <div>
-              <label className={`text-xs font-semibold mb-2 block ${
-                fDistrict && fDistrict !== 'church' ? 'text-gray-600' : 'text-gray-300'
-              }`}>{l2}</label>
-              <select
-                value={fZone}
-                onChange={e => setFZone(e.target.value)}
-                disabled={!fDistrict || fDistrict === 'church'}
-                className={`${SELECT} disabled:opacity-40 disabled:cursor-not-allowed`}
-              >
-                <option value="">전체</option>
-                {zonesInDistrict.map(z => (
-                  <option key={z.id} value={z.id}>{z.name}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* 부서 */}
-            <div>
-              <label className="text-xs font-semibold text-gray-600 mb-2 block">{dept}</label>
-              <select value={fDept} onChange={e => setFDept(e.target.value)} className={SELECT}>
-                <option value="">전체</option>
-                {departments.map(d => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* 날짜 */}
-            <div>
-              <label className="text-xs font-semibold text-gray-600 mb-2 block">날짜</label>
-              <input
-                type="date" value={fDate}
-                onChange={e => setFDate(e.target.value)}
-                className={SELECT}
-              />
-            </div>
-
-            {/* 검색어 (상단과 동일 상태) */}
-            <div className="col-span-2">
-              <label className="text-xs font-semibold text-gray-600 mb-2 block">검색어</label>
-              <input
-                type="text" value={fText}
-                onChange={e => setFText(e.target.value)}
-                placeholder="제목 또는 내용 검색"
-                className={SELECT}
-              />
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex items-center justify-end gap-2 mt-5 pt-4 border-t border-gray-100">
-            <button
-              type="button"
-              onClick={resetFilters}
-              className="px-5 py-2 border border-gray-200 rounded-[14px] text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
-            >
-              초기화
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowSearch(false)}
-              className="px-5 py-2 bg-primary-500 text-white rounded-[14px] text-sm font-bold hover:bg-primary-600 transition-colors"
-            >
-              상세설정 적용
-            </button>
+            <AnnouncementSearchPanel
+              asSheet
+              value={draftFilter}
+              onChange={handleDraftChange}
+              onApply={() => {
+                setSearchFilter(draftFilter);
+                setShowSearch(false);
+              }}
+              onReset={resetFilters}
+            />
           </div>
         </div>
+      )}
+
+      {showSearch && !isMobile && (
+        <AnnouncementSearchPanel
+          value={draftFilter}
+          onChange={handleDraftChange}
+          onApply={() => {
+            setSearchFilter(draftFilter);
+            setShowSearch(false);
+          }}
+          onReset={resetFilters}
+        />
+      )}
+
+      {isFilterActive(searchFilter) && !showSearch && (
+        <AnnouncementFilterChips
+          filter={searchFilter}
+          onChange={f => { setSearchFilter(f); setDraftFilter(f); }}
+        />
       )}
 
       {/* Announcement list */}
