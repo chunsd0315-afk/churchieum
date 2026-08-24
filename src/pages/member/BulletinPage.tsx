@@ -1,51 +1,120 @@
-﻿import { useState, useEffect } from 'react';
-import { supabase } from '../../services/supabase';
-import {
-  FileText, Calendar, Eye, Download, ExternalLink, ChevronRight,
-  ChevronLeft, Archive, Loader, X, BookOpen,
-} from 'lucide-react';
-import { TabBar } from '../../components/common/ui';
-import { FeatureHubPage, HubBackBar } from '../../components/common/feature-hub';
-import { BULLETIN_HUB } from '../../config/featureHub/memberHubs';
-import { useAuth } from '../../contexts/AuthContext';
-import { useToast } from '../../components/common/ui';
+﻿/**
+ * 주보 — 최고관리자·교역자·성도 공통 목록 UI
+ * 검색 / 상세설정 / 카드·목록보기 / 상세 / 권한별 작성·수정·삭제
+ */
 
-type Bulletin = {
-  id: string;
+import { useState, useEffect, useMemo, useRef, useCallback, type FormEvent } from 'react';
+import {
+  FileText, Calendar, Plus, Search, X, Edit2, Trash2, MoreVertical, Loader,
+} from 'lucide-react';
+import { supabase } from '../../services/supabase';
+import { useFileUpload } from '../../hooks/useFileUpload';
+import { useAuth } from '../../contexts/AuthContext';
+import { useBreakpoint } from '../../hooks/useBreakpoint';
+import {
+  PageHeaderBar,
+  DetailSettingsButton,
+  ViewModeToggle,
+  readStoredViewMode,
+  writeStoredViewMode,
+  ChurchDropdownMenu,
+  ConfirmDialog,
+  type ContentViewMode,
+} from '../../components/common/ui';
+import EmptyState from '../../components/layout/EmptyState';
+import ContentEditorLayout from '../../components/layout/ContentEditorLayout';
+import {
+  BulletinSearchPanel,
+  BulletinFilterChips,
+  EMPTY_BULLETIN_FILTER,
+  isBulletinFilterActive,
+  countBulletinDetailFilters,
+  bulletinMatchesFilter,
+  type BulletinSearchFilter,
+} from '../../components/bulletin/BulletinSearchPanel';
+import {
+  BulletinDetailView,
+  type BulletinItem,
+} from '../../components/bulletin/BulletinDetailView';
+
+type Bulletin = BulletinItem & {
+  created_at?: string;
+};
+
+type FormData = {
   title: string;
-  description?: string;
+  description: string;
   bulletin_date: string;
-  pdf_url?: string;
-  image_url?: string;
-  view_count: number;
-  is_archived: boolean;
+  pdf_url: string;
+  image_url: string;
+};
+
+const EMPTY_FORM: FormData = {
+  title: '',
+  description: '',
+  bulletin_date: new Date().toISOString().split('T')[0],
+  pdf_url: '',
+  image_url: '',
 };
 
 const DEMO: Bulletin[] = [
   { id: '1', title: '2026년 6월 4주차 주보', description: '성령 강림 후 제5주 주일예배 주보', bulletin_date: '2026-06-22', view_count: 128, is_archived: false },
   { id: '2', title: '2026년 6월 3주차 주보', description: '성령 강림 후 제4주 주일예배 주보', bulletin_date: '2026-06-15', view_count: 98, is_archived: false },
   { id: '3', title: '2026년 6월 2주차 주보', description: '성령 강림 후 제3주 주일예배 주보', bulletin_date: '2026-06-08', view_count: 115, is_archived: false },
-  { id: '4', title: '2026년 6월 1주차 주보', description: '성령 강림 후 제2주 주일예배 주보', bulletin_date: '2026-06-01', view_count: 143, is_archived: true },
-  { id: '5', title: '2026년 5월 4주차 주보', description: '성령 강림 후 제1주 주일예배 주보', bulletin_date: '2026-05-25', view_count: 201, is_archived: true },
-  { id: '6', title: '2026년 5월 3주차 주보', description: '부활절 후 제7주 주일예배 주보', bulletin_date: '2026-05-18', view_count: 187, is_archived: true },
-  { id: '7', title: '2026년 5월 2주차 주보', description: '부활절 후 제6주 주일예배 주보', bulletin_date: '2026-05-11', view_count: 165, is_archived: true },
-  { id: '8', title: '2026년 5월 1주차 주보', description: '부활절 후 제5주 주일예배 주보', bulletin_date: '2026-05-04', view_count: 212, is_archived: true },
+  { id: '4', title: '2026년 6월 1주차 주보', description: '성령 강림 후 제2주 주일예배 주보', bulletin_date: '2026-06-01', view_count: 143, is_archived: false },
+  { id: '5', title: '2026년 5월 4주차 주보', description: '성령 강림 후 제1주 주일예배 주보', bulletin_date: '2026-05-25', view_count: 201, is_archived: false },
+  { id: '6', title: '2026년 5월 3주차 주보', description: '부활절 후 제7주 주일예배 주보', bulletin_date: '2026-05-18', view_count: 187, is_archived: false },
+  { id: '7', title: '2026년 5월 2주차 주보', description: '부활절 후 제6주 주일예배 주보', bulletin_date: '2026-05-11', view_count: 165, is_archived: false },
+  { id: '8', title: '2026년 5월 1주차 주보', description: '부활절 후 제5주 주일예배 주보', bulletin_date: '2026-05-04', view_count: 212, is_archived: false },
 ];
 
+function formatDate(d: string): string {
+  if (!d) return '';
+  const [y, m, day] = d.slice(0, 10).split('-');
+  if (!y || !m || !day) return d;
+  return `${y}.${m}.${day}`;
+}
+
+function isFormDirty(form: FormData): boolean {
+  return !!(form.title.trim() || form.pdf_url || form.image_url);
+}
+
 export default function BulletinPage() {
-  const { isPastor, isAdmin, user } = useAuth();
-  const toast = useToast();
-  const [hubView, setHubView] = useState(true);
+  const { isPastor, isAdmin } = useAuth();
+  const { isMobile } = useBreakpoint();
+  const canManage = isPastor || isAdmin;
+
   const [bulletins, setBulletins] = useState<Bulletin[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<Bulletin | null>(null);
-  const [tab, setTab] = useState<'current' | 'archive'>('current');
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<Bulletin | null>(null);
+  const [form, setForm] = useState<FormData>(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState('');
+  const [toast, setToast] = useState('');
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const [viewMode, setViewModeState] = useState<ContentViewMode>(() =>
+    readStoredViewMode('bulletin', 'card'),
+  );
+  const setViewMode = (mode: ContentViewMode) => {
+    setViewModeState(mode);
+    writeStoredViewMode('bulletin', mode);
+  };
 
-  const fetchData = async () => {
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchFilter, setSearchFilter] = useState<BulletinSearchFilter>(EMPTY_BULLETIN_FILTER);
+  const [draftFilter, setDraftFilter] = useState<BulletinSearchFilter>(EMPTY_BULLETIN_FILTER);
+
+  const listScrollRef = useRef(0);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+  const imgInputRef = useRef<HTMLInputElement>(null);
+  const pdfUpload = useFileUpload({ bucket: 'bulletins', folder: 'pdf', maxSizeMB: 50 });
+  const imgUpload = useFileUpload({ bucket: 'bulletins', folder: 'covers', maxSizeMB: 10 });
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
     try {
       const { data, error } = await supabase
         .from('bulletins')
@@ -53,7 +122,7 @@ export default function BulletinPage() {
         .order('bulletin_date', { ascending: false });
       if (error) throw error;
       if (data && data.length > 0) {
-        setBulletins(data);
+        setBulletins(data as Bulletin[]);
       } else {
         setBulletins(DEMO);
       }
@@ -62,27 +131,326 @@ export default function BulletinPage() {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(''), 2500);
   };
 
-  const handleView = async (b: Bulletin) => {
-    setSelected(b);
+  const captureListScroll = useCallback(() => {
+    listScrollRef.current = window.scrollY || document.documentElement.scrollTop;
+  }, []);
+
+  const restoreListScroll = useCallback(() => {
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: listScrollRef.current, behavior: 'auto' });
+    });
+  }, []);
+
+  const filtered = useMemo(
+    () =>
+      bulletins
+        .filter(b => bulletinMatchesFilter(b, searchFilter))
+        .sort((a, b) => (b.bulletin_date || '').localeCompare(a.bulletin_date || '')),
+    [bulletins, searchFilter],
+  );
+
+  const detailBulletin = detailId
+    ? bulletins.find(b => b.id === detailId) ?? null
+    : null;
+
+  const setKeyword = (keyword: string) => {
+    setSearchFilter({ ...searchFilter, keyword });
+    setDraftFilter({ ...draftFilter, keyword });
+  };
+
+  const handleDraftChange = (f: BulletinSearchFilter) => {
+    setDraftFilter(f);
+    if (f.keyword !== searchFilter.keyword) {
+      setSearchFilter({ ...searchFilter, keyword: f.keyword });
+    }
+  };
+
+  const resetFilters = () => {
+    setSearchFilter(EMPTY_BULLETIN_FILTER);
+    setDraftFilter(EMPTY_BULLETIN_FILTER);
+    setShowSearch(false);
+  };
+
+  const openDetail = (b: Bulletin) => {
+    captureListScroll();
+    setDetailId(b.id);
+    void (async () => {
+      try {
+        await supabase
+          .from('bulletins')
+          .update({ view_count: (b.view_count || 0) + 1 })
+          .eq('id', b.id);
+        setBulletins(prev =>
+          prev.map(x =>
+            x.id === b.id ? { ...x, view_count: (x.view_count || 0) + 1 } : x,
+          ),
+        );
+      } catch {
+        /* ignore */
+      }
+    })();
+  };
+
+  const openNew = () => {
+    if (!canManage) return;
+    setDetailId(null);
+    setEditing(null);
+    setForm({ ...EMPTY_FORM, bulletin_date: new Date().toISOString().split('T')[0] });
+    setImagePreview('');
+    setShowForm(true);
+  };
+
+  const openEdit = (b: Bulletin) => {
+    if (!canManage) return;
+    setEditing(b);
+    setForm({
+      title: b.title,
+      description: b.description || '',
+      bulletin_date: b.bulletin_date,
+      pdf_url: b.pdf_url || '',
+      image_url: b.image_url || '',
+    });
+    setImagePreview(b.image_url || '');
+    setShowForm(true);
+  };
+
+  const handleBackFromForm = () => {
+    if (isFormDirty(form) && !window.confirm('작성 중인 내용이 있습니다.\n나가시겠습니까?')) return;
+    setShowForm(false);
+    setEditing(null);
+  };
+
+  const handleSubmit = async (e?: FormEvent) => {
+    e?.preventDefault();
+    if (!canManage || saving) return;
+    setSaving(true);
     try {
-      await supabase.from('bulletins').update({ view_count: (b.view_count || 0) + 1 }).eq('id', b.id);
-      setBulletins(prev => prev.map(x => x.id === b.id ? { ...x, view_count: (x.view_count || 0) + 1 } : x));
-    } catch { /* ignore */ }
+      const payload = {
+        title: form.title,
+        description: form.description || null,
+        bulletin_date: form.bulletin_date,
+        pdf_url: form.pdf_url || null,
+        image_url: form.image_url || null,
+      };
+      if (editing) {
+        await supabase.from('bulletins').update(payload).eq('id', editing.id);
+        showToast('주보가 수정되었습니다');
+      } else {
+        await supabase
+          .from('bulletins')
+          .insert({ ...payload, view_count: 0, is_archived: false });
+        showToast('주보가 등록되었습니다');
+      }
+      setShowForm(false);
+      setEditing(null);
+      await fetchData();
+    } catch (err) {
+      console.error(err);
+      showToast('저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const current = bulletins.filter(b => !b.is_archived);
-  const archived = bulletins.filter(b => b.is_archived);
-  const latest = current[0];
+  const handleDelete = async (id: string) => {
+    if (!canManage) return;
+    try {
+      await supabase.from('bulletins').delete().eq('id', id);
+      setDeleteConfirm(null);
+      setDetailId(null);
+      showToast('삭제되었습니다');
+      await fetchData();
+      restoreListScroll();
+    } catch {
+      showToast('삭제에 실패했습니다.');
+    }
+  };
 
-  const archivedByMonth = archived.reduce<Record<string, Bulletin[]>>((acc, b) => {
-    const key = (b.bulletin_date ?? '').slice(0, 7) || '0000-00';
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(b);
-    return acc;
-  }, {});
+  /* ── Form ── */
+  if (showForm && canManage) {
+    return (
+      <ContentEditorLayout
+        title={editing ? '주보 수정' : '주보 작성'}
+        onBack={handleBackFromForm}
+        saveButton={
+          <button
+            type="button"
+            onClick={() => handleSubmit()}
+            disabled={saving || !form.title.trim()}
+            className="inline-flex items-center gap-1.5 h-12 px-5 bg-primary-500 hover:bg-primary-600 text-[#1A1A1A] rounded-[18px] text-sm font-bold disabled:opacity-50 transition-colors"
+          >
+            {saving ? '저장 중...' : editing ? '수정' : '등록'}
+          </button>
+        }
+      >
+        <div className="space-y-4 max-w-[900px] mx-auto">
+          <div>
+            <label className="text-xs font-semibold text-gray-600 mb-1.5 block">주보 날짜 *</label>
+            <input
+              type="date"
+              value={form.bulletin_date}
+              onChange={e => setForm({ ...form, bulletin_date: e.target.value })}
+              required
+              className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm min-h-[48px] focus:outline-none focus:border-primary-400"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-600 mb-1.5 block">제목 *</label>
+            <input
+              type="text"
+              value={form.title}
+              onChange={e => setForm({ ...form, title: e.target.value })}
+              placeholder="2026년 8월 4주차 주보"
+              required
+              className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm min-h-[48px] focus:outline-none focus:border-primary-400"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-600 mb-1.5 block">설명 (선택)</label>
+            <input
+              type="text"
+              value={form.description}
+              onChange={e => setForm({ ...form, description: e.target.value })}
+              placeholder="주일예배 주보"
+              className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm min-h-[48px] focus:outline-none focus:border-primary-400"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-600 mb-1.5 block">PDF</label>
+            <input
+              ref={pdfInputRef}
+              type="file"
+              accept="application/pdf"
+              className="hidden"
+              onChange={async e => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const url = await pdfUpload.upload(file);
+                if (url) setForm(f => ({ ...f, pdf_url: url }));
+                e.target.value = '';
+              }}
+            />
+            {form.pdf_url ? (
+              <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                <FileText className="w-4 h-4 text-red-500 shrink-0" />
+                <span className="text-sm text-gray-700 truncate flex-1">PDF 등록됨</span>
+                <button
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, pdf_url: '' }))}
+                  className="text-xs text-gray-500 hover:text-red-500"
+                >
+                  제거
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => pdfInputRef.current?.click()}
+                disabled={pdfUpload.uploading}
+                className="w-full flex items-center justify-center gap-2 py-4 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-400 hover:border-primary-300 hover:text-primary-600 transition-colors disabled:opacity-50 min-h-[48px]"
+              >
+                {pdfUpload.uploading ? '업로드 중...' : 'PDF 선택 (최대 50MB)'}
+              </button>
+            )}
+            {pdfUpload.error && <p className="text-xs text-red-500 mt-1">{pdfUpload.error}</p>}
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-600 mb-1.5 block">표지 이미지</label>
+            <input
+              ref={imgInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={async e => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const url = await imgUpload.upload(file);
+                if (url) {
+                  setForm(f => ({ ...f, image_url: url }));
+                  setImagePreview(url);
+                }
+                e.target.value = '';
+              }}
+            />
+            {imagePreview ? (
+              <div className="relative mt-1 w-24 h-32 rounded-xl overflow-hidden border border-gray-200">
+                <img
+                  src={imagePreview}
+                  alt="표지"
+                  className="w-full h-full object-cover"
+                  onError={() => setImagePreview('')}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setImagePreview('');
+                    setForm(f => ({ ...f, image_url: '' }));
+                  }}
+                  className="absolute top-1 right-1 p-1 bg-black/50 rounded-full text-white hover:bg-black/70"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => imgInputRef.current?.click()}
+                disabled={imgUpload.uploading}
+                className="w-full flex items-center justify-center gap-2 py-4 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-400 hover:border-primary-300 hover:text-primary-600 transition-colors disabled:opacity-50 min-h-[48px]"
+              >
+                {imgUpload.uploading ? '업로드 중...' : '표지 이미지 선택 (최대 10MB)'}
+              </button>
+            )}
+            {imgUpload.error && <p className="text-xs text-red-500 mt-1">{imgUpload.error}</p>}
+          </div>
+        </div>
+      </ContentEditorLayout>
+    );
+  }
 
+  /* ── Detail ── */
+  if (detailBulletin && !showForm) {
+    return (
+      <>
+        <BulletinDetailView
+          bulletin={detailBulletin}
+          canManage={canManage}
+          onBack={() => {
+            setDetailId(null);
+            restoreListScroll();
+          }}
+          onEdit={() => openEdit(detailBulletin)}
+          onDelete={() => setDeleteConfirm(detailBulletin.id)}
+        />
+        <ConfirmDialog
+          open={!!deleteConfirm}
+          onClose={() => setDeleteConfirm(null)}
+          onConfirm={() => deleteConfirm && handleDelete(deleteConfirm)}
+          title="주보 삭제"
+          description="이 작업은 되돌릴 수 없습니다."
+          variant="danger"
+        />
+        {toast && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white px-5 py-3 rounded-2xl shadow-xl text-sm font-medium">
+            {toast}
+          </div>
+        )}
+      </>
+    );
+  }
+
+  /* ── List ── */
   if (loading) {
     return (
       <div className="flex items-center justify-center h-48">
@@ -91,230 +459,267 @@ export default function BulletinPage() {
     );
   }
 
-  if (hubView) {
-    return (
-      <FeatureHubPage
-        title={BULLETIN_HUB.title}
-        description={BULLETIN_HUB.description}
-        features={BULLETIN_HUB.features}
-        viewer={{ isPastor, isAdmin, role: user?.role }}
-        onSelect={id => {
-          if (id === 'create' || id === 'manage') {
-            toast.info('관리자 모드의 주보 메뉴에서 등록·관리할 수 있습니다.');
-            return;
-          }
-          if (id === 'archive') setTab('archive');
-          else setTab('current');
-          setHubView(false);
-        }}
-      />
-    );
-  }
-
   return (
-    <div className="pb-8">
-      <HubBackBar
+    <div className="space-y-5 pb-24 md:pb-8 max-w-[900px] mx-auto">
+      <PageHeaderBar
         title="주보"
-        description="예배 순서와 주간 소식을 확인하세요."
-        onBack={() => setHubView(true)}
-      />
-      <TabBar
-        tabs={[
-          { id: 'current', label: '최신 주보' },
-          { id: 'archive', label: '지난 주보', icon: Archive },
-        ]}
-        activeTab={tab}
-        onChange={id => setTab(id as 'current' | 'archive')}
-      />
-
-      {tab === 'current' && (
-        <div className="space-y-5">
-          {latest && (
-            <div
-              onClick={() => handleView(latest)}
-              className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary-500 to-accent-500 p-6 text-white cursor-pointer shadow-lg hover:shadow-xl transition-shadow"
+        description="교회의 주보를 확인하세요."
+        action={
+          canManage ? (
+            <button
+              type="button"
+              onClick={openNew}
+              className="inline-flex items-center gap-2 h-12 px-4 rounded-[18px] bg-primary-500 text-[#1A1A1A] text-sm font-bold hover:bg-primary-600 active:bg-primary-700 active:scale-[0.98] transition-all touch-target"
             >
-              <div className="absolute -top-8 -right-8 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none" />
-              <div className="relative z-10">
-                <span className="text-xs font-bold bg-white/20 px-3 py-1 rounded-full">이번 주 주보</span>
-                <h3 className="text-xl font-bold mt-3 mb-1">{latest.title}</h3>
-                {latest.description && <p className="text-sm opacity-80 mb-1">{latest.description}</p>}
-                <p className="text-sm opacity-70 flex items-center gap-2 mt-1">
-                  <Calendar className="w-3.5 h-3.5" /> {latest.bulletin_date}
-                  <Eye className="w-3.5 h-3.5" /> {latest.view_count}회
-                </p>
-                <div className="flex items-center gap-2 mt-4">
-                  <button className="flex items-center gap-1.5 bg-white text-primary-600 font-semibold px-4 py-2.5 rounded-xl text-sm">
-                    <BookOpen className="w-4 h-4" /> 지금 보기
-                  </button>
-                  {latest.pdf_url && (
-                    <a
-                      href={latest.pdf_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={e => e.stopPropagation()}
-                      className="flex items-center gap-1.5 bg-white/20 text-white px-4 py-2.5 rounded-xl text-sm"
-                    >
-                      <Download className="w-4 h-4" /> PDF
-                    </a>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
+              <Plus className="w-4 h-4" />
+              주보 작성
+            </button>
+          ) : undefined
+        }
+        mobileFab={canManage ? { label: '주보 작성', onClick: openNew } : undefined}
+      />
 
-          {current.length > 1 && (
-            <div>
-              <h3 className="text-sm font-bold text-gray-500 mb-3">이번 달 주보</h3>
-              <div className="church-list">
-                {current.slice(1).map(b => (
-                  <BulletinCard key={b.id} bulletin={b} onView={() => handleView(b)} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {current.length === 0 && (
-            <div className="text-center py-16 bg-white rounded-2xl">
-              <FileText className="w-14 h-14 text-gray-200 mx-auto mb-3" />
-              <p className="text-gray-400">등록된 주보가 없습니다</p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {tab === 'archive' && (
-        <div className="space-y-5">
-          {Object.keys(archivedByMonth).length === 0 ? (
-            <div className="text-center py-16 bg-white rounded-2xl">
-              <Archive className="w-14 h-14 text-gray-200 mx-auto mb-3" />
-              <p className="text-gray-400">보관된 주보가 없습니다</p>
-            </div>
-          ) : (
-            Object.entries(archivedByMonth)
-              .sort(([a], [b]) => b.localeCompare(a))
-              .map(([month, items]) => {
-                const [yr = '?', mo = '0'] = month.split('-');
-                return (
-                  <div key={month}>
-                    <h3 className="text-sm font-bold text-gray-500 mb-2.5">{yr}년 {parseInt(mo)}월</h3>
-                    <div className="church-list">
-                      {items.map(b => (
-                        <BulletinCard key={b.id} bulletin={b} onView={() => handleView(b)} />
-                      ))}
-                    </div>
-                  </div>
-                );
-              })
-          )}
-        </div>
-      )}
-
-      {/* Detail Modal */}
-      {selected && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end justify-center">
-          <div className="bg-white w-full max-w-lg rounded-t-3xl max-h-[92vh] flex flex-col">
-            <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-4 flex items-center justify-between">
-              <button onClick={() => setSelected(null)} className="flex items-center gap-1.5 text-primary-500 font-medium text-sm">
-                <ChevronLeft className="w-4 h-4" /> 목록으로
+      <div className="space-y-2">
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              value={searchFilter.keyword}
+              onChange={e => setKeyword(e.target.value)}
+              placeholder="키워드, 주보 검색"
+              className="w-full pl-12 pr-12 py-3 rounded-2xl border border-gray-200 text-sm bg-white min-h-[48px] focus:border-primary-400 focus:outline-none"
+            />
+            {searchFilter.keyword && (
+              <button
+                type="button"
+                onClick={() => setKeyword('')}
+                className="absolute right-4 top-1/2 -translate-y-1/2 touch-target"
+                aria-label="검색어 지우기"
+              >
+                <X className="w-5 h-5 text-gray-400" />
               </button>
-              <button onClick={() => setSelected(null)} className="p-2 hover:bg-gray-100 rounded-full">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto">
-              <div className="aspect-[3/4] bg-gradient-to-br from-primary-50 to-secondary-50 flex items-center justify-center relative overflow-hidden">
-                {selected.image_url ? (
-                  <img src={selected.image_url} alt="주보 표지" className="w-full h-full object-contain" />
-                ) : (
-                  <div className="text-center p-8">
-                    <div className="w-20 h-20 bg-primary-100 rounded-3xl flex items-center justify-center mx-auto mb-5">
-                      <FileText className="w-10 h-10 text-primary-500" />
-                    </div>
-                    <h3 className="font-bold text-gray-900 text-lg mb-1">{selected.title}</h3>
-                    <p className="text-gray-500 text-sm">{selected.bulletin_date}</p>
-                    <p className="text-gray-400 text-xs mt-2">순복음성북교회</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="p-5 space-y-4 pb-8">
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900">{selected.title}</h3>
-                  {selected.description && <p className="text-sm text-gray-500 mt-0.5">{selected.description}</p>}
-                  <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
-                    <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{selected.bulletin_date}</span>
-                    <span className="flex items-center gap-1"><Eye className="w-3 h-3" />{selected.view_count}회 조회</span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <button className="flex items-center justify-center gap-2 py-3.5 bg-primary-500 text-white rounded-2xl font-semibold hover:bg-primary-600 transition-colors">
-                    <BookOpen className="w-4 h-4" /> 주보 보기
-                  </button>
-                  {selected.pdf_url ? (
-                    <a
-                      href={selected.pdf_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-2 py-3.5 bg-gray-100 text-gray-700 rounded-2xl font-semibold hover:bg-gray-200 transition-colors"
-                    >
-                      <Download className="w-4 h-4" /> PDF 다운로드
-                    </a>
-                  ) : (
-                    <button disabled className="flex items-center justify-center gap-2 py-3.5 bg-gray-100 text-gray-400 rounded-2xl font-semibold cursor-not-allowed">
-                      <Download className="w-4 h-4" /> PDF 없음
-                    </button>
-                  )}
-                </div>
-
-                {selected.pdf_url && (
-                  <a
-                    href={selected.pdf_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-100 rounded-xl text-sm text-red-700 hover:bg-red-100 transition-colors"
-                  >
-                    <FileText className="w-4 h-4" />
-                    <span className="flex-1">PDF 파일 새 탭에서 열기</span>
-                    <ExternalLink className="w-4 h-4 opacity-60" />
-                  </a>
-                )}
-              </div>
-            </div>
+            )}
           </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <DetailSettingsButton
+              onClick={() => {
+                if (!showSearch) setDraftFilter(searchFilter);
+                setShowSearch(s => !s);
+              }}
+              active={showSearch}
+              activeCount={countBulletinDetailFilters(searchFilter)}
+              aria-expanded={showSearch}
+              className="flex-1 sm:flex-none"
+            />
+            <ViewModeToggle value={viewMode} onChange={setViewMode} />
+          </div>
+        </div>
+      </div>
+
+      {showSearch && isMobile && (
+        <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-end">
+          <div className="w-full bg-white rounded-t-[24px] shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-5 pt-4 pb-2">
+              <h3 className="text-base font-bold text-gray-900">상세설정</h3>
+              <button
+                type="button"
+                onClick={() => setShowSearch(false)}
+                className="p-2 rounded-xl text-gray-400 hover:bg-gray-100 touch-target"
+                aria-label="닫기"
+              >
+                ✕
+              </button>
+            </div>
+            <BulletinSearchPanel
+              asSheet
+              value={draftFilter}
+              onChange={handleDraftChange}
+              onApply={() => {
+                setSearchFilter(draftFilter);
+                setShowSearch(false);
+              }}
+              onReset={resetFilters}
+            />
+          </div>
+        </div>
+      )}
+
+      {showSearch && !isMobile && (
+        <BulletinSearchPanel
+          value={draftFilter}
+          onChange={handleDraftChange}
+          onApply={() => {
+            setSearchFilter(draftFilter);
+            setShowSearch(false);
+          }}
+          onReset={resetFilters}
+        />
+      )}
+
+      {isBulletinFilterActive(searchFilter) && !showSearch && (
+        <BulletinFilterChips
+          filter={searchFilter}
+          onChange={f => {
+            setSearchFilter(f);
+            setDraftFilter(f);
+          }}
+        />
+      )}
+
+      {filtered.length === 0 ? (
+        <EmptyState
+          icon={FileText}
+          title="주보가 없습니다"
+          description="등록된 주보가 없거나 검색 조건에 맞는 주보가 없습니다."
+        />
+      ) : viewMode === 'list' ? (
+        <div className="church-list">
+          {filtered.map(b => (
+            <BulletinListRow
+              key={b.id}
+              bulletin={b}
+              canManage={canManage}
+              onOpen={() => openDetail(b)}
+              onEdit={() => openEdit(b)}
+              onDelete={() => setDeleteConfirm(b.id)}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filtered.map(b => (
+            <BulletinGridCard
+              key={b.id}
+              bulletin={b}
+              canManage={canManage}
+              onOpen={() => openDetail(b)}
+              onEdit={() => openEdit(b)}
+              onDelete={() => setDeleteConfirm(b.id)}
+            />
+          ))}
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={() => deleteConfirm && handleDelete(deleteConfirm)}
+        title="주보 삭제"
+        description="이 작업은 되돌릴 수 없습니다."
+        variant="danger"
+      />
+
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white px-5 py-3 rounded-2xl shadow-xl text-sm font-medium">
+          {toast}
         </div>
       )}
     </div>
   );
 }
 
-function BulletinCard({ bulletin, onView }: { bulletin: Bulletin; onView: () => void }) {
+function BulletinListRow({
+  bulletin,
+  canManage,
+  onOpen,
+  onEdit,
+  onDelete,
+}: {
+  bulletin: Bulletin;
+  canManage: boolean;
+  onOpen: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
   return (
-    <button
-      onClick={onView}
-      className="church-list-row flex items-center gap-4"
-    >
-      <div className="w-14 h-16 bg-primary-50 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
-        {bulletin.image_url ? (
-          <img src={bulletin.image_url} alt="" className="w-full h-full object-cover" />
-        ) : (
-          <FileText className="w-7 h-7 text-primary-300" />
-        )}
-      </div>
-      <div className="flex-1 min-w-0">
-        <h4 className="font-semibold text-gray-900 text-sm truncate">{bulletin.title}</h4>
-        {bulletin.description && (
-          <p className="text-xs text-gray-500 mt-0.5 truncate">{bulletin.description}</p>
-        )}
-        <div className="flex items-center gap-3 mt-1.5 text-[10px] text-gray-400">
-          <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{bulletin.bulletin_date}</span>
-          <span className="flex items-center gap-1"><Eye className="w-3 h-3" />{bulletin.view_count}회</span>
-          {bulletin.pdf_url && <span className="font-semibold text-red-400">PDF</span>}
+    <div className="church-list-row flex items-center gap-4 group">
+      <button type="button" onClick={onOpen} className="flex items-center gap-4 flex-1 min-w-0 text-left touch-target">
+        <div className="w-14 h-16 bg-primary-50 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
+          {bulletin.image_url ? (
+            <img src={bulletin.image_url} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <FileText className="w-7 h-7 text-primary-300" />
+          )}
         </div>
+        <div className="flex-1 min-w-0">
+          <h4 className="font-semibold text-gray-900 text-sm truncate">{bulletin.title}</h4>
+          <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+            <Calendar className="w-3 h-3" />
+            {formatDate(bulletin.bulletin_date)}
+          </p>
+        </div>
+      </button>
+      {canManage && (
+        <ChurchDropdownMenu
+          trigger={
+            <button
+              type="button"
+              className="p-2 rounded-xl text-gray-400 hover:bg-gray-100 touch-target"
+              aria-label="더보기"
+            >
+              <MoreVertical className="w-4 h-4" />
+            </button>
+          }
+          items={[
+            { label: '수정', icon: <Edit2 className="w-4 h-4" />, onClick: onEdit },
+            { label: '삭제', icon: <Trash2 className="w-4 h-4" />, onClick: onDelete, danger: true },
+          ]}
+        />
+      )}
+    </div>
+  );
+}
+
+function BulletinGridCard({
+  bulletin,
+  canManage,
+  onOpen,
+  onEdit,
+  onDelete,
+}: {
+  bulletin: Bulletin;
+  canManage: boolean;
+  onOpen: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div className="bg-white rounded-[20px] border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+      <button type="button" onClick={onOpen} className="w-full text-left">
+        <div className="aspect-[3/4] bg-gradient-to-br from-primary-50 to-secondary-50 flex items-center justify-center overflow-hidden">
+          {bulletin.image_url ? (
+            <img src={bulletin.image_url} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <FileText className="w-12 h-12 text-primary-300" />
+          )}
+        </div>
+      </button>
+      <div className="p-4 flex items-start gap-2">
+        <button type="button" onClick={onOpen} className="flex-1 min-w-0 text-left">
+          <h4 className="font-bold text-gray-900 text-sm line-clamp-2">{bulletin.title}</h4>
+          <p className="text-xs text-gray-500 mt-1.5 flex items-center gap-1">
+            <Calendar className="w-3 h-3" />
+            {formatDate(bulletin.bulletin_date)}
+          </p>
+        </button>
+        {canManage && (
+          <ChurchDropdownMenu
+            trigger={
+              <button
+                type="button"
+                className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 touch-target shrink-0"
+                aria-label="더보기"
+              >
+                <MoreVertical className="w-4 h-4" />
+              </button>
+            }
+            items={[
+              { label: '수정', icon: <Edit2 className="w-4 h-4" />, onClick: onEdit },
+              { label: '삭제', icon: <Trash2 className="w-4 h-4" />, onClick: onDelete, danger: true },
+            ]}
+          />
+        )}
       </div>
-      <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
-    </button>
+    </div>
   );
 }

@@ -352,8 +352,7 @@ export default function AnnouncementManagementPage() {
         description="교회 소식과 안내를 확인하세요."
         action={
           <button onClick={openNew}
-            className="flex items-center gap-2 text-white font-bold rounded-btn transition-colors hover:bg-primary-600"
-            style={{ background: '#2563EB', height: '44px', padding: '0 18px', fontSize: '14px', gap: '8px' }}>
+            className="inline-flex items-center gap-2 h-12 px-4 rounded-[18px] bg-primary-500 text-[#1A1A1A] text-sm font-bold hover:bg-primary-600 active:bg-primary-700 active:scale-[0.98] transition-all touch-target">
             <Plus className="w-4 h-4" /> 공지 작성
           </button>
         }

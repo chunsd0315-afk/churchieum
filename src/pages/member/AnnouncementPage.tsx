@@ -391,7 +391,7 @@ function AnnouncementListBody({
             <button
               type="button"
               onClick={onCreate}
-              className="inline-flex items-center gap-2 h-12 px-4 rounded-[14px] bg-primary-500 text-white text-sm font-bold hover:bg-primary-600 touch-target"
+              className="inline-flex items-center gap-2 h-12 px-4 rounded-[18px] bg-primary-500 text-[#1A1A1A] text-sm font-bold hover:bg-primary-600 active:bg-primary-700 active:scale-[0.98] transition-all touch-target"
             >
               <Plus className="w-4 h-4" />
               공지 등록

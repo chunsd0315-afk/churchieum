@@ -153,7 +153,7 @@ export default function SchedulePage() {
           <button
             type="button"
             onClick={() => { setEditingEvent(null); setShowCreateForm(true); }}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-primary-500 text-white rounded-full text-sm font-semibold hover:bg-primary-600 transition-colors shadow-sm"
+            className="inline-flex items-center gap-1.5 h-12 px-4 rounded-[18px] bg-primary-500 text-[#1A1A1A] text-sm font-bold hover:bg-primary-600 active:bg-primary-700 active:scale-[0.98] transition-all shadow-sm touch-target"
           >
             <Plus className="w-4 h-4" /> 일정 등록
           </button>
