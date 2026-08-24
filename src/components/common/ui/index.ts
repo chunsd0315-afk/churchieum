@@ -186,5 +186,8 @@ export type { ChurchConfirmDialogProps } from './ChurchConfirmDialog';
 export { DetailSettingsButton } from './DetailSettingsButton';
 export type { DetailSettingsButtonProps } from './DetailSettingsButton';
 
+export { ViewModeToggle, readStoredViewMode, writeStoredViewMode } from './ViewModeToggle';
+export type { ViewModeToggleProps, ContentViewMode, ViewModeStorageKey } from './ViewModeToggle';
+
 export { ChurchMediaThumbnail } from './ChurchMediaThumbnail';
 export type { ChurchMediaThumbnailProps, ChurchMediaSize } from './ChurchMediaThumbnail';

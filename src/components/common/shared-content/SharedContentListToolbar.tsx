@@ -1,5 +1,6 @@
 import { Search, X } from 'lucide-react';
 import { DetailSettingsButton } from '../ui/DetailSettingsButton';
+import { ViewModeToggle, type ContentViewMode } from '../ui/ViewModeToggle';
 import { SharedContentFilterChips, type SharedContentFilterChip } from './SharedContentFilterChips';
 
 export type SharedContentListToolbarProps = {
@@ -11,6 +12,9 @@ export type SharedContentListToolbarProps = {
   chips?: SharedContentFilterChip[];
   onResetFilters?: () => void;
   className?: string;
+  /** 카드/목록 보기 — 있으면 상세설정 오른쪽에 표시 */
+  viewMode?: ContentViewMode;
+  onViewModeChange?: (mode: ContentViewMode) => void;
 };
 
 export function SharedContentListToolbar({
@@ -22,7 +26,11 @@ export function SharedContentListToolbar({
   chips = [],
   onResetFilters,
   className = '',
+  viewMode,
+  onViewModeChange,
 }: SharedContentListToolbarProps) {
+  const showViewToggle = viewMode != null && onViewModeChange != null;
+
   return (
     <div className={`space-y-2 ${className}`}>
       <div className="flex flex-col sm:flex-row gap-2">
@@ -32,7 +40,7 @@ export function SharedContentListToolbar({
             value={search}
             onChange={e => onSearchChange(e.target.value)}
             placeholder={searchPlaceholder}
-            className="w-full pl-12 pr-12 py-3 rounded-2xl border border-gray-200 text-sm bg-white focus:border-primary-400 focus:outline-none"
+            className="w-full pl-12 pr-12 py-3 rounded-2xl border border-gray-200 text-sm bg-white min-h-[48px] focus:border-primary-400 focus:outline-none"
           />
           {search && (
             <button
@@ -45,10 +53,16 @@ export function SharedContentListToolbar({
             </button>
           )}
         </div>
-        <DetailSettingsButton
-          onClick={onOpenDetailSettings}
-          activeCount={activeFilterCount}
-        />
+        <div className="flex items-center gap-2 shrink-0">
+          <DetailSettingsButton
+            onClick={onOpenDetailSettings}
+            activeCount={activeFilterCount}
+            className="flex-1 sm:flex-none"
+          />
+          {showViewToggle && (
+            <ViewModeToggle value={viewMode} onChange={onViewModeChange} />
+          )}
+        </div>
       </div>
 
       <SharedContentFilterChips chips={chips} onResetAll={onResetFilters} />

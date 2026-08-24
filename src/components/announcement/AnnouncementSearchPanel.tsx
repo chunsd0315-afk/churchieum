@@ -1,11 +1,11 @@
 /**
- * 공지사항 상세검색 패널
+ * 공지사항 상세설정 패널
  *
  * 기능:
+ * - 검색어 (상단 검색창과 동일 상태)
  * - 공개범위: 전체 / 내 조직
  * - 내 조직 선택: 은혜와 기도와 동일한 방식으로 사용자 관련 조직만 표시
  * - 기간: 오늘·최근7일·최근30일·이번달·직접설정
- * - 검색어
  * - 최고관리자에게만 "전체 조직 보기" 추가 제공
  */
 
@@ -63,6 +63,15 @@ export function countActiveFilters(f: AnnouncementSearchFilter): number {
   if (f.selectedOrgIds.length > 0) n++;
   if (f.datePreset !== 'all' || f.dateFrom || f.dateTo) n++;
   if (f.keyword) n++;
+  return n;
+}
+
+/** 상단 검색어를 제외한 상세설정 조건 개수 (배지용) */
+export function countDetailSettingFilters(f: AnnouncementSearchFilter): number {
+  let n = 0;
+  if (f.scopeMode !== 'all') n++;
+  if (f.selectedOrgIds.length > 0) n++;
+  if (f.datePreset !== 'all' || f.dateFrom || f.dateTo) n++;
   return n;
 }
 
@@ -248,6 +257,21 @@ export function AnnouncementSearchPanel({ value, onChange, onApply, onReset, asS
 
   return (
     <div className={`${wrapCls} p-5 space-y-5`}>
+      {/* ── 검색어 (상단 검색과 동일 상태) ── */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <Search className="w-4 h-4 text-gray-400" />
+          <span className="text-sm font-bold text-gray-700">검색어</span>
+        </div>
+        <input
+          type="search"
+          value={value.keyword}
+          onChange={e => onChange({ ...value, keyword: e.target.value })}
+          placeholder="제목 또는 내용 검색"
+          className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-sm min-h-[48px] focus:outline-none focus:border-primary-400 text-gray-700"
+        />
+      </div>
+
       {/* ── 공개범위 ── */}
       <div className="space-y-2">
         <div className="flex items-center gap-2">
@@ -383,21 +407,6 @@ export function AnnouncementSearchPanel({ value, onChange, onApply, onReset, asS
         )}
       </div>
 
-      {/* ── 검색어 ── */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-2">
-          <Search className="w-4 h-4 text-gray-400" />
-          <span className="text-sm font-bold text-gray-700">검색어</span>
-        </div>
-        <input
-          type="search"
-          value={value.keyword}
-          onChange={e => onChange({ ...value, keyword: e.target.value })}
-          placeholder="제목 또는 내용을 검색하세요."
-          className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 text-gray-700"
-        />
-      </div>
-
       {/* ── 버튼 ── */}
       <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
         <button
@@ -413,7 +422,7 @@ export function AnnouncementSearchPanel({ value, onChange, onApply, onReset, asS
           disabled={!!dateError}
           className="flex-2 flex-[2] h-12 bg-primary-500 text-white rounded-[14px] text-sm font-bold hover:bg-primary-600 transition-colors touch-target disabled:opacity-40"
         >
-          검색
+          상세설정 적용
         </button>
       </div>
     </div>
@@ -503,7 +512,7 @@ export function AnnouncementFilterChips({
         onClick={() => onChange(EMPTY_FILTER)}
         className="text-[11px] text-gray-400 hover:text-gray-600 underline px-1"
       >
-        필터 초기화
+        상세설정 초기화
       </button>
     </div>
   );

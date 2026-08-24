@@ -1,12 +1,10 @@
 ﻿import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { PageHeaderBar, ChurchDropdownMenu, ChurchList, CHURCH_LIST_ROW_CLASS } from '../../components/common/ui';
+import { PageHeaderBar, ChurchDropdownMenu, ChurchList, CHURCH_LIST_ROW_CLASS, DetailSettingsButton, ViewModeToggle, readStoredViewMode, writeStoredViewMode, type ContentViewMode } from '../../components/common/ui';
 import StatusBadge from '../../components/layout/StatusBadge';
 import EmptyState from '../../components/layout/EmptyState';
 import {
   Megaphone, Plus, Edit2, Trash2, Pin, Star,
-  Calendar, ImageIcon, Paperclip, Bell,
-  AlertTriangle, LayoutGrid, List,
-  SlidersHorizontal,
+  Calendar, ImageIcon, Paperclip, Bell, Search, X, AlertTriangle,
 } from 'lucide-react';
 import {
   getAllAnnouncements, updateAnnouncement, deleteAnnouncement,
@@ -17,7 +15,6 @@ import {
   getAllDistricts, getZones, getAllDepartments,
 } from '../../services/orgData';
 import { useOrgSettings } from '../../contexts/OrgSettingsContext';
-import { useBreakpoint } from '../../hooks/useBreakpoint';
 import { buildNoticeScopeBadges, type ScopeBadge } from '../../services/announcementHelpers';
 import { AnnouncementDetailView } from '../../components/announcement/AnnouncementDetailView';
 import { AnnouncementEditView } from '../../components/announcement/AnnouncementEditView';
@@ -34,14 +31,18 @@ const SELECT = 'w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl 
 
 export default function AnnouncementManagementPage() {
   const { l1, l2, dept } = useOrgSettings();
-  const { isMobile } = useBreakpoint();
   const districts   = getAllDistricts().filter(d => d.is_active);
   const departments = getAllDepartments().filter(d => d.is_active);
 
   /* ─── List state ─────────────────────────────────────────────────── */
   const [data, setData]           = useState<Announcement[]>(() => getAllAnnouncements());
-  const [viewMode, setViewMode]   = useState<'card' | 'list'>('list');
-  const effectiveViewMode         = isMobile ? 'list' : viewMode;
+  const [viewMode, setViewModeState] = useState<ContentViewMode>(() =>
+    readStoredViewMode('announcement', 'list'),
+  );
+  const setViewMode = (mode: ContentViewMode) => {
+    setViewModeState(mode);
+    writeStoredViewMode('announcement', mode);
+  };
   const [showSearch, setShowSearch] = useState(false);
 
   /* advanced filters */
@@ -366,46 +367,36 @@ export default function AnnouncementManagementPage() {
         mobileFab={{ label: '공지사항 등록', onClick: openNew }}
       />
 
-      {/* Toolbar row */}
-      <div className="flex items-center justify-between gap-3">
-        <button
-          onClick={() => setShowSearch(s => !s)}
-          className={`flex items-center gap-2 px-4 rounded-[14px] border text-sm font-semibold transition-all ${
-            showSearch
-              ? 'bg-primary-500 border-primary-500 text-white'
-              : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
-          }`}
-          style={{ height: '44px' }}
-        >
-          <SlidersHorizontal style={{ width: '16px', height: '16px' }} />
-          상세검색
-        </button>
-
-        {/* View mode toggle: PC only */}
-        {!isMobile && (
-          <div className="flex items-center gap-1.5 bg-gray-100 p-1 rounded-[14px]">
+      {/* Toolbar: 검색 + 상세설정 + 보기전환 */}
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className="relative flex-1 min-w-0">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <input
+            value={fText}
+            onChange={e => setFText(e.target.value)}
+            placeholder="키워드, 제목, 내용 검색"
+            className="w-full pl-12 pr-12 py-3 rounded-2xl border border-gray-200 text-sm bg-white min-h-[48px] focus:border-primary-400 focus:outline-none"
+          />
+          {fText && (
             <button
-              onClick={() => setViewMode('card')}
-              title="카드 보기"
-              className={`flex items-center justify-center rounded-xl transition-all ${
-                viewMode === 'card' ? 'bg-white shadow-sm text-primary-600' : 'text-gray-400 hover:text-gray-600'
-              }`}
-              style={{ width: '36px', height: '36px' }}
+              type="button"
+              onClick={() => setFText('')}
+              className="absolute right-4 top-1/2 -translate-y-1/2 touch-target"
+              aria-label="검색어 지우기"
             >
-              <LayoutGrid style={{ width: '18px', height: '18px' }} />
+              <X className="w-5 h-5 text-gray-400" />
             </button>
-            <button
-              onClick={() => setViewMode('list')}
-              title="목록 보기"
-              className={`flex items-center justify-center rounded-xl transition-all ${
-                viewMode === 'list' ? 'bg-white shadow-sm text-primary-600' : 'text-gray-400 hover:text-gray-600'
-              }`}
-              style={{ width: '36px', height: '36px' }}
-            >
-              <List style={{ width: '18px', height: '18px' }} />
-            </button>
-          </div>
-        )}
+          )}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <DetailSettingsButton
+            onClick={() => setShowSearch(s => !s)}
+            active={showSearch}
+            aria-expanded={showSearch}
+            className="flex-1 sm:flex-none"
+          />
+          <ViewModeToggle value={viewMode} onChange={setViewMode} />
+        </div>
       </div>
 
       {/* Advanced search panel */}
@@ -467,13 +458,13 @@ export default function AnnouncementManagementPage() {
               />
             </div>
 
-            {/* 검색어 */}
+            {/* 검색어 (상단과 동일 상태) */}
             <div className="col-span-2">
               <label className="text-xs font-semibold text-gray-600 mb-2 block">검색어</label>
               <input
                 type="text" value={fText}
                 onChange={e => setFText(e.target.value)}
-                placeholder="제목 또는 내용을 검색하세요."
+                placeholder="제목 또는 내용 검색"
                 className={SELECT}
               />
             </div>
@@ -482,16 +473,18 @@ export default function AnnouncementManagementPage() {
           {/* Actions */}
           <div className="flex items-center justify-end gap-2 mt-5 pt-4 border-t border-gray-100">
             <button
+              type="button"
               onClick={resetFilters}
               className="px-5 py-2 border border-gray-200 rounded-[14px] text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
             >
               초기화
             </button>
             <button
+              type="button"
               onClick={() => setShowSearch(false)}
               className="px-5 py-2 bg-primary-500 text-white rounded-[14px] text-sm font-bold hover:bg-primary-600 transition-colors"
             >
-              조회
+              상세설정 적용
             </button>
           </div>
         </div>
@@ -511,7 +504,7 @@ export default function AnnouncementManagementPage() {
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                 <Pin className="w-3.5 h-3.5 text-red-400" /> 상단 고정 공지
               </p>
-              {effectiveViewMode === 'list' ? (
+              {viewMode === 'list' ? (
                 <ChurchList>
                   {pinned.map(ann => (
                     <AnnListCard key={ann.id} ann={ann} badges={buildNoticeScopeBadges(ann)}
@@ -542,7 +535,7 @@ export default function AnnouncementManagementPage() {
                   <Bell className="w-3.5 h-3.5" /> 일반 공지
                 </p>
               )}
-              {effectiveViewMode === 'list' ? (
+              {viewMode === 'list' ? (
                 <ChurchList>
                   {regular.map(ann => (
                     <AnnListCard key={ann.id} ann={ann} badges={buildNoticeScopeBadges(ann)}

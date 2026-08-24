@@ -122,6 +122,12 @@ import {
   pastorLabel,
 } from '../../services/graceShareFilterHelpers';
 import { GraceNoteListRow } from './GraceNoteListRow';
+import { GraceNoteGridCard } from './GraceNoteGridCard';
+import {
+  readStoredViewMode,
+  writeStoredViewMode,
+  type ContentViewMode,
+} from '../common/ui/ViewModeToggle';
 import { GraceRelatedSourceDetail } from './GraceRelatedSourceDetail';
 
 export {
@@ -497,6 +503,13 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
   const { isMobile } = useBreakpoint();
   const [tab, setTab] = useState<GraceCollectTab>('mine');
   const [collectionView, setCollectionView] = useState<'list' | 'filter'>('list');
+  const [viewMode, setViewModeState] = useState<ContentViewMode>(() =>
+    readStoredViewMode('grace', 'list'),
+  );
+  const setViewMode = useCallback((mode: ContentViewMode) => {
+    setViewModeState(mode);
+    writeStoredViewMode('grace', mode);
+  }, []);
   const [appliedByTab, setAppliedByTab] = useState<Record<GraceCollectTab, GraceListFilterState>>(() => ({
     mine: cloneFilter(createEmptyFilter(null, initialType ?? '')),
     shared: cloneFilter(createEmptyFilter(null)),
@@ -1309,6 +1322,8 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
           ...(c.clear ? { onClear: c.clear } : {}),
         }))}
         onResetFilters={resetAppliedFilters}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
       />
 
       {filtered.length === 0 ? (
@@ -1316,6 +1331,33 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
           <Heart className="w-12 h-12 text-rose-200 mx-auto mb-3" />
           <p className="font-semibold text-gray-600 text-sm">{emptyState.title ?? '기록이 없습니다.'}</p>
           <p className="text-xs text-gray-400 mt-1 leading-relaxed">{emptyState.desc ?? ''}</p>
+        </div>
+      ) : viewMode === 'card' ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filtered.map(note => {
+            const badge = getGraceListBadge(note, user, tab);
+            return (
+              <GraceNoteGridCard
+                key={note.id}
+                note={note}
+                shareBadge={badge}
+                onClick={() => onDetail(note.id)}
+                menuItems={isOwn(note) ? [
+                  {
+                    label: '수정',
+                    icon: <Edit3 style={{ width: '15px', height: '15px' }} />,
+                    onClick: () => onEdit(note),
+                  },
+                  {
+                    label: '삭제',
+                    icon: <Trash2 style={{ width: '15px', height: '15px' }} />,
+                    danger: true,
+                    onClick: () => setDeleteId(note.id),
+                  },
+                ] : undefined}
+              />
+            );
+          })}
         </div>
       ) : (
         <div className="church-list">

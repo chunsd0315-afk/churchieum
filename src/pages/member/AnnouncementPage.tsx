@@ -1,14 +1,21 @@
 ﻿import { useState, useMemo, useEffect, useCallback, useRef, type Dispatch, type SetStateAction } from 'react';
 import {
-  Megaphone, Calendar, Star, Paperclip, ImageIcon,
-  SlidersHorizontal, LayoutGrid, List, Plus,
+  Megaphone, Calendar, Star, Paperclip, ImageIcon, Plus, Search, X,
 } from 'lucide-react';
 import { getAllAnnouncements, formatAnnouncementDate, type Announcement } from '../../services/announcementStorage';
 import { buildNoticeScopeBadges } from '../../services/announcementHelpers';
 import { useAuth } from '../../contexts/AuthContext';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
 import type { AppUser } from '../../services/permissions';
-import { PageHeaderBar, useToast } from '../../components/common/ui';
+import {
+  PageHeaderBar,
+  useToast,
+  DetailSettingsButton,
+  ViewModeToggle,
+  readStoredViewMode,
+  writeStoredViewMode,
+  type ContentViewMode,
+} from '../../components/common/ui';
 import StatusBadge from '../../components/layout/StatusBadge';
 import EmptyState from '../../components/layout/EmptyState';
 import {
@@ -16,7 +23,7 @@ import {
   AnnouncementFilterChips,
   EMPTY_FILTER,
   isFilterActive,
-  countActiveFilters,
+  countDetailSettingFilters,
   type AnnouncementSearchFilter,
 } from '../../components/announcement/AnnouncementSearchPanel';
 import { AnnouncementDetailView } from '../../components/announcement/AnnouncementDetailView';
@@ -92,8 +99,13 @@ export default function AnnouncementPage() {
   const pendingSaveDetailIdRef = useRef<string | null>(null);
   const listScrollRef = useRef(0);
 
-  const [viewMode, setViewMode] = useState<'card' | 'list'>('list');
-  const effectiveViewMode = isMobile ? 'list' : viewMode;
+  const [viewMode, setViewModeState] = useState<ContentViewMode>(() =>
+    readStoredViewMode('announcement', 'list'),
+  );
+  const setViewMode = useCallback((mode: ContentViewMode) => {
+    setViewModeState(mode);
+    writeStoredViewMode('announcement', mode);
+  }, []);
   const [showSearch, setShowSearch] = useState(false);
 
   const [searchFilter, setSearchFilter] = useState<AnnouncementSearchFilter>(EMPTY_FILTER);
@@ -278,10 +290,19 @@ export default function AnnouncementPage() {
       .filter(a => {
         if (!f.keyword) return true;
         const q = f.keyword.toLowerCase();
+        const orgName =
+          (a.scopeId ? orgMap.get(a.scopeId)?.name : '') ||
+          a.scopeName ||
+          '';
+        const sharedOrgNames = (a.sharedOrganizationIds ?? [])
+          .map(id => orgMap.get(id)?.name ?? '')
+          .join(' ');
         return (
-          a.title.toLowerCase().includes(q) ||
-          a.content.toLowerCase().includes(q) ||
-          a.author.toLowerCase().includes(q)
+          (a.title || '').toLowerCase().includes(q) ||
+          (a.content || '').toLowerCase().includes(q) ||
+          (a.author || '').toLowerCase().includes(q) ||
+          orgName.toLowerCase().includes(q) ||
+          sharedOrgNames.toLowerCase().includes(q)
         );
       });
   }, [visibleAnnouncements, searchFilter, orgMap]);
@@ -333,7 +354,6 @@ export default function AnnouncementPage() {
           <AnnouncementListBody
             canManage={canManage}
             isMobile={isMobile}
-            effectiveViewMode={effectiveViewMode}
             viewMode={viewMode}
             setViewMode={setViewMode}
             showSearch={showSearch}
@@ -374,9 +394,8 @@ export default function AnnouncementPage() {
 type ListBodyProps = {
   canManage: boolean;
   isMobile: boolean;
-  effectiveViewMode: 'card' | 'list';
-  viewMode: 'card' | 'list';
-  setViewMode: (m: 'card' | 'list') => void;
+  viewMode: ContentViewMode;
+  setViewMode: (m: ContentViewMode) => void;
   showSearch: boolean;
   setShowSearch: Dispatch<SetStateAction<boolean>>;
   searchFilter: AnnouncementSearchFilter;
@@ -392,7 +411,6 @@ type ListBodyProps = {
 function AnnouncementListBody({
   canManage,
   isMobile,
-  effectiveViewMode,
   viewMode,
   setViewMode,
   showSearch,
@@ -406,6 +424,11 @@ function AnnouncementListBody({
   onCreate,
   onOpenDetail,
 }: ListBodyProps) {
+  const setKeyword = (keyword: string) => {
+    setSearchFilter({ ...searchFilter, keyword });
+    setDraftFilter({ ...draftFilter, keyword });
+  };
+
   return (
     <div className="space-y-5 pb-24 md:pb-8 max-w-[900px] mx-auto">
       <PageHeaderBar
@@ -426,59 +449,39 @@ function AnnouncementListBody({
         mobileFab={canManage ? { label: '공지 등록', onClick: onCreate } : undefined}
       />
 
-      <div className="space-y-3">
-        <div className="flex items-center justify-end gap-3 flex-wrap">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
+      <div className="space-y-2">
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              value={searchFilter.keyword}
+              onChange={e => setKeyword(e.target.value)}
+              placeholder="키워드, 제목, 내용 검색"
+              className="w-full pl-12 pr-12 py-3 rounded-2xl border border-gray-200 text-sm bg-white min-h-[48px] focus:border-primary-400 focus:outline-none"
+            />
+            {searchFilter.keyword && (
+              <button
+                type="button"
+                onClick={() => setKeyword('')}
+                className="absolute right-4 top-1/2 -translate-y-1/2 touch-target"
+                aria-label="검색어 지우기"
+              >
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <DetailSettingsButton
               onClick={() => {
                 if (!showSearch) setDraftFilter(searchFilter);
                 setShowSearch(s => !s);
               }}
-              className={`flex items-center gap-2 px-4 rounded-[14px] border text-sm font-semibold transition-all touch-target ${
-                showSearch || isFilterActive(searchFilter)
-                  ? 'bg-primary-500 border-primary-500 text-white'
-                  : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
-              }`}
-              style={{ height: '44px' }}
-            >
-              <SlidersHorizontal className="w-4 h-4" />
-              상세검색
-              {countActiveFilters(searchFilter) > 0 && (
-                <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center ${
-                  showSearch ? 'bg-white/20' : 'bg-primary-100 text-primary-700'
-                }`}>
-                  {countActiveFilters(searchFilter)}
-                </span>
-              )}
-            </button>
-
-            {!isMobile && (
-              <div className="flex items-center gap-1.5 bg-gray-100 p-1 rounded-[14px]">
-                <button
-                  type="button"
-                  onClick={() => setViewMode('card')}
-                  title="카드 보기"
-                  className={`flex items-center justify-center rounded-xl transition-all ${
-                    viewMode === 'card' ? 'bg-white shadow-sm text-primary-600' : 'text-gray-400 hover:text-gray-600'
-                  }`}
-                  style={{ width: '36px', height: '36px' }}
-                >
-                  <LayoutGrid className="w-4.5 h-4.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode('list')}
-                  title="목록 보기"
-                  className={`flex items-center justify-center rounded-xl transition-all ${
-                    viewMode === 'list' ? 'bg-white shadow-sm text-primary-600' : 'text-gray-400 hover:text-gray-600'
-                  }`}
-                  style={{ width: '36px', height: '36px' }}
-                >
-                  <List className="w-4.5 h-4.5" />
-                </button>
-              </div>
-            )}
+              active={showSearch}
+              activeCount={countDetailSettingFilters(searchFilter)}
+              aria-expanded={showSearch}
+              className="flex-1 sm:flex-none"
+            />
+            <ViewModeToggle value={viewMode} onChange={setViewMode} />
           </div>
         </div>
       </div>
@@ -487,11 +490,12 @@ function AnnouncementListBody({
         <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-end">
           <div className="w-full bg-white rounded-t-[24px] shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-5 pt-4 pb-2">
-              <h3 className="text-base font-bold text-gray-900">상세검색</h3>
+              <h3 className="text-base font-bold text-gray-900">상세설정</h3>
               <button
                 type="button"
                 onClick={() => setShowSearch(false)}
                 className="p-2 rounded-xl text-gray-400 hover:bg-gray-100 touch-target"
+                aria-label="닫기"
               >
                 ✕
               </button>
@@ -535,14 +539,14 @@ function AnnouncementListBody({
           title="공지사항이 없습니다"
           description="아직 등록된 공지사항이 없어요."
         />
-      ) : effectiveViewMode === 'list' ? (
+      ) : viewMode === 'list' ? (
         <div className="church-list">
           {sortedList.map(a => (
             <AnnListCard key={a.id} item={a} onClick={() => onOpenDetail(a.id)} />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {sortedList.map(a => (
             <AnnGridCard key={a.id} item={a} onClick={() => onOpenDetail(a.id)} />
           ))}
