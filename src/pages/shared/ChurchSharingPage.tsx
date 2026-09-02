@@ -1,11 +1,11 @@
-﻿import React, { useState, useRef, useEffect, useCallback } from 'react';
+﻿import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   Search, Plus, X, ChevronLeft, ChevronRight, HeartHandshake,
   MapPin, Tag, Calendar, MessageSquare, Users, Edit3, Trash2,
   CheckCircle, Image as ImageIcon, Paperclip,
-  Send, ChevronDown, Save,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useBreakpoint } from '../../hooks/useBreakpoint';
 import {
   getAllPosts, addPost, updatePost, deletePost,
   getAllRequests, addRequest, updateRequestStatus,
@@ -13,13 +13,40 @@ import {
   CATEGORIES, TYPE_LABELS, STATUS_LABELS,
   type SharingPost, type SharingRequest,
 } from '../../services/sharingStorage';
-import ContentEditorLayout from '../../components/layout/ContentEditorLayout';
-import { FeatureHubPage, HubBackBar } from '../../components/common/feature-hub';
-import { SHARING_HUB } from '../../config/featureHub/memberHubs';
+import {
+  EMPTY_SHARING_FILTER,
+  countSharingDetailFilters,
+  isSharingFilterActive,
+  sharingMatchesDetailFilter,
+  sharingMatchesTab,
+  sortSharingPosts,
+  TYPE_COLORS,
+  TYPE_GRADIENT,
+  STATUS_COLORS,
+  formatSharingDate,
+  type SharingTabKey,
+  type SharingSearchFilter,
+} from '../../services/sharingHelpers';
+import ContentEditorLayout, { MobileFullScreenPage } from '../../components/layout/ContentEditorLayout';
+import {
+  PageHeaderBar,
+  DetailSettingsButton,
+  ViewModeToggle,
+  readStoredViewMode,
+  writeStoredViewMode,
+  ConfirmDialog,
+  type ContentViewMode,
+} from '../../components/common/ui';
+import EmptyState from '../../components/layout/EmptyState';
+import {
+  SharingSearchPanel,
+  SharingFilterChips,
+} from '../../components/sharing/SharingSearchPanel';
+import { SharingGridCard, SharingListRow } from '../../components/sharing/SharingListViews';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-type TabKey = 'all' | SharingPost['type'] | 'completed';
+type TabKey = SharingTabKey;
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'all',      label: '전체' },
@@ -30,30 +57,6 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: 'event',    label: '행사초대' },
   { key: 'completed',label: '완료' },
 ];
-
-const TYPE_COLORS: Record<SharingPost['type'], string> = {
-  give:     'bg-orange-100 text-orange-700',
-  need:     'bg-blue-100 text-blue-700',
-  ministry: 'bg-green-100 text-green-700',
-  resource: 'bg-purple-100 text-purple-700',
-  event:    'bg-rose-100 text-rose-700',
-};
-
-const TYPE_GRADIENT: Record<SharingPost['type'], string> = {
-  give:     'from-orange-400 to-amber-500',
-  need:     'from-blue-400 to-blue-600',
-  ministry: 'from-green-400 to-emerald-500',
-  resource: 'from-purple-400 to-violet-500',
-  event:    'from-rose-400 to-pink-500',
-};
-
-const STATUS_COLORS: Record<SharingPost['status'], string> = {
-  active:    'bg-emerald-100 text-emerald-700',
-  reserved:  'bg-amber-100 text-amber-700',
-  completed: 'bg-gray-100 text-gray-500',
-};
-
-const ALL_REGIONS = ['서울', '경기', '인천', '부산', '대구', '광주', '대전', '울산', '세종', '강원', '충북', '충남', '전북', '전남', '경북', '경남', '제주'];
 
 // ─── TabBar ───────────────────────────────────────────────────────────────────
 
@@ -126,54 +129,6 @@ function TabBar({ active, onChange }: { active: TabKey; onChange: (k: TabKey) =>
   );
 }
 
-// ─── Post Card ────────────────────────────────────────────────────────────────
-
-function PostCard({ post, requestCount, messageCount, onClick }: {
-  post: SharingPost;
-  requestCount: number;
-  messageCount: number;
-  onClick: () => void;
-}) {
-  return (
-    <div onClick={onClick} className="church-list-row overflow-hidden cursor-pointer !p-0">
-      <div className="flex">
-        {/* Thumbnail */}
-        <div className={`w-24 shrink-0 self-stretch min-h-[96px] bg-gradient-to-br ${TYPE_GRADIENT[post.type]} flex items-center justify-center relative`}>
-          {post.images[0] ? (
-            <img src={post.images[0]} alt={post.title} className="w-full h-full object-cover absolute inset-0" />
-          ) : (
-            <HeartHandshake className="w-8 h-8 text-white opacity-60" />
-          )}
-          {/* status badge overlay */}
-          <div className={`absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold ${STATUS_COLORS[post.status]}`}>
-            {STATUS_LABELS[post.status]}
-          </div>
-        </div>
-
-        {/* Info */}
-        <div className="flex-1 p-3 min-w-0">
-          <div className="flex items-start gap-1.5 mb-1">
-            <span className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded ${TYPE_COLORS[post.type]}`}>
-              {TYPE_LABELS[post.type]}
-            </span>
-            <p className="font-bold text-sm text-gray-900 leading-tight line-clamp-1 flex-1">{post.title}</p>
-          </div>
-          <p className="text-xs text-gray-500 font-medium mb-0.5">{post.churchName}</p>
-          <div className="flex items-center gap-2 text-[11px] text-gray-400 flex-wrap">
-            <span className="flex items-center gap-0.5"><MapPin className="w-3 h-3" />{post.location}</span>
-            <span className="flex items-center gap-0.5"><Tag className="w-3 h-3" />{post.category}</span>
-            <span className="flex items-center gap-0.5"><Calendar className="w-3 h-3" />{post.createdAt.slice(0, 10)}</span>
-          </div>
-          <div className="flex items-center gap-2.5 mt-1.5 text-[11px] text-gray-400">
-            <span className="flex items-center gap-1"><Users className="w-3 h-3" />신청 {requestCount}</span>
-            <span className="flex items-center gap-1"><MessageSquare className="w-3 h-3" />문의 {messageCount}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Detail View ──────────────────────────────────────────────────────────────
 
 function DetailView({
@@ -193,28 +148,40 @@ function DetailView({
   onMessage: () => void;
   onViewRequests: () => void;
 }) {
+  const { isMobile } = useBreakpoint();
   const requests = getAllRequests(post.id);
   const messages = getAllMessages(post.id);
 
-  return (
-    <div className="pb-10">
-      {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 bg-white sticky top-0 z-10">
-        <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-xl text-gray-500">
-          <ChevronLeft className="w-5 h-5" />
-        </button>
-        <h2 className="flex-1 font-bold text-gray-900 text-base truncate">{post.title}</h2>
-        {canEdit && (
-          <div className="flex gap-1">
-            <button onClick={onEdit} className="p-2 hover:bg-primary-50 text-primary-600 rounded-xl"><Edit3 className="w-4 h-4" /></button>
-            <button onClick={onDelete} className="p-2 hover:bg-red-50 text-red-500 rounded-xl"><Trash2 className="w-4 h-4" /></button>
-          </div>
-        )}
-      </div>
+  const actions = canEdit ? (
+    <div className="flex items-center gap-1">
+      <button
+        type="button"
+        onClick={onEdit}
+        className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-100 touch-target"
+      >
+        <Edit3 className="w-4 h-4" />
+        {!isMobile && '수정'}
+      </button>
+      <button
+        type="button"
+        onClick={onDelete}
+        className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-xl text-sm font-semibold text-red-600 hover:bg-red-50 touch-target"
+      >
+        <Trash2 className="w-4 h-4" />
+        {!isMobile && '삭제'}
+      </button>
+    </div>
+  ) : undefined;
 
-      <div className="px-4 pt-4 space-y-4">
-        {/* Hero image / gradient */}
-        <div className={`w-full aspect-video rounded-2xl overflow-hidden bg-gradient-to-br ${TYPE_GRADIENT[post.type]} flex items-center justify-center`}>
+  return (
+    <MobileFullScreenPage
+      title={post.title}
+      description={`${post.churchName} · ${formatSharingDate(post.createdAt)}`}
+      onBack={onBack}
+      saveButton={actions}
+    >
+      <div className="space-y-5 max-w-[900px] mx-auto pb-8">
+        <div className={`w-full aspect-video rounded-[24px] overflow-hidden bg-gradient-to-br ${TYPE_GRADIENT[post.type]} flex items-center justify-center`}>
           {post.images[0] ? (
             <img src={post.images[0]} alt={post.title} className="w-full h-full object-cover" />
           ) : (
@@ -222,41 +189,36 @@ function DetailView({
           )}
         </div>
 
-        {/* Image gallery if multiple */}
         {post.images.length > 1 && (
-          <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' } as React.CSSProperties}>
+          <div className="flex gap-2 overflow-x-auto pb-1">
             {post.images.slice(1).map((img, i) => (
               <img key={i} src={img} alt="" className="w-24 h-24 rounded-xl object-cover shrink-0 border border-gray-100" />
             ))}
           </div>
         )}
 
-        {/* Title + badges */}
         <div>
           <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${TYPE_COLORS[post.type]}`}>{TYPE_LABELS[post.type]}</span>
             <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${STATUS_COLORS[post.status]}`}>{STATUS_LABELS[post.status]}</span>
+            <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${TYPE_COLORS[post.type]}`}>{TYPE_LABELS[post.type]}</span>
             <span className="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full">{post.category}</span>
           </div>
           <h1 className="text-xl font-bold text-gray-900 leading-tight">{post.title}</h1>
         </div>
 
-        {/* Meta */}
-        <div className="bg-gray-50 rounded-2xl p-4 space-y-2.5">
+        <div className="bg-gray-50 rounded-[20px] p-4 space-y-2.5 border border-[#ECECEC]">
           <Row icon={<MapPin className="w-4 h-4 text-gray-400" />} label="위치" value={post.location} />
           <Row icon={<HeartHandshake className="w-4 h-4 text-gray-400" />} label="교회" value={post.churchName} />
           <Row icon={<Tag className="w-4 h-4 text-gray-400" />} label="작성자" value={`${post.writerName} ${post.writerRole}`} />
-          <Row icon={<Calendar className="w-4 h-4 text-gray-400" />} label="등록일" value={post.createdAt.slice(0, 10)} />
+          <Row icon={<Calendar className="w-4 h-4 text-gray-400" />} label="등록일" value={formatSharingDate(post.createdAt)} />
           <Row icon={<Users className="w-4 h-4 text-gray-400" />} label="신청" value={`${requests.length}건`} />
           <Row icon={<MessageSquare className="w-4 h-4 text-gray-400" />} label="문의" value={`${messages.length}건`} />
         </div>
 
-        {/* Content */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-4">
+        <div className="bg-white rounded-[20px] border border-[#ECECEC] p-4">
           <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{post.content}</p>
         </div>
 
-        {/* Files */}
         {post.files.length > 0 && (
           <div className="space-y-1.5">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">첨부파일</p>
@@ -269,34 +231,44 @@ function DetailView({
           </div>
         )}
 
-        {/* Action buttons */}
         <div className="space-y-2.5">
           {post.status !== 'completed' && (
-            <button onClick={onRequest}
-              className="w-full py-4 bg-gradient-to-r from-primary-500 to-secondary-500 text-white font-bold rounded-2xl flex items-center justify-center gap-2 text-sm hover:opacity-90 transition-opacity shadow-sm">
+            <button
+              type="button"
+              onClick={onRequest}
+              className="w-full py-4 bg-primary-500 text-[#1A1A1A] font-bold rounded-[18px] flex items-center justify-center gap-2 text-sm hover:bg-primary-600 transition-colors min-h-[56px] touch-target"
+            >
               <HeartHandshake className="w-5 h-5" /> 나눔 신청하기
             </button>
           )}
-          <button onClick={onMessage}
-            className="w-full py-3.5 border-2 border-primary-200 text-primary-600 font-bold rounded-2xl flex items-center justify-center gap-2 text-sm hover:bg-primary-50 transition-colors">
+          <button
+            type="button"
+            onClick={onMessage}
+            className="w-full py-3.5 border-2 border-primary-200 text-primary-700 font-bold rounded-[18px] flex items-center justify-center gap-2 text-sm hover:bg-primary-50 transition-colors min-h-[48px] touch-target"
+          >
             <MessageSquare className="w-4 h-4" /> 문의하기
           </button>
         </div>
 
-        {/* Admin actions */}
         {(canComplete || canViewRequests) && (
           <div className="border-t border-gray-100 pt-4 space-y-2">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">관리</p>
             <div className="flex gap-2 flex-wrap">
               {canViewRequests && (
-                <button onClick={onViewRequests}
-                  className="flex items-center gap-1.5 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-200 transition-colors">
+                <button
+                  type="button"
+                  onClick={onViewRequests}
+                  className="flex items-center gap-1.5 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-200 transition-colors min-h-[48px] touch-target"
+                >
                   <Users className="w-4 h-4" /> 신청자 목록 ({requests.length})
                 </button>
               )}
               {canComplete && post.status !== 'completed' && (
-                <button onClick={onComplete}
-                  className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-100 text-emerald-700 rounded-xl text-sm font-semibold hover:bg-emerald-200 transition-colors">
+                <button
+                  type="button"
+                  onClick={onComplete}
+                  className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-100 text-emerald-700 rounded-xl text-sm font-semibold hover:bg-emerald-200 transition-colors min-h-[48px] touch-target"
+                >
                   <CheckCircle className="w-4 h-4" /> 완료 처리
                 </button>
               )}
@@ -304,7 +276,7 @@ function DetailView({
           </div>
         )}
       </div>
-    </div>
+    </MobileFullScreenPage>
   );
 }
 
@@ -702,21 +674,32 @@ type ViewState = 'list' | 'detail' | 'create' | 'edit';
 
 export default function ChurchSharingPage() {
   const { user, isAdmin } = useAuth();
+  const { isMobile } = useBreakpoint();
   const isPastor = user?.role === 'pastor';
   const canCreate = isAdmin || isPastor;
 
-  const [view, setView] = useState<ViewState | 'hub'>('hub');
+  const [view, setView] = useState<ViewState>('list');
   const [posts, setPosts] = useState<SharingPost[]>(() => getAllPosts());
   const [selected, setSelected] = useState<SharingPost | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>('all');
-  const [search, setSearch] = useState('');
-  const [filterRegion, setFilterRegion] = useState('');
-  const [filterCategory, setFilterCategory] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchFilter, setSearchFilter] = useState<SharingSearchFilter>(EMPTY_SHARING_FILTER);
+  const [draftFilter, setDraftFilter] = useState<SharingSearchFilter>(EMPTY_SHARING_FILTER);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [showRequest, setShowRequest] = useState(false);
   const [showMessage, setShowMessage] = useState(false);
   const [showRequestList, setShowRequestList] = useState(false);
   const [toast, setToast] = useState('');
+
+  const [viewMode, setViewModeState] = useState<ContentViewMode>(() =>
+    readStoredViewMode('sharing', 'list'),
+  );
+  const setViewMode = (mode: ContentViewMode) => {
+    setViewModeState(mode);
+    writeStoredViewMode('sharing', mode);
+  };
+
+  const listScrollRef = useRef(0);
 
   const refreshPosts = () => setPosts(getAllPosts());
 
@@ -724,24 +707,59 @@ export default function ChurchSharingPage() {
   const canCompletePost = (p: SharingPost) => isAdmin || p.writerId === user?.id;
   const canViewRequests = (p: SharingPost) => isAdmin || p.writerId === user?.id;
 
-  const filtered = posts.filter(p => {
-    if (activeTab === 'completed') return p.status === 'completed';
-    if (activeTab !== 'all') return p.type === activeTab;
-    return true;
-  }).filter(p => {
-    const q = search.toLowerCase();
-    if (q && !([p.title, p.content, p.churchName, p.category, p.location, p.writerName]
-      .some(v => v.toLowerCase().includes(q)))) return false;
-    if (filterRegion && !p.location.includes(filterRegion)) return false;
-    if (filterCategory && p.category !== filterCategory) return false;
-    if (filterStatus && p.status !== filterStatus) return false;
-    return true;
-  });
+  const allCategories = useMemo(
+    () => Array.from(new Set(posts.map(p => p.category))),
+    [posts],
+  );
 
-  const allCategories = Array.from(new Set(posts.map(p => p.category)));
+  const filtered = useMemo(
+    () =>
+      posts
+        .filter(p => sharingMatchesTab(p, activeTab))
+        .filter(p => sharingMatchesDetailFilter(p, searchFilter))
+        .sort(sortSharingPosts),
+    [posts, activeTab, searchFilter],
+  );
 
-  const handleOpen = (p: SharingPost) => { setSelected(p); setView('detail'); };
-  const handleBack = () => { setView('list'); setSelected(null); };
+  const captureListScroll = useCallback(() => {
+    listScrollRef.current = window.scrollY || document.documentElement.scrollTop;
+  }, []);
+
+  const restoreListScroll = useCallback(() => {
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: listScrollRef.current, behavior: 'auto' });
+    });
+  }, []);
+
+  const setKeyword = (keyword: string) => {
+    setSearchFilter({ ...searchFilter, keyword });
+    setDraftFilter({ ...draftFilter, keyword });
+  };
+
+  const handleDraftChange = (f: SharingSearchFilter) => {
+    setDraftFilter(f);
+    if (f.keyword !== searchFilter.keyword) {
+      setSearchFilter({ ...searchFilter, keyword: f.keyword });
+    }
+  };
+
+  const resetFilters = () => {
+    setSearchFilter(EMPTY_SHARING_FILTER);
+    setDraftFilter(EMPTY_SHARING_FILTER);
+    setShowSearch(false);
+  };
+
+  const handleOpen = (p: SharingPost) => {
+    captureListScroll();
+    setSelected(p);
+    setView('detail');
+  };
+
+  const handleBack = () => {
+    setView('list');
+    setSelected(null);
+    restoreListScroll();
+  };
 
   const handleSave = (data: FormState) => {
     if (view === 'edit' && selected) {
@@ -768,9 +786,9 @@ export default function ChurchSharingPage() {
 
   const handleDelete = () => {
     if (!selected) return;
-    if (!confirm('이 나눔 게시물을 삭제하시겠습니까?')) return;
     deletePost(selected.id);
     refreshPosts();
+    setDeleteConfirm(null);
     handleBack();
     setToast('삭제되었습니다.');
   };
@@ -830,7 +848,7 @@ export default function ChurchSharingPage() {
           saveButton={
             <button
               onClick={() => saveTriggerRef.current?.()}
-              className="flex items-center gap-1.5 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-xl text-sm font-semibold transition-colors"
+              className="flex items-center gap-1.5 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-[#1A1A1A] rounded-[18px] text-sm font-bold transition-colors"
             >
               <Save className="w-4 h-4" /> 저장
             </button>
@@ -851,7 +869,7 @@ export default function ChurchSharingPage() {
 
   if (view === 'detail' && selected) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <>
         <DetailView
           post={selected}
           canEdit={canEditPost(selected)}
@@ -859,11 +877,19 @@ export default function ChurchSharingPage() {
           canViewRequests={canViewRequests(selected)}
           onBack={handleBack}
           onEdit={() => setView('edit')}
-          onDelete={handleDelete}
+          onDelete={() => setDeleteConfirm(selected.id)}
           onComplete={handleComplete}
           onRequest={() => setShowRequest(true)}
           onMessage={() => setShowMessage(true)}
           onViewRequests={() => setShowRequestList(true)}
+        />
+        <ConfirmDialog
+          open={!!deleteConfirm}
+          onClose={() => setDeleteConfirm(null)}
+          onConfirm={handleDelete}
+          title="나눔 삭제"
+          description="이 나눔 게시물을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."
+          variant="danger"
         />
         {showRequest && user && (
           <RequestModal post={selected} user={user} onSubmit={handleRequest} onClose={() => setShowRequest(false)} />
@@ -875,154 +901,189 @@ export default function ChurchSharingPage() {
           <RequestListModal post={selected} onClose={() => setShowRequestList(false)} />
         )}
         {toast && <Toast msg={toast} onDone={() => setToast('')} />}
-      </div>
+      </>
     );
   }
 
-  // ── Hub ─────────────────────────────────────────────────────────────────
-  if (view === 'hub') {
-    return (
-      <FeatureHubPage
-        title={SHARING_HUB.title}
-        description={SHARING_HUB.description}
-        features={SHARING_HUB.features}
-        viewer={{ isPastor: Boolean(isPastor), isAdmin, role: user?.role }}
-        onSelect={id => {
-          if (id === 'create') {
-            if (!canCreate) return;
-            setView('create');
-            return;
-          }
-          if (id === 'offer') setActiveTab('give');
-          else if (id === 'need') setActiveTab('need');
-          else if (id === 'ministry') setActiveTab('ministry');
-          else if (id === 'resource') setActiveTab('resource');
-          else if (id === 'event') setActiveTab('event');
-          else setActiveTab('all');
-          setView('list');
-        }}
-      />
-    );
-  }
-
-  // ── List view ─────────────────────────────────────────────────────────────
   const requestCounts = Object.fromEntries(
-    filtered.map(p => [p.id, getAllRequests(p.id).length])
+    filtered.map(p => [p.id, getAllRequests(p.id).length]),
   );
   const messageCounts = Object.fromEntries(
-    filtered.map(p => [p.id, getAllMessages(p.id).length])
+    filtered.map(p => [p.id, getAllMessages(p.id).length]),
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-white pb-4">
-        <HubBackBar
-          title="교회나눔"
-          description="교회와 교회가 필요한 것을 나누고 함께 성장합니다."
-          onBack={() => setView('hub')}
-        />
-        <div className="hidden md:flex justify-end mb-3">
-          {canCreate && (
-            <button type="button" onClick={() => setView('create')}
-              className="flex items-center gap-1.5 px-4 py-2.5 bg-primary-500 text-white rounded-xl text-sm font-bold hover:bg-primary-600 transition-colors shadow-sm shrink-0">
-              <Plus className="w-4 h-4" /> 나눔 등록
+    <div className="space-y-5 pb-24 md:pb-8 max-w-[900px] mx-auto">
+      <PageHeaderBar
+        title="교회나눔"
+        description="교회와 교회가 필요한 것을 나누고 함께 성장합니다."
+        action={
+          canCreate ? (
+            <button
+              type="button"
+              onClick={() => setView('create')}
+              className="inline-flex items-center gap-2 h-12 px-4 rounded-[18px] bg-primary-500 text-[#1A1A1A] text-sm font-bold hover:bg-primary-600 active:bg-primary-700 active:scale-[0.98] transition-all touch-target"
+            >
+              <Plus className="w-4 h-4" />
+              나눔 작성
             </button>
-          )}
-        </div>
+          ) : undefined
+        }
+        mobileFab={canCreate ? { label: '나눔 작성', onClick: () => setView('create') } : undefined}
+      />
 
-        {/* Search */}
-        <div className="relative mt-3">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="검색어를 입력하세요"
-            className="w-full pl-11 pr-9 bg-white border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition-all"
-            style={{ height: '44px', borderRadius: '14px' }} />
-          {search && (
-            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
-              <X className="w-4 h-4 text-gray-400" />
-            </button>
-          )}
-        </div>
-
-        {/* Filters */}
-        <div className="flex gap-2 mt-3 overflow-x-auto pb-0.5" style={{ scrollbarWidth: 'none' } as React.CSSProperties}>
-          {/* Region */}
-          <div className="relative shrink-0">
-            <select value={filterRegion} onChange={e => setFilterRegion(e.target.value)}
-              className="appearance-none pl-3 pr-7 py-2 text-xs bg-gray-100 rounded-xl text-gray-700 font-medium focus:outline-none cursor-pointer">
-              <option value="">지역 전체</option>
-              {ALL_REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
-            </select>
-            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
+      <div className="space-y-2">
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              value={searchFilter.keyword}
+              onChange={e => setKeyword(e.target.value)}
+              placeholder="검색어를 입력하세요"
+              className="w-full pl-12 pr-12 py-3 rounded-2xl border border-gray-200 text-sm bg-white min-h-[48px] focus:border-primary-400 focus:outline-none"
+            />
+            {searchFilter.keyword && (
+              <button
+                type="button"
+                onClick={() => setKeyword('')}
+                className="absolute right-4 top-1/2 -translate-y-1/2 touch-target"
+                aria-label="검색어 지우기"
+              >
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            )}
           </div>
-          {/* Category */}
-          <div className="relative shrink-0">
-            <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}
-              className="appearance-none pl-3 pr-7 py-2 text-xs bg-gray-100 rounded-xl text-gray-700 font-medium focus:outline-none cursor-pointer">
-              <option value="">카테고리 전체</option>
-              {allCategories.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
+          <div className="flex items-center gap-2 shrink-0">
+            <DetailSettingsButton
+              onClick={() => {
+                if (!showSearch) setDraftFilter(searchFilter);
+                setShowSearch(s => !s);
+              }}
+              active={showSearch}
+              activeCount={countSharingDetailFilters(searchFilter)}
+              aria-expanded={showSearch}
+              className="flex-1 sm:flex-none"
+            />
+            <ViewModeToggle value={viewMode} onChange={setViewMode} />
           </div>
-          {/* Status */}
-          <div className="relative shrink-0">
-            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-              className="appearance-none pl-3 pr-7 py-2 text-xs bg-gray-100 rounded-xl text-gray-700 font-medium focus:outline-none cursor-pointer">
-              <option value="">상태 전체</option>
-              <option value="active">나눔중</option>
-              <option value="reserved">확인중</option>
-              <option value="completed">완료</option>
-            </select>
-            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
-          </div>
-          {/* Active filter indicators */}
-          {(filterRegion || filterCategory || filterStatus) && (
-            <button onClick={() => { setFilterRegion(''); setFilterCategory(''); setFilterStatus(''); }}
-              className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 text-xs text-red-500 bg-red-50 rounded-xl font-medium">
-              <X className="w-3 h-3" /> 초기화
-            </button>
-          )}
         </div>
       </div>
 
-      {/* Tabs */}
+      {showSearch && isMobile && (
+        <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-end">
+          <div className="w-full bg-white rounded-t-[24px] shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-5 pt-4 pb-2">
+              <h3 className="text-base font-bold text-gray-900">상세설정</h3>
+              <button
+                type="button"
+                onClick={() => setShowSearch(false)}
+                className="p-2 rounded-xl text-gray-400 hover:bg-gray-100 touch-target"
+                aria-label="닫기"
+              >
+                ✕
+              </button>
+            </div>
+            <SharingSearchPanel
+              asSheet
+              categories={allCategories}
+              value={draftFilter}
+              onChange={handleDraftChange}
+              onApply={() => {
+                setSearchFilter(draftFilter);
+                setShowSearch(false);
+              }}
+              onReset={resetFilters}
+            />
+          </div>
+        </div>
+      )}
+
+      {showSearch && !isMobile && (
+        <SharingSearchPanel
+          categories={allCategories}
+          value={draftFilter}
+          onChange={handleDraftChange}
+          onApply={() => {
+            setSearchFilter(draftFilter);
+            setShowSearch(false);
+          }}
+          onReset={resetFilters}
+        />
+      )}
+
+      {isSharingFilterActive(searchFilter) && !showSearch && (
+        <SharingFilterChips
+          filter={searchFilter}
+          onChange={f => {
+            setSearchFilter(f);
+            setDraftFilter(f);
+          }}
+        />
+      )}
+
       <TabBar active={activeTab} onChange={setActiveTab} />
 
-      {/* Post count */}
-      <div className="px-4 py-2.5 flex items-center gap-1.5 text-xs text-gray-400">
+      <div className="flex items-center gap-1.5 text-xs text-gray-400 px-1">
         <HeartHandshake className="w-3.5 h-3.5" />
         <span>나눔 <strong className="text-gray-700">{filtered.length}</strong>건</span>
       </div>
 
-      {/* Post list */}
-      <div className="px-4 pb-10">
-        {filtered.length > 0 ? (
-          <div className="church-list">
-            {filtered.map(p => (
-              <PostCard
-                key={p.id}
-                post={p}
-                requestCount={requestCounts[p.id] ?? 0}
-                messageCount={messageCounts[p.id] ?? 0}
-                onClick={() => handleOpen(p)}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="py-16 text-center">
-            <HeartHandshake className="w-14 h-14 text-gray-200 mx-auto mb-3" />
-            <p className="font-semibold text-gray-400 text-sm">
-              {search ? '검색 결과가 없습니다' : '등록된 나눔이 없습니다'}
-            </p>
-            {canCreate && !search && (
-              <button onClick={() => setView('create')}
-                className="mt-4 px-5 py-2.5 bg-primary-500 text-white rounded-xl text-sm font-semibold hover:bg-primary-600 transition-colors">
-                나눔 등록하기
-              </button>
-            )}
-          </div>
-        )}
-      </div>
+      {filtered.length === 0 ? (
+        <EmptyState
+          icon={HeartHandshake}
+          title="나눔이 없습니다"
+          description="등록된 나눔이 없거나 검색 조건에 맞는 항목이 없습니다."
+        />
+      ) : viewMode === 'list' ? (
+        <div className="divide-y divide-gray-100 bg-white rounded-[24px] border border-[#ECECEC] overflow-hidden px-4">
+          {filtered.map(p => (
+            <SharingListRow
+              key={p.id}
+              post={p}
+              requestCount={requestCounts[p.id] ?? 0}
+              messageCount={messageCounts[p.id] ?? 0}
+              canManage={canEditPost(p)}
+              onOpen={() => handleOpen(p)}
+              onEdit={() => { setSelected(p); setView('edit'); }}
+              onDelete={() => setDeleteConfirm(p.id)}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filtered.map(p => (
+            <SharingGridCard
+              key={p.id}
+              post={p}
+              requestCount={requestCounts[p.id] ?? 0}
+              messageCount={messageCounts[p.id] ?? 0}
+              canManage={canEditPost(p)}
+              onOpen={() => handleOpen(p)}
+              onEdit={() => { setSelected(p); setView('edit'); }}
+              onDelete={() => setDeleteConfirm(p.id)}
+            />
+          ))}
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={() => {
+          if (!deleteConfirm) return;
+          const target = posts.find(p => p.id === deleteConfirm);
+          if (target) {
+            deletePost(deleteConfirm);
+            refreshPosts();
+            if (selected?.id === deleteConfirm) handleBack();
+            setToast('삭제되었습니다.');
+          }
+          setDeleteConfirm(null);
+        }}
+        title="나눔 삭제"
+        description="이 나눔 게시물을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."
+        variant="danger"
+      />
 
       {toast && <Toast msg={toast} onDone={() => setToast('')} />}
     </div>
