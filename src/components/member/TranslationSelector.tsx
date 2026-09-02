@@ -11,7 +11,7 @@ type Props = {
 };
 
 const OPTIONS: { id: TranslationMode; label: string; short: string }[] = [
-  { id: 'korean',   label: '개역한글', short: 'KRV' },
+  { id: 'korean',   label: '개역개정', short: 'KRV' },
   { id: 'web',      label: 'WEB',      short: 'WEB' },
   { id: 'parallel', label: '함께보기', short: '병렬' },
 ];

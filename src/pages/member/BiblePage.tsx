@@ -24,10 +24,9 @@ import {
   getStoredTranslationMode, setStoredTranslationMode,
   searchBibleTranslation, getEnglishBookName,
 } from '../../services/bibleTranslation';
+import { PageHeaderBar } from '../../components/common/ui';
 import TranslationSelector from '../../components/member/TranslationSelector';
-import { FeatureHubPage, HubBackBar } from '../../components/common/feature-hub';
-import { BIBLE_HUB } from '../../config/featureHub/memberHubs';
-import { useAuth } from '../../contexts/AuthContext';
+import { MenuIcon } from '../../components/common/MenuIcon';
 
 type Props = { onNavigate?: (page: Page) => void; initialRef?: BibleRef | null };
 type Tab = 'browse' | 'search' | 'saved';
@@ -205,8 +204,6 @@ function Breadcrumb({ testament, book, chapter, onGoRoot, onGoTestament, onGoBoo
 /* ─── Main ──────────────────────────────────────────────────────────────────── */
 
 export default function BiblePage({ onNavigate, initialRef }: Props) {
-  const { isPastor, isAdmin, user } = useAuth();
-  const [hubView, setHubView] = useState(!initialRef);
   const [tab, setTab] = useState<Tab>('browse');
   const [testament, setTestament] = useState<'old' | 'new' | null>(null);
   const [selectedBook, setSelectedBook] = useState<string | null>(null);
@@ -215,6 +212,24 @@ export default function BiblePage({ onNavigate, initialRef }: Props) {
   const [quickRef, setQuickRef] = useState('');
   const [quickRefError, setQuickRefError] = useState('');
   const [translationMode, setTranslationMode] = useState<TranslationMode>(getStoredTranslationMode);
+
+  const browseDepth =
+    selectedChapter != null ? 3 : selectedBook ? 2 : testament ? 1 : 0;
+
+  const handleBrowseBack = () => {
+    if (selectedChapter != null) {
+      setSelectedChapter(null);
+      setHighlightVerse(null);
+      return;
+    }
+    if (selectedBook) {
+      setSelectedBook(null);
+      return;
+    }
+    if (testament) {
+      setTestament(null);
+    }
+  };
 
   // Load WEB data once
   useEffect(() => { loadWebBible(); }, []);
@@ -258,33 +273,41 @@ export default function BiblePage({ onNavigate, initialRef }: Props) {
     if (selectedBook) pushRecentReading(selectedBook, ch);
   };
 
-  if (hubView) {
-    return (
-      <FeatureHubPage
-        title={BIBLE_HUB.title}
-        description={BIBLE_HUB.description}
-        features={BIBLE_HUB.features}
-        viewer={{ isPastor, isAdmin, role: user?.role }}
-        onSelect={id => {
-          if (id === 'saved' || id === 'memo') setTab('saved');
-          else if (id === 'search') setTab('search');
-          else setTab('browse');
-          setHubView(false);
-        }}
-      />
-    );
-  }
-
   return (
-    <div className="flex flex-col" style={{ minHeight: 'calc(100vh - 120px)' }}>
-      <HubBackBar
+    <div className="flex flex-col pb-24 md:pb-8 max-w-[900px] mx-auto" style={{ minHeight: 'calc(100vh - 120px)' }}>
+      <PageHeaderBar
         title="성경"
         description="하나님의 말씀을 읽고 묵상하세요."
-        onBack={() => setHubView(true)}
+        mobileAction={
+          tab === 'browse' && browseDepth > 0 ? (
+            <button
+              type="button"
+              onClick={handleBrowseBack}
+              className="inline-flex items-center gap-1 px-3 h-11 rounded-[14px] text-sm font-semibold text-gray-600 hover:bg-gray-100 touch-target"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              뒤로
+            </button>
+          ) : undefined
+        }
       />
+
+      {tab === 'browse' && browseDepth > 0 && (
+        <div className="hidden md:flex items-center mb-2">
+          <button
+            type="button"
+            onClick={handleBrowseBack}
+            className="inline-flex items-center gap-1 px-3 py-2 rounded-[10px] text-sm font-medium text-gray-600 hover:bg-gray-100 touch-target"
+          >
+            <ChevronLeft className="w-5 h-5" />
+            뒤로
+          </button>
+        </div>
+      )}
+
       {/* Quick-reference bar */}
-      <div className="bg-white border-b border-gray-100 px-4 py-2.5 sticky top-0 z-20">
-        <div className="flex gap-2 mb-2">
+      <div className="bg-white border border-[#ECECEC] rounded-[20px] px-4 py-3 shadow-[0_8px_30px_rgba(0,0,0,0.06)] mb-4">
+        <div className="flex gap-2 mb-3">
           <div className="flex-1 relative">
             <CornerDownRight className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-400" />
             <input
@@ -292,37 +315,46 @@ export default function BiblePage({ onNavigate, initialRef }: Props) {
               onChange={e => { setQuickRef(e.target.value); setQuickRefError(''); }}
               onKeyDown={e => e.key === 'Enter' && handleQuickRef()}
               placeholder={translationMode === 'web' ? 'Gen 1:1 · John 3:16 · Ps 23' : '창 1:1 · 요 3:16 · 시편 23편'}
-              className={`w-full pl-9 pr-3 py-2 text-sm rounded-xl border focus:outline-none focus:ring-2 ${
+              className={`w-full pl-9 pr-3 py-2.5 text-sm rounded-xl border min-h-[48px] focus:outline-none focus:ring-2 ${
                 quickRefError ? 'border-red-300 focus:ring-red-200' : 'border-gray-200 focus:ring-primary-200'
               }`}
             />
           </div>
-          <button onClick={handleQuickRef}
-            className="px-4 py-2 bg-primary-500 text-white text-sm font-semibold rounded-xl hover:bg-primary-600 transition-colors shrink-0">
+          <button
+            type="button"
+            onClick={handleQuickRef}
+            className="px-4 py-2.5 bg-primary-500 text-[#1A1A1A] text-sm font-bold rounded-[18px] hover:bg-primary-600 active:bg-primary-700 transition-colors shrink-0 min-h-[48px] touch-target"
+          >
             이동
           </button>
         </div>
         <TranslationSelector mode={translationMode} onChange={handleTranslationChange} />
-        {quickRefError && <p className="text-xs text-red-500 mt-1 pl-1">{quickRefError}</p>}
+        {quickRefError && <p className="text-xs text-red-500 mt-2 pl-1">{quickRefError}</p>}
       </div>
 
       {/* Tab bar */}
-      <div className="bg-white border-b border-gray-100 flex shrink-0 sticky top-[52px] z-10">
+      <div className="bg-white border border-[#ECECEC] rounded-[20px] flex shrink-0 mb-4 overflow-hidden shadow-sm">
         {([
           { id: 'browse', label: '말씀 읽기' },
           { id: 'search', label: '말씀 검색' },
           { id: 'saved',  label: '저장한 말씀' },
         ] as { id: Tab; label: string }[]).map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)}
-            className={`flex-1 py-2.5 text-sm font-medium transition-colors border-b-2 ${
-              tab === t.id ? 'text-primary-600 border-primary-500' : 'text-gray-500 border-transparent'
-            }`}>
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setTab(t.id)}
+            className={`flex-1 py-3 text-sm font-bold transition-colors border-b-2 min-h-[48px] touch-target ${
+              tab === t.id
+                ? 'text-primary-600 border-primary-500 bg-primary-50/40'
+                : 'text-gray-500 border-transparent hover:text-gray-700'
+            }`}
+          >
             {t.label}
           </button>
         ))}
       </div>
 
-      <div className="bg-gray-50 flex-1">
+      <div className="flex-1">
         {tab === 'browse' && (
           <BrowseTab
             testament={testament}
@@ -388,27 +420,31 @@ function BrowseTab(props: BrowseProps) {
     return <TestamentSelect onSelect={onTestamentChange} onNavigateToRef={onNavigateToRef} />;
   }
 
-  // Book select — canonical order, no category groupings
+  // Book select — canonical order
   if (!selectedBook) {
     const books = testament === 'old' ? OT_BOOKS : NT_BOOKS;
     return (
       <div>
         {breadcrumb}
-        <div className="p-4">
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">
+        <div className="p-1">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 px-1">
             {testament === 'old' ? '구약성경 39권' : '신약성경 27권'}
           </p>
-          {/* 3 cols mobile, 4 cols sm, 6 cols lg, 8 cols xl */}
-          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-2">
+          <div className="bg-white rounded-[24px] border border-[#ECECEC] overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.06)] divide-y divide-gray-100">
             {books.map(b => (
-              <button key={b.name} onClick={() => onBookChange(b.name)}
-                className={`flex flex-col items-center justify-center py-3 px-1 rounded-2xl border-2 text-center transition-all ${
+              <button
+                key={b.name}
+                type="button"
+                onClick={() => onBookChange(b.name)}
+                disabled={!hasChapterData(b.name, 1)}
+                className={`w-full flex items-center justify-between px-4 py-3.5 min-h-[52px] text-left transition-colors touch-target ${
                   hasChapterData(b.name, 1)
-                    ? 'bg-white border-gray-100 hover:border-primary-300 hover:bg-primary-50 hover:shadow-sm active:scale-95'
-                    : 'bg-gray-50 border-gray-100 opacity-50 cursor-not-allowed'
-                }`}>
-                <p className="font-bold text-gray-900 text-xs leading-tight mb-0.5">{b.name}</p>
-                <p className="text-[10px] text-gray-400">({b.abbr})</p>
+                    ? 'hover:bg-primary-50 active:bg-primary-100/60'
+                    : 'opacity-40 cursor-not-allowed'
+                }`}
+              >
+                <span className="font-semibold text-gray-900 text-sm">{b.name}</span>
+                <span className="text-xs text-gray-400">{b.abbr}</span>
               </button>
             ))}
           </div>
@@ -423,21 +459,27 @@ function BrowseTab(props: BrowseProps) {
     return (
       <div>
         {breadcrumb}
-        <div className="p-4">
-          <p className="text-sm font-bold text-gray-900 mb-4 mt-1">
+        <div className="p-1">
+          <p className="text-sm font-bold text-gray-900 mb-3 px-1">
             {selectedBook} <span className="text-gray-400 font-normal">· {bookInfo?.chapters}장</span>
           </p>
-          <div className="grid grid-cols-5 sm:grid-cols-7 lg:grid-cols-10 gap-2">
-            {chapters.map(ch => (
-              <button key={ch} onClick={() => onChapterChange(ch)}
-                className={`py-2.5 rounded-xl text-xs font-semibold transition-all text-center ${
-                  hasChapterData(selectedBook, ch)
-                    ? 'bg-white border border-gray-200 text-gray-800 hover:bg-primary-50 hover:border-primary-300 hover:text-primary-700 active:scale-95'
-                    : 'bg-gray-50 border border-gray-100 text-gray-300'
-                }`}>
-                {ch}장
-              </button>
-            ))}
+          <div className="bg-white rounded-[24px] border border-[#ECECEC] p-4 shadow-[0_8px_30px_rgba(0,0,0,0.06)]">
+            <div className="grid grid-cols-5 sm:grid-cols-7 lg:grid-cols-10 gap-2">
+              {chapters.map(ch => (
+                <button
+                  key={ch}
+                  type="button"
+                  onClick={() => onChapterChange(ch)}
+                  className={`py-2.5 rounded-xl text-xs font-semibold transition-all text-center min-h-[44px] touch-target ${
+                    hasChapterData(selectedBook, ch)
+                      ? 'bg-primary-50 border border-primary-100 text-gray-800 hover:bg-primary-100 hover:border-primary-300 active:scale-95'
+                      : 'bg-gray-50 border border-gray-100 text-gray-300'
+                  }`}
+                >
+                  {ch}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -468,36 +510,52 @@ function TestamentSelect({ onSelect, onNavigateToRef }: {
 }) {
   const recent = getRecentReadings();
   return (
-    <div className="p-4 space-y-4 pt-5">
-      <div className="grid grid-cols-2 gap-3">
-        {(['old', 'new'] as const).map(t => (
-          <button key={t} onClick={() => onSelect(t)}
-            className="p-5 bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center gap-3 hover:shadow-md transition-all group active:scale-95">
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center group-hover:scale-105 transition-transform ${t === 'old' ? 'bg-amber-50' : 'bg-blue-50'}`}>
-              <BookOpen className={`w-7 h-7 ${t === 'old' ? 'text-amber-500' : 'text-blue-500'}`} />
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {([
+          { id: 'old' as const, label: '구약성경', count: '39권', accent: 'amber' },
+          { id: 'new' as const, label: '신약성경', count: '27권', accent: 'blue' },
+        ]).map(t => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => onSelect(t.id)}
+            className="p-6 md:p-8 bg-white rounded-[24px] border border-[#ECECEC] shadow-[0_8px_30px_rgba(0,0,0,0.06)] flex flex-col items-center gap-4 hover:-translate-y-0.5 hover:shadow-[0_12px_36px_rgba(0,0,0,0.08)] transition-all duration-200 ease-out active:scale-[0.99] touch-target"
+          >
+            <div className={`w-16 h-16 md:w-20 md:h-20 rounded-[20px] flex items-center justify-center ${
+              t.accent === 'amber' ? 'bg-primary-50' : 'bg-blue-50'
+            }`}>
+              <MenuIcon iconKey="bible" size={40} />
             </div>
             <div className="text-center">
-              <p className="font-bold text-gray-900">{t === 'old' ? '구약성경' : '신약성경'}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{t === 'old' ? '39권' : '27권'}</p>
+              <p className="font-bold text-gray-900 text-lg">{t.label}</p>
+              <p className="text-sm text-gray-400 mt-1">{t.count}</p>
             </div>
           </button>
         ))}
       </div>
-      <div className="bg-primary-50 rounded-xl p-3 border border-primary-100">
-        <p className="text-xs text-primary-700 font-semibold mb-1">바로가기 사용법</p>
-        <p className="text-xs text-primary-600">위 입력창에 <strong>창 1:1</strong>, <strong>요 3:16</strong>, <strong>시편 23편</strong>을 입력하고 이동을 누르세요.</p>
+
+      <div className="bg-[#FFF7D6] rounded-[20px] p-4 border border-primary-100">
+        <p className="text-sm text-primary-800 font-bold mb-1">바로가기 사용법</p>
+        <p className="text-sm text-primary-700 leading-relaxed">
+          위 입력창에 <strong>창 1:1</strong>, <strong>요 3:16</strong>, <strong>시편 23편</strong>을 입력하고 이동을 눌러보세요.
+        </p>
       </div>
+
       {recent.length > 0 && (
         <div>
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-2 px-1">
             <Clock className="w-3.5 h-3.5 text-gray-400" />
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">최근 본 말씀</p>
           </div>
           <div className="flex flex-wrap gap-2">
             {recent.map(r => (
-              <button key={`${r.book}-${r.chapter}`}
+              <button
+                key={`${r.book}-${r.chapter}`}
+                type="button"
                 onClick={() => onNavigateToRef?.({ book: r.book, chapter: r.chapter })}
-                className="px-3 py-1.5 bg-white border border-gray-200 rounded-full text-xs font-medium text-gray-700 hover:bg-primary-50 hover:border-primary-300 hover:text-primary-700 transition-colors">
+                className="px-3 py-1.5 bg-white border border-gray-200 rounded-full text-xs font-medium text-gray-700 hover:bg-primary-50 hover:border-primary-300 hover:text-primary-700 transition-colors touch-target"
+              >
                 {r.abbr} {r.chapter}장
               </button>
             ))}
@@ -904,7 +962,7 @@ function SearchTab({ onNavigate, onJumpTo, setTab, translationMode }: {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input value={query} onChange={e => setQuery(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSearch()}
-            placeholder={translationMode === 'web' ? 'Keyword, Gen 1:1, John 3:16' : '키워드, 구절, 책 이름 검색'}
+            placeholder={translationMode === 'web' ? 'Keyword or verse (e.g. love, John 3:16)' : '단어 또는 구절을 검색하세요'}
             className="w-full pl-9 pr-9 py-3 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-300" />
           {query && (
             <button onClick={() => { setQuery(''); setResults([]); setSearched(false); }} className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -912,7 +970,7 @@ function SearchTab({ onNavigate, onJumpTo, setTab, translationMode }: {
             </button>
           )}
         </div>
-        <button onClick={() => handleSearch()} className="px-4 py-3 bg-primary-500 text-white rounded-xl text-sm font-semibold hover:bg-primary-600">검색</button>
+        <button type="button" onClick={() => handleSearch()} className="px-4 py-3 bg-primary-500 text-[#1A1A1A] rounded-[18px] text-sm font-bold hover:bg-primary-600 min-h-[48px] touch-target">검색</button>
       </div>
       {!searched && (
         <div className="flex flex-wrap gap-2">
