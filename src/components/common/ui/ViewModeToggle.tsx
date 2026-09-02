@@ -54,6 +54,7 @@ const VIEW_MODE_KEYS = {
   announcement: 'churchieum_announcement_view_mode',
   grace: 'churchieum_grace_view_mode',
   bulletin: 'churchieum_bulletin_view_mode',
+  album: 'churchieum_album_view_mode',
 } as const;
 
 export type ViewModeStorageKey = keyof typeof VIEW_MODE_KEYS;

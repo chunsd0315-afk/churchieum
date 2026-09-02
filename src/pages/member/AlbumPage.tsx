@@ -1,480 +1,699 @@
-﻿import { useState, useEffect, useCallback } from 'react';
+﻿/**
+ * 앨범 — 사진 중심 카드형 목록 (공지·주보와 동일 검색/상세설정/보기전환 UX)
+ */
+
+import { useState, useEffect, useMemo, useRef, useCallback, type FormEvent } from 'react';
+import { Image, Plus, Search, X, Loader } from 'lucide-react';
 import { supabase } from '../../services/supabase';
-import {
-  Image, Calendar, ArrowLeft, Grid2x2, Rows, Loader2, X,
-  Download, ChevronLeft, ChevronRight, ZoomIn, Plus,
-} from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useBreakpoint } from '../../hooks/useBreakpoint';
 import { canWriteContent, getAvailableScopes, type ContentScope } from '../../services/permissions';
 import { getDistricts, getZones, getDepartments } from '../../services/orgData';
-import { PageHeaderBar, MobileEditorModal } from '../../components/common/ui';
-import SearchSection from '../../components/layout/SearchSection';
-import { FeatureHubPage, HubBackBar } from '../../components/common/feature-hub';
-import { ALBUM_HUB } from '../../config/featureHub/memberHubs';
-import { useToast } from '../../components/common/ui';
+import { getAllOrganizations } from '../../services/organizationStorage';
+import {
+  PageHeaderBar,
+  DetailSettingsButton,
+  ViewModeToggle,
+  readStoredViewMode,
+  writeStoredViewMode,
+  ConfirmDialog,
+  type ContentViewMode,
+} from '../../components/common/ui';
+import EmptyState from '../../components/layout/EmptyState';
+import ContentEditorLayout from '../../components/layout/ContentEditorLayout';
+import {
+  AnnouncementSearchPanel,
+  AnnouncementFilterChips,
+  EMPTY_FILTER,
+  isFilterActive,
+  countDetailSettingFilters,
+  getAnnouncementMyOrgSelectableIds,
+  type AnnouncementSearchFilter,
+} from '../../components/announcement/AnnouncementSearchPanel';
+import { AlbumDetailView } from '../../components/album/AlbumDetailView';
+import { AlbumGridCard, AlbumListRow } from '../../components/album/AlbumListViews';
+import {
+  DEMO_ALBUMS,
+  DEMO_PHOTOS,
+  mergeAlbumList,
+  saveAlbumScope,
+  isAlbumVisible,
+  albumMatchesDetailFilter,
+  countMediaFromPhotos,
+  type AlbumItem,
+  type AlbumPhoto,
+} from '../../services/albumHelpers';
 
-type Album = {
+const HISTORY_KEY = 'churchieum_album_layer';
+
+type AlbumHistory = {
+  [HISTORY_KEY]: true;
+  layer: 'detail';
   id: string;
+};
+
+function readAlbumHistory(): AlbumHistory | null {
+  const s = window.history.state as AlbumHistory | null;
+  if (s?.[HISTORY_KEY] && s.layer === 'detail' && s.id) return s;
+  return null;
+}
+
+const CAT_LABELS = ['교구', '부서', '교회학교', '행사'];
+
+const SCOPE_TYPE_LABEL: Record<string, string> = {
+  all: '전체 성도',
+  district: '특정 교구',
+  zone: '특정 구역',
+  department: '특정 부서',
+};
+
+type AlbumForm = {
   title: string;
-  event_date?: string;
-  description?: string;
-  cover_image?: string;
-  category?: string;
-  visibility?: string;
-  created_at: string;
+  description: string;
+  event_date: string;
+  category: string;
+  scope: ContentScope;
 };
 
-type Photo = {
-  id: string;
-  url: string;
-  caption?: string;
-  sort_order?: number;
+const EMPTY_FORM: AlbumForm = {
+  title: '',
+  description: '',
+  event_date: new Date().toISOString().split('T')[0],
+  category: '행사',
+  scope: { type: 'all', name: '전체 성도' },
 };
 
-const DEMO_ALBUMS: Album[] = [
-  { id: 'd1', title: '2026년 여름 수련회', event_date: '2026-07-15', category: '행사', description: '전교인 2박 3일 여름 수련회', cover_image: 'https://images.pexels.com/photos/6457547/pexels-photo-6457547.jpeg?auto=compress&cs=tinysrgb&w=600', created_at: '2026-07-17' },
-  { id: 'd2', title: '어린이날 행사', event_date: '2026-05-05', category: '교회학교', description: '주일학교 어린이날 감사예배 및 행사', cover_image: 'https://images.pexels.com/photos/1001850/pexels-photo-1001850.jpeg?auto=compress&cs=tinysrgb&w=600', created_at: '2026-05-06' },
-  { id: 'd3', title: '4월 부활절 예배', event_date: '2026-04-20', category: '행사', description: '부활절 특별예배 및 축하 행사', cover_image: 'https://images.pexels.com/photos/208216/pexels-photo-208216.jpeg?auto=compress&cs=tinysrgb&w=600', created_at: '2026-04-21' },
-  { id: 'd4', title: '1교구 야외 모임', event_date: '2026-04-12', category: '교구', description: '1교구 전체 야외 친교 모임', cover_image: 'https://images.pexels.com/photos/3184396/pexels-photo-3184396.jpeg?auto=compress&cs=tinysrgb&w=600', created_at: '2026-04-13' },
-  { id: 'd5', title: '전교인 신년 예배', event_date: '2026-01-04', category: '행사', description: '2026년 새해 첫 주일예배', cover_image: 'https://images.pexels.com/photos/8815866/pexels-photo-8815866.jpeg?auto=compress&cs=tinysrgb&w=600', created_at: '2026-01-05' },
-  { id: 'd6', title: '성탄절 칸타타', event_date: '2025-12-24', category: '행사', description: '성탄절 전야 특별 칸타타', cover_image: 'https://images.pexels.com/photos/1303081/pexels-photo-1303081.jpeg?auto=compress&cs=tinysrgb&w=600', created_at: '2025-12-25' },
-];
-
-const DEMO_PHOTOS: Photo[] = [
-  { id: 'p1', url: 'https://images.pexels.com/photos/3184396/pexels-photo-3184396.jpeg?auto=compress&cs=tinysrgb&w=800', caption: '예배 후 단체 사진' },
-  { id: 'p2', url: 'https://images.pexels.com/photos/6457547/pexels-photo-6457547.jpeg?auto=compress&cs=tinysrgb&w=800', caption: '청년부 모임' },
-  { id: 'p3', url: 'https://images.pexels.com/photos/1001850/pexels-photo-1001850.jpeg?auto=compress&cs=tinysrgb&w=800' },
-  { id: 'p4', url: 'https://images.pexels.com/photos/208216/pexels-photo-208216.jpeg?auto=compress&cs=tinysrgb&w=800', caption: '교회 전경' },
-  { id: 'p5', url: 'https://images.pexels.com/photos/8815866/pexels-photo-8815866.jpeg?auto=compress&cs=tinysrgb&w=800' },
-  { id: 'p6', url: 'https://images.pexels.com/photos/1303081/pexels-photo-1303081.jpeg?auto=compress&cs=tinysrgb&w=800', caption: '특별 예배' },
-  { id: 'p7', url: 'https://images.pexels.com/photos/2747449/pexels-photo-2747449.jpeg?auto=compress&cs=tinysrgb&w=800' },
-  { id: 'p8', url: 'https://images.pexels.com/photos/1157557/pexels-photo-1157557.jpeg?auto=compress&cs=tinysrgb&w=800', caption: '소그룹 모임' },
-  { id: 'p9', url: 'https://images.pexels.com/photos/3184360/pexels-photo-3184360.jpeg?auto=compress&cs=tinysrgb&w=800' },
-];
-
-const CAT_LABELS = ['전체', '교구', '부서', '교회학교', '행사'];
+async function enrichAlbumCounts(albums: AlbumItem[]): Promise<AlbumItem[]> {
+  try {
+    const { data: photos } = await supabase.from('photos').select('album_id, url');
+    if (!photos?.length) return albums;
+    const counts = new Map<string, { photo_count: number; video_count: number }>();
+    for (const p of photos) {
+      const cur = counts.get(p.album_id) ?? { photo_count: 0, video_count: 0 };
+      const media = countMediaFromPhotos([{ url: p.url }]);
+      cur.photo_count += media.photo_count;
+      cur.video_count += media.video_count;
+      counts.set(p.album_id, cur);
+    }
+    return albums.map(a => {
+      const c = counts.get(a.id);
+      if (!c) return a;
+      return { ...a, photo_count: c.photo_count, video_count: c.video_count };
+    });
+  } catch {
+    return albums;
+  }
+}
 
 export default function AlbumPage() {
-  const { user, isPastor, isAdmin } = useAuth();
-  const toast = useToast();
-  const [hubView, setHubView] = useState(true);
-  const [albums, setAlbums] = useState<Album[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<Album | null>(null);
-  const [photos, setPhotos] = useState<Photo[]>([]);
-  const [photosLoading, setPhotosLoading] = useState(false);
-  const [gridView, setGridView] = useState(true);
-  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
-  const [catFilter, setCatFilter] = useState('전체');
-  const [search, setSearch] = useState('');
-  const [showCreateForm, setShowCreateForm] = useState(false);
+  const { user } = useAuth();
+  const { isMobile } = useBreakpoint();
+  const canManage = canWriteContent(user);
 
-  const canWrite = canWriteContent(user);
   const orgData = { districts: getDistricts(), zones: getZones(), departments: getDepartments() };
   const availableScopes = getAvailableScopes(user, orgData);
 
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase.from('albums').select('*').order('created_at', { ascending: false });
-      setAlbums(data && data.length > 0 ? data : DEMO_ALBUMS);
-      setLoading(false);
-    })();
+  const [albums, setAlbums] = useState<AlbumItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<AlbumPhoto[]>([]);
+  const [photosLoading, setPhotosLoading] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<AlbumItem | null>(null);
+  const [form, setForm] = useState<AlbumForm>(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [toast, setToast] = useState('');
+
+  const [viewMode, setViewModeState] = useState<ContentViewMode>(() =>
+    readStoredViewMode('album', 'card'),
+  );
+  const setViewMode = (mode: ContentViewMode) => {
+    setViewModeState(mode);
+    writeStoredViewMode('album', mode);
+  };
+
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchFilter, setSearchFilter] = useState<AnnouncementSearchFilter>(EMPTY_FILTER);
+  const [draftFilter, setDraftFilter] = useState<AnnouncementSearchFilter>(EMPTY_FILTER);
+
+  const listScrollRef = useRef(0);
+
+  const orgNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const o of getAllOrganizations()) map.set(o.id, o.name);
+    return map;
   }, []);
 
-  /* keyboard nav in lightbox */
-  const handleKey = useCallback((e: KeyboardEvent) => {
-    if (lightboxIdx === null) return;
-    if (e.key === 'ArrowRight') setLightboxIdx(i => i !== null ? Math.min(i + 1, photos.length - 1) : 0);
-    if (e.key === 'ArrowLeft') setLightboxIdx(i => i !== null ? Math.max(i - 1, 0) : 0);
-    if (e.key === 'Escape') setLightboxIdx(null);
-  }, [lightboxIdx, photos.length]);
+  const myOrgIds = useMemo(
+    () => getAnnouncementMyOrgSelectableIds(user, searchFilter.showFullOrgTree),
+    [user, searchFilter.showFullOrgTree],
+  );
+
+  const fetchAlbums = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('albums')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      const base = mergeAlbumList(data && data.length > 0 ? (data as AlbumItem[]) : DEMO_ALBUMS);
+      setAlbums(await enrichAlbumCounts(base));
+    } catch {
+      setAlbums(await enrichAlbumCounts(mergeAlbumList(DEMO_ALBUMS)));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [handleKey]);
+    fetchAlbums();
+  }, [fetchAlbums]);
 
-  const openAlbum = async (album: Album) => {
-    setSelected(album);
-    setPhotosLoading(true);
-    const { data } = await supabase.from('photos').select('*').eq('album_id', album.id).order('sort_order').order('created_at');
-    setPhotos(data && data.length > 0 ? data : DEMO_PHOTOS);
-    setPhotosLoading(false);
-  };
+  const captureListScroll = useCallback(() => {
+    listScrollRef.current = window.scrollY || document.documentElement.scrollTop;
+  }, []);
 
-  const downloadPhoto = (url: string, idx: number) => {
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `photo-${idx + 1}.jpg`;
-    a.target = '_blank';
-    a.click();
-  };
+  const restoreListScroll = useCallback(() => {
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: listScrollRef.current, behavior: 'auto' });
+    });
+  }, []);
 
-  const handleCreateAlbum = (album: Album) => {
-    setAlbums(prev => [album, ...prev]);
-    setShowCreateForm(false);
-  };
-
-  const filteredAlbums = albums.filter(a => {
-    const matchCat = catFilter === '전체' || a.category === catFilter;
-    const matchSearch = !search || a.title.includes(search) || (a.description || '').includes(search);
-    return matchCat && matchSearch;
-  });
-
-  /* ── Lightbox ── */
-  if (lightboxIdx !== null && photos[lightboxIdx]) {
-    const photo = photos[lightboxIdx];
-    const hasPrev = lightboxIdx > 0;
-    const hasNext = lightboxIdx < photos.length - 1;
-
-    return (
-      <div className="fixed inset-0 bg-black z-[100] flex flex-col">
-        {/* Top bar */}
-        <div className="flex items-center justify-between px-4 py-3 bg-black/60 backdrop-blur-sm">
-          <button onClick={() => setLightboxIdx(null)} className="flex items-center gap-2 text-white/80 hover:text-white transition-colors">
-            <X className="w-5 h-5" />
-          </button>
-          <p className="text-white/60 text-sm">{lightboxIdx + 1} / {photos.length}</p>
-          <button onClick={() => downloadPhoto(photo.url, lightboxIdx)} className="flex items-center gap-1.5 text-white/80 hover:text-white transition-colors">
-            <Download className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Image */}
-        <div className="flex-1 flex items-center justify-center relative px-12 py-4">
-          <button
-            onClick={() => hasPrev && setLightboxIdx(lightboxIdx - 1)}
-            className={`absolute left-2 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/25 text-white transition-all ${!hasPrev ? 'opacity-0 pointer-events-none' : ''}`}>
-            <ChevronLeft className="w-6 h-6" />
-          </button>
-          <img
-            src={photo.url}
-            alt={photo.caption || ''}
-            className="max-w-full max-h-full object-contain rounded-xl select-none"
-            style={{ maxHeight: 'calc(100vh - 140px)' }}
-          />
-          <button
-            onClick={() => hasNext && setLightboxIdx(lightboxIdx + 1)}
-            className={`absolute right-2 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/25 text-white transition-all ${!hasNext ? 'opacity-0 pointer-events-none' : ''}`}>
-            <ChevronRight className="w-6 h-6" />
-          </button>
-        </div>
-
-        {/* Caption + thumbnail strip */}
-        <div className="bg-black/60 backdrop-blur-sm px-4 pb-4">
-          {photo.caption && (
-            <p className="text-white/80 text-sm text-center mb-3">{photo.caption}</p>
-          )}
-          {/* Thumbnail strip */}
-          <div className="flex gap-2 overflow-x-auto pb-1 justify-center">
-            {photos.map((p, i) => (
-              <button key={p.id} onClick={() => setLightboxIdx(i)}
-                className={`flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border-2 transition-all ${i === lightboxIdx ? 'border-white scale-110' : 'border-transparent opacity-50 hover:opacity-80'}`}>
-                <img src={p.url} alt="" className="w-full h-full object-cover" />
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  /* ── Album detail ── */
-  if (selected) {
-    return (
-      <div className="pb-24">
-        {/* Header */}
-        <div className="sticky top-0 bg-white/95 backdrop-blur-sm border-b border-gray-100 z-10">
-          <div className="px-4 py-3 flex items-center gap-3">
-            <button onClick={() => { setSelected(null); setPhotos([]); }}
-              className="flex items-center gap-1.5 text-primary-500 font-medium text-sm">
-              <ArrowLeft className="w-4 h-4" /> 앨범
-            </button>
-            <div className="flex-1 min-w-0">
-              <h2 className="font-bold text-gray-900 text-sm truncate">{selected.title}</h2>
-            </div>
-          </div>
-        </div>
-
-        {/* Album info */}
-        <div className="relative">
-          {selected.cover_image && (
-            <div className="h-44 overflow-hidden">
-              <img src={selected.cover_image} alt={selected.title} className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-            </div>
-          )}
-          <div className={`px-4 py-4 ${selected.cover_image ? 'absolute bottom-0 left-0 right-0 text-white' : 'bg-white border-b border-gray-100'}`}>
-            <h2 className={`text-xl font-bold ${selected.cover_image ? 'text-white' : 'text-gray-900'}`}>{selected.title}</h2>
-            <div className={`flex items-center gap-3 mt-1 text-sm ${selected.cover_image ? 'text-white/80' : 'text-gray-500'}`}>
-              {selected.event_date && <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {selected.event_date}</span>}
-              <span className="flex items-center gap-1"><Image className="w-3.5 h-3.5" /> {photos.length}장</span>
-            </div>
-            {selected.description && (
-              <p className={`text-sm mt-1 ${selected.cover_image ? 'text-white/70' : 'text-gray-500'}`}>{selected.description}</p>
-            )}
-          </div>
-        </div>
-
-        {photosLoading ? (
-          <div className="flex justify-center py-20"><Loader2 className="w-7 h-7 animate-spin text-primary-400" /></div>
-        ) : photos.length === 0 ? (
-          <div className="text-center py-20 mx-4 mt-4 bg-white rounded-2xl border border-gray-100">
-            <Image className="w-14 h-14 text-gray-200 mx-auto mb-3" />
-            <p className="text-gray-400">사진이 없습니다</p>
-          </div>
-        ) : (
-          <div className="px-4 mt-4">
-            <div className="grid grid-cols-3 gap-1">
-              {photos.map((photo, idx) => (
-                <button key={photo.id} onClick={() => setLightboxIdx(idx)}
-                  className="relative aspect-square rounded-xl overflow-hidden group">
-                  <img src={photo.url} alt={photo.caption || ''} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-colors flex items-center justify-center">
-                    <ZoomIn className="w-5 h-5 text-white opacity-0 group-hover:opacity-80 transition-opacity" />
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  /* ── Album list ── */
-  if (hubView) {
-    return (
-      <FeatureHubPage
-        title={ALBUM_HUB.title}
-        description={ALBUM_HUB.description}
-        features={ALBUM_HUB.features}
-        viewer={{ isPastor, isAdmin, role: user?.role }}
-        onSelect={id => {
-          if (id === 'manage') {
-            toast.info('관리자 모드의 앨범 메뉴에서 관리할 수 있습니다.');
-            return;
-          }
-          if (id === 'create') {
-            if (!canWrite) {
-              toast.info('앨범 등록 권한이 없습니다.');
-              return;
-            }
-            setShowCreateForm(true);
-          }
-          setHubView(false);
-        }}
-      />
-    );
-  }
-
-  return (
-    <div className="pb-8">
-      <HubBackBar
-        title="앨범"
-        description="교회 공동체의 소중한 순간을 함께 나누세요."
-        onBack={() => setHubView(true)}
-      />
-      <PageHeaderBar
-        title=""
-        description=""
-        visibility="desktop"
-        action={
-          <div className="flex items-center gap-2">
-            {canWrite && (
-              <button
-                onClick={() => setShowCreateForm(true)}
-                className="inline-flex items-center gap-1.5 h-12 px-4 rounded-[18px] bg-primary-500 text-[#1A1A1A] text-sm font-bold hover:bg-primary-600 active:bg-primary-700 active:scale-[0.98] transition-all shadow-sm touch-target"
-              >
-                <Plus className="w-4 h-4" /> 앨범 등록
-              </button>
-            )}
-            <button onClick={() => setGridView(v => !v)} className="p-2 bg-gray-100 rounded-xl">
-              {gridView ? <Rows className="w-4 h-4 text-gray-600" /> : <Grid2x2 className="w-4 h-4 text-gray-600" />}
-            </button>
-          </div>
-        }
-        mobileAction={
-          <button
-            onClick={() => setGridView(v => !v)}
-            className="w-11 h-11 flex items-center justify-center bg-gray-100 rounded-[14px]"
-            aria-label="보기 전환"
-          >
-            {gridView ? <Rows className="w-5 h-5 text-gray-600" /> : <Grid2x2 className="w-5 h-5 text-gray-600" />}
-          </button>
-        }
-        mobileFab={canWrite ? { label: '앨범 등록', onClick: () => setShowCreateForm(true) } : undefined}
-      />
-      <SearchSection
-        value={search}
-        onChange={setSearch}
-        placeholder="앨범 검색..."
-        filters={CAT_LABELS.map(c => ({ id: c, label: c }))}
-        activeFilter={catFilter}
-        onFilterChange={setCatFilter}
-      />
-
-      {loading ? (
-        <div className="flex justify-center py-20"><Loader2 className="w-7 h-7 animate-spin text-primary-400" /></div>
-      ) : (
-        <div className="">
-          {filteredAlbums.length === 0 ? (
-            <div className="text-center py-20 bg-white rounded-2xl border border-gray-100">
-              <Image className="w-14 h-14 text-gray-200 mx-auto mb-3" />
-              <p className="text-gray-400">앨범이 없습니다</p>
-            </div>
-          ) : gridView ? (
-            <div className="grid grid-cols-2 gap-3">
-              {filteredAlbums.map(album => (
-                <button key={album.id} onClick={() => openAlbum(album)}
-                  className="text-left bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md active:scale-[0.98] transition-all">
-                  <div className="aspect-[4/3] bg-gray-100 overflow-hidden relative">
-                    {album.cover_image ? (
-                      <img src={album.cover_image} alt={album.title} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center gap-1 bg-gradient-to-br from-primary-50 to-primary-100">
-                        <Image className="w-10 h-10 text-primary-200" />
-                      </div>
-                    )}
-                    {album.category && (
-                      <div className="absolute bottom-1.5 left-1.5">
-                        <span className="text-[9px] font-bold bg-black/40 text-white px-2 py-0.5 rounded-full">{album.category}</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-3">
-                    <h3 className="font-semibold text-gray-900 text-sm line-clamp-1">{album.title}</h3>
-                    {album.event_date && (
-                      <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
-                        <Calendar className="w-3 h-3" /> {album.event_date}
-                      </p>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="church-list">
-              {filteredAlbums.map(album => (
-                <button key={album.id} onClick={() => openAlbum(album)}
-                  className="church-list-row !p-0 flex items-stretch overflow-hidden">
-                  <div className="w-24 h-24 flex-shrink-0 bg-gray-100 overflow-hidden">
-                    {album.cover_image ? (
-                      <img src={album.cover_image} alt={album.title} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100">
-                        <Image className="w-8 h-8 text-primary-200" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-3 flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
-                      {album.category && <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-medium">{album.category}</span>}
-                    </div>
-                    <h3 className="font-semibold text-gray-900 text-sm truncate">{album.title}</h3>
-                    {album.description && <p className="text-xs text-gray-500 mt-0.5 truncate">{album.description}</p>}
-                    {album.event_date && (
-                      <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
-                        <Calendar className="w-3 h-3" /> {album.event_date}
-                      </p>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {showCreateForm && (
-        <CreateAlbumModal
-          availableScopes={availableScopes}
-          onSave={handleCreateAlbum}
-          onClose={() => setShowCreateForm(false)}
-        />
-      )}
-    </div>
-  );
-}
-
-const SCOPE_TYPE_LABEL: Record<string, string> = {
-  all: '전체 성도', district: '특정 교구', zone: '특정 구역', department: '특정 부서',
-};
-
-function CreateAlbumModal({
-  availableScopes,
-  onSave,
-  onClose,
-}: {
-  availableScopes: ContentScope[];
-  onSave: (a: Album) => void;
-  onClose: () => void;
-}) {
-  const [title, setTitle]       = useState('');
-  const [description, setDescription] = useState('');
-  const [eventDate, setEventDate] = useState('');
-  const [category, setCategory] = useState('행사');
-  const [scope, setScope]       = useState<ContentScope>(availableScopes[0] ?? { type: 'all', name: '전체 성도' });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim()) return;
-    const album: Album = {
-      id: `local-${Date.now()}`,
-      title: title.trim(),
-      description: description || undefined,
-      event_date: eventDate || undefined,
-      category,
-      created_at: new Date().toISOString().slice(0, 10),
-      cover_image: undefined,
+  useEffect(() => {
+    const onPopState = () => {
+      const hist = readAlbumHistory();
+      if (hist?.layer === 'detail') {
+        setDetailId(hist.id);
+        setShowForm(false);
+        return;
+      }
+      setDetailId(null);
+      setShowForm(false);
+      restoreListScroll();
     };
-    onSave(album);
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [restoreListScroll]);
+
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(''), 2500);
   };
 
-  return (
-    <MobileEditorModal title="앨범 등록" onClose={onClose}>
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+  const visibleAlbums = useMemo(
+    () => albums.filter(a => isAlbumVisible(user, a)),
+    [albums, user],
+  );
+
+  const filtered = useMemo(
+    () =>
+      visibleAlbums
+        .filter(a => albumMatchesDetailFilter(a, searchFilter, myOrgIds, orgNameById))
+        .sort((a, b) => (b.event_date || b.created_at).localeCompare(a.event_date || a.created_at)),
+    [visibleAlbums, searchFilter, myOrgIds, orgNameById],
+  );
+
+  const detailAlbum = detailId ? albums.find(a => a.id === detailId) ?? null : null;
+
+  const loadPhotos = useCallback(async (albumId: string) => {
+    setPhotosLoading(true);
+    try {
+      const { data } = await supabase
+        .from('photos')
+        .select('*')
+        .eq('album_id', albumId)
+        .order('sort_order')
+        .order('created_at');
+      setPhotos(
+        data && data.length > 0
+          ? data
+          : DEMO_PHOTOS.filter(p => p.album_id === albumId).length > 0
+            ? DEMO_PHOTOS.filter(p => p.album_id === albumId)
+            : albumId.startsWith('d') ? DEMO_PHOTOS : [],
+      );
+    } catch {
+      setPhotos(DEMO_PHOTOS);
+    } finally {
+      setPhotosLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (detailId) loadPhotos(detailId);
+    else setPhotos([]);
+  }, [detailId, loadPhotos]);
+
+  const setKeyword = (keyword: string) => {
+    setSearchFilter({ ...searchFilter, keyword });
+    setDraftFilter({ ...draftFilter, keyword });
+  };
+
+  const handleDraftChange = (f: AnnouncementSearchFilter) => {
+    setDraftFilter(f);
+    if (f.keyword !== searchFilter.keyword) {
+      setSearchFilter({ ...searchFilter, keyword: f.keyword });
+    }
+  };
+
+  const resetFilters = () => {
+    setSearchFilter(EMPTY_FILTER);
+    setDraftFilter(EMPTY_FILTER);
+    setShowSearch(false);
+  };
+
+  const openDetail = (album: AlbumItem) => {
+    captureListScroll();
+    setDetailId(album.id);
+    window.history.pushState(
+      { [HISTORY_KEY]: true, layer: 'detail', id: album.id } satisfies AlbumHistory,
+      '',
+    );
+  };
+
+  const openNew = () => {
+    if (!canManage) return;
+    setEditing(null);
+    setForm({
+      ...EMPTY_FORM,
+      scope: availableScopes[0] ?? { type: 'all', name: '전체 성도' },
+    });
+    setShowForm(true);
+  };
+
+  const openEdit = (album: AlbumItem) => {
+    if (!canManage) return;
+    const merged = mergeAlbumList([album])[0];
+    setEditing(merged);
+    setForm({
+      title: merged.title,
+      description: merged.description || '',
+      event_date: merged.event_date || new Date().toISOString().split('T')[0],
+      category: merged.category || '행사',
+      scope: {
+        type: merged.visibility_type ?? 'all',
+        id: merged.scope_id,
+        name: merged.scope_name,
+      },
+    });
+    setDetailId(null);
+    setShowForm(true);
+  };
+
+  const handleFormBack = () => {
+    if (form.title.trim() && !window.confirm('작성 중인 내용이 있습니다.\n나가시겠습니까?')) return;
+    setShowForm(false);
+    setEditing(null);
+  };
+
+  const handleSubmit = async (e?: FormEvent) => {
+    e?.preventDefault();
+    if (!canManage || saving || !form.title.trim()) return;
+    setSaving(true);
+
+    const visibilityMap: Record<string, string> = {
+      all: '전체성도',
+      district: '교구별',
+      zone: '교구별',
+      department: '부서별',
+    };
+
+    const payload = {
+      title: form.title.trim(),
+      description: form.description.trim() || null,
+      event_date: form.event_date || null,
+      category: form.category,
+      visibility: visibilityMap[form.scope.type] ?? '전체성도',
+    };
+
+    try {
+      if (editing) {
+        await supabase.from('albums').update(payload).eq('id', editing.id);
+        saveAlbumScope(editing.id, {
+          visibility_type: form.scope.type,
+          scope_id: form.scope.id,
+          scope_name: form.scope.name,
+        });
+        showToast('앨범이 수정되었습니다');
+      } else {
+        const { data } = await supabase.from('albums').insert(payload).select().single();
+        if (data) {
+          saveAlbumScope(data.id, {
+            visibility_type: form.scope.type,
+            scope_id: form.scope.id,
+            scope_name: form.scope.name,
+          });
+        } else {
+          const local: AlbumItem = {
+            id: `local-${Date.now()}`,
+            ...payload,
+            description: payload.description ?? undefined,
+            event_date: payload.event_date ?? undefined,
+            created_at: new Date().toISOString().slice(0, 10),
+            author_name: user?.name,
+            author_position: user?.position,
+          };
+          saveAlbumScope(local.id, {
+            visibility_type: form.scope.type,
+            scope_id: form.scope.id,
+            scope_name: form.scope.name,
+          });
+          setAlbums(prev => [mergeAlbumList([local])[0], ...prev]);
+        }
+        showToast('앨범이 등록되었습니다');
+      }
+      setShowForm(false);
+      setEditing(null);
+      await fetchAlbums();
+    } catch {
+      if (!editing) {
+        const local: AlbumItem = {
+          id: `local-${Date.now()}`,
+          title: form.title.trim(),
+          description: form.description || undefined,
+          event_date: form.event_date || undefined,
+          category: form.category,
+          visibility: payload.visibility,
+          created_at: new Date().toISOString().slice(0, 10),
+          author_name: user?.name,
+          author_position: user?.position,
+          photo_count: 0,
+        };
+        saveAlbumScope(local.id, {
+          visibility_type: form.scope.type,
+          scope_id: form.scope.id,
+          scope_name: form.scope.name,
+        });
+        setAlbums(prev => [mergeAlbumList([local])[0], ...prev]);
+        showToast('앨범이 등록되었습니다 (로컬 저장)');
+        setShowForm(false);
+        setEditing(null);
+      } else {
+        showToast('저장에 실패했습니다');
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!canManage) return;
+    try {
+      await supabase.from('albums').delete().eq('id', id);
+    } catch {
+      /* demo fallback */
+    }
+    setAlbums(prev => prev.filter(a => a.id !== id));
+    setDeleteConfirm(null);
+    setDetailId(null);
+    showToast('삭제되었습니다');
+    restoreListScroll();
+  };
+
+  /* ── Form ── */
+  if (showForm && canManage) {
+    return (
+      <ContentEditorLayout
+        title={editing ? '앨범 수정' : '앨범 작성'}
+        onBack={handleFormBack}
+        saveButton={
+          <button
+            type="button"
+            onClick={() => handleSubmit()}
+            disabled={saving || !form.title.trim()}
+            className="inline-flex items-center gap-1.5 h-12 px-5 bg-primary-500 hover:bg-primary-600 text-[#1A1A1A] rounded-[18px] text-sm font-bold disabled:opacity-50 transition-colors"
+          >
+            {saving ? '저장 중...' : editing ? '수정' : '등록'}
+          </button>
+        }
+      >
+        <div className="space-y-4 max-w-[900px] mx-auto">
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1.5">앨범 제목 *</label>
-            <input value={title} onChange={e => setTitle(e.target.value)} required placeholder="앨범 제목을 입력하세요"
-              className="w-full px-3.5 py-3 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:border-primary-400 focus:ring-0" />
+            <label className="text-xs font-semibold text-gray-600 mb-1.5 block">앨범 제목 *</label>
+            <input
+              value={form.title}
+              onChange={e => setForm({ ...form, title: e.target.value })}
+              placeholder="앨범 제목을 입력하세요"
+              required
+              className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm min-h-[48px] focus:outline-none focus:border-primary-400"
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1.5">카테고리</label>
-              <select value={category} onChange={e => setCategory(e.target.value)}
-                className="w-full px-3 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:border-primary-400 focus:ring-0">
-                {CAT_LABELS.filter(c => c !== '전체').map(c => <option key={c} value={c}>{c}</option>)}
+              <label className="text-xs font-semibold text-gray-600 mb-1.5 block">카테고리</label>
+              <select
+                value={form.category}
+                onChange={e => setForm({ ...form, category: e.target.value })}
+                className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm min-h-[48px] focus:outline-none focus:border-primary-400"
+              >
+                {CAT_LABELS.map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1.5">행사 날짜</label>
-              <input type="date" value={eventDate} onChange={e => setEventDate(e.target.value)}
-                className="w-full px-3 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:border-primary-400 focus:ring-0" />
+              <label className="text-xs font-semibold text-gray-600 mb-1.5 block">행사 날짜</label>
+              <input
+                type="date"
+                value={form.event_date}
+                onChange={e => setForm({ ...form, event_date: e.target.value })}
+                className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm min-h-[48px] focus:outline-none focus:border-primary-400"
+              />
             </div>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1.5">설명</label>
-            <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder="앨범 설명"
-              className="w-full px-3.5 py-3 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:border-primary-400 focus:ring-0 resize-none" />
+            <label className="text-xs font-semibold text-gray-600 mb-1.5 block">설명</label>
+            <textarea
+              value={form.description}
+              onChange={e => setForm({ ...form, description: e.target.value })}
+              rows={3}
+              placeholder="앨범 설명"
+              className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary-400 resize-none"
+            />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1.5">공개 범위</label>
+            <label className="text-xs font-semibold text-gray-600 mb-1.5 block">공개 범위</label>
             <select
-              value={availableScopes.indexOf(scope)}
-              onChange={e => setScope(availableScopes[Number(e.target.value)] ?? scope)}
-              className="w-full px-3 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:border-primary-400 focus:ring-0"
+              value={Math.max(0, availableScopes.findIndex(s => s.type === form.scope.type && s.id === form.scope.id))}
+              onChange={e => setForm({ ...form, scope: availableScopes[Number(e.target.value)] ?? form.scope })}
+              className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm min-h-[48px] focus:outline-none focus:border-primary-400"
             >
               {availableScopes.map((s, i) => (
-                <option key={i} value={i}>{SCOPE_TYPE_LABEL[s.type]} {s.name && s.type !== 'all' ? `(${s.name})` : ''}</option>
+                <option key={i} value={i}>
+                  {SCOPE_TYPE_LABEL[s.type]} {s.name && s.type !== 'all' ? `(${s.name})` : ''}
+                </option>
               ))}
             </select>
           </div>
-          <div className="flex gap-3 pt-1">
-            <button type="button" onClick={onClose} className="flex-1 py-3 border border-gray-200 text-gray-600 font-semibold rounded-2xl text-sm">취소</button>
-            <button type="submit" className="flex-1 py-3 bg-primary-500 text-white font-bold rounded-2xl text-sm hover:bg-primary-600">앨범 등록</button>
+        </div>
+      </ContentEditorLayout>
+    );
+  }
+
+  /* ── Detail ── */
+  if (detailAlbum && !showForm) {
+    return (
+      <>
+        <AlbumDetailView
+          album={detailAlbum}
+          photos={photos}
+          photosLoading={photosLoading}
+          canManage={canManage}
+          onBack={() => {
+            const hist = readAlbumHistory();
+            if (hist?.layer === 'detail') {
+              window.history.back();
+              return;
+            }
+            setDetailId(null);
+            restoreListScroll();
+          }}
+          onEdit={() => openEdit(detailAlbum)}
+          onDelete={() => setDeleteConfirm(detailAlbum.id)}
+        />
+        <ConfirmDialog
+          open={!!deleteConfirm}
+          onClose={() => setDeleteConfirm(null)}
+          onConfirm={() => deleteConfirm && handleDelete(deleteConfirm)}
+          title="앨범 삭제"
+          description="앨범과 사진이 함께 삭제됩니다. 이 작업은 되돌릴 수 없습니다."
+          variant="danger"
+        />
+        {toast && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white px-5 py-3 rounded-2xl shadow-xl text-sm font-medium">
+            {toast}
           </div>
-        </form>
-    </MobileEditorModal>
+        )}
+      </>
+    );
+  }
+
+  /* ── List ── */
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-48">
+        <Loader className="w-6 h-6 animate-spin text-primary-500" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5 pb-24 md:pb-8 max-w-[900px] mx-auto">
+      <PageHeaderBar
+        title="앨범"
+        description="교회의 소중한 순간을 함께 나눠보세요."
+        action={
+          canManage ? (
+            <button
+              type="button"
+              onClick={openNew}
+              className="inline-flex items-center gap-2 h-12 px-4 rounded-[18px] bg-primary-500 text-[#1A1A1A] text-sm font-bold hover:bg-primary-600 active:bg-primary-700 active:scale-[0.98] transition-all touch-target"
+            >
+              <Plus className="w-4 h-4" />
+              앨범 작성
+            </button>
+          ) : undefined
+        }
+        mobileFab={canManage ? { label: '앨범 작성', onClick: openNew } : undefined}
+      />
+
+      <div className="space-y-2">
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              value={searchFilter.keyword}
+              onChange={e => setKeyword(e.target.value)}
+              placeholder="키워드, 앨범 검색"
+              className="w-full pl-12 pr-12 py-3 rounded-2xl border border-gray-200 text-sm bg-white min-h-[48px] focus:border-primary-400 focus:outline-none"
+            />
+            {searchFilter.keyword && (
+              <button
+                type="button"
+                onClick={() => setKeyword('')}
+                className="absolute right-4 top-1/2 -translate-y-1/2 touch-target"
+                aria-label="검색어 지우기"
+              >
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <DetailSettingsButton
+              onClick={() => {
+                if (!showSearch) setDraftFilter(searchFilter);
+                setShowSearch(s => !s);
+              }}
+              active={showSearch}
+              activeCount={countDetailSettingFilters(searchFilter)}
+              aria-expanded={showSearch}
+              className="flex-1 sm:flex-none"
+            />
+            <ViewModeToggle value={viewMode} onChange={setViewMode} />
+          </div>
+        </div>
+      </div>
+
+      {showSearch && isMobile && (
+        <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-end">
+          <div className="w-full bg-white rounded-t-[24px] shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-5 pt-4 pb-2">
+              <h3 className="text-base font-bold text-gray-900">상세설정</h3>
+              <button
+                type="button"
+                onClick={() => setShowSearch(false)}
+                className="p-2 rounded-xl text-gray-400 hover:bg-gray-100 touch-target"
+                aria-label="닫기"
+              >
+                ✕
+              </button>
+            </div>
+            <AnnouncementSearchPanel
+              asSheet
+              value={draftFilter}
+              onChange={handleDraftChange}
+              onApply={() => {
+                setSearchFilter(draftFilter);
+                setShowSearch(false);
+              }}
+              onReset={resetFilters}
+            />
+          </div>
+        </div>
+      )}
+
+      {showSearch && !isMobile && (
+        <AnnouncementSearchPanel
+          value={draftFilter}
+          onChange={handleDraftChange}
+          onApply={() => {
+            setSearchFilter(draftFilter);
+            setShowSearch(false);
+          }}
+          onReset={resetFilters}
+        />
+      )}
+
+      {isFilterActive(searchFilter) && !showSearch && (
+        <AnnouncementFilterChips
+          filter={searchFilter}
+          onChange={f => {
+            setSearchFilter(f);
+            setDraftFilter(f);
+          }}
+        />
+      )}
+
+      {filtered.length === 0 ? (
+        <EmptyState
+          icon={Image}
+          title="앨범이 없습니다"
+          description="등록된 앨범이 없거나 검색 조건에 맞는 앨범이 없습니다."
+        />
+      ) : viewMode === 'list' ? (
+        <div className="divide-y divide-gray-100 bg-white rounded-[24px] border border-[#ECECEC] overflow-hidden">
+          {filtered.map(album => (
+            <div key={album.id} className="px-4">
+              <AlbumListRow
+                album={album}
+                canManage={canManage}
+                onOpen={() => openDetail(album)}
+                onEdit={() => openEdit(album)}
+                onDelete={() => setDeleteConfirm(album.id)}
+              />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filtered.map(album => (
+            <AlbumGridCard
+              key={album.id}
+              album={album}
+              canManage={canManage}
+              onOpen={() => openDetail(album)}
+              onEdit={() => openEdit(album)}
+              onDelete={() => setDeleteConfirm(album.id)}
+            />
+          ))}
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={() => deleteConfirm && handleDelete(deleteConfirm)}
+        title="앨범 삭제"
+        description="앨범과 사진이 함께 삭제됩니다. 이 작업은 되돌릴 수 없습니다."
+        variant="danger"
+      />
+
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white px-5 py-3 rounded-2xl shadow-xl text-sm font-medium">
+          {toast}
+        </div>
+      )}
+    </div>
   );
 }
