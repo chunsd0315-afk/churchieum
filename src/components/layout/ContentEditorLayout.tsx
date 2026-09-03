@@ -1,7 +1,7 @@
 import { useEffect, type ReactNode } from 'react';
-import { ChevronLeft } from 'lucide-react';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
 import { EditorPageHeader, MobileEditorPageHeader, MobileSubPageHeader } from '../common/ui/PageLayout';
+import { BackButton } from '../common/ui/BackButton';
 
 export type ContentEditorLayoutProps = {
   title: string;
@@ -66,14 +66,7 @@ export default function ContentEditorLayout({
   const backButton = hideBack ? (
     <div className="w-12 shrink-0" aria-hidden />
   ) : (
-    <button
-      type="button"
-      onClick={onBack}
-      className="flex items-center gap-1 px-3 py-2 hover:bg-gray-100 rounded-[10px] transition-colors text-gray-600 touch-target"
-    >
-      <ChevronLeft className="w-5 h-5" />
-      <span className="text-sm font-medium">뒤로</span>
-    </button>
+    <BackButton onClick={onBack} />
   );
 
   const headerProps = {

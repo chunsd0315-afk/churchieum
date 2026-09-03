@@ -186,6 +186,9 @@ export type { ChurchConfirmDialogProps } from './ChurchConfirmDialog';
 export { DetailSettingsButton } from './DetailSettingsButton';
 export type { DetailSettingsButtonProps } from './DetailSettingsButton';
 
+export { BackButton } from './BackButton';
+export type { BackButtonProps } from './BackButton';
+
 export {
   ContentListToolbar,
   CONTENT_CARD_CLASS,

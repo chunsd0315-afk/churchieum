@@ -24,7 +24,8 @@ import {
   getStoredTranslationMode, setStoredTranslationMode,
   searchBibleTranslation, getEnglishBookName,
 } from '../../services/bibleTranslation';
-import { PageHeaderBar } from '../../components/common/ui';
+import { BackButton, PageHeaderBar } from '../../components/common/ui';
+import { PageHeaderTextBlock, PAGE_HEADER_SPACING_DEFAULT } from '../../components/common/ui/PageHeaderTypography';
 import TranslationSelector from '../../components/member/TranslationSelector';
 import { MenuIcon } from '../../components/common/MenuIcon';
 
@@ -273,36 +274,43 @@ export default function BiblePage({ onNavigate, initialRef }: Props) {
     if (selectedBook) pushRecentReading(selectedBook, ch);
   };
 
+  const showBrowseBack = tab === 'browse' && browseDepth > 0;
+
+  const browseHeader = (() => {
+    if (!showBrowseBack) return null;
+    if (selectedChapter != null && selectedBook) {
+      return {
+        title: `${selectedBook} ${selectedChapter}장`,
+        description: '하나님의 말씀을 읽고 묵상하세요.',
+      };
+    }
+    if (selectedBook) {
+      const info = BOOK_LIST.find(b => b.name === selectedBook);
+      return {
+        title: selectedBook,
+        description: info ? `총 ${info.chapters}장 · 장을 선택하세요.` : '장을 선택하세요.',
+      };
+    }
+    return {
+      title: testament === 'old' ? '구약성경' : '신약성경',
+      description: testament === 'old' ? '구약 39권을 선택하세요.' : '신약 27권을 선택하세요.',
+    };
+  })();
+
   return (
     <div className="flex flex-col pb-24 md:pb-8 max-w-[900px] mx-auto" style={{ minHeight: 'calc(100vh - 120px)' }}>
-      <PageHeaderBar
-        title="성경"
-        description="하나님의 말씀을 읽고 묵상하세요."
-        mobileAction={
-          tab === 'browse' && browseDepth > 0 ? (
-            <button
-              type="button"
-              onClick={handleBrowseBack}
-              className="inline-flex items-center gap-1 px-3 h-11 rounded-[14px] text-sm font-semibold text-gray-600 hover:bg-gray-100 touch-target"
-            >
-              <ChevronLeft className="w-4 h-4" />
-              뒤로
-            </button>
-          ) : undefined
-        }
-      />
-
-      {tab === 'browse' && browseDepth > 0 && (
-        <div className="hidden md:flex items-center mb-2">
-          <button
-            type="button"
-            onClick={handleBrowseBack}
-            className="inline-flex items-center gap-1 px-3 py-2 rounded-[10px] text-sm font-medium text-gray-600 hover:bg-gray-100 touch-target"
-          >
-            <ChevronLeft className="w-5 h-5" />
-            뒤로
-          </button>
+      {showBrowseBack && browseHeader ? (
+        <div className={`flex items-center gap-3 md:gap-6 ${PAGE_HEADER_SPACING_DEFAULT}`}>
+          <BackButton onClick={handleBrowseBack} />
+          <div className="min-w-0 flex-1">
+            <PageHeaderTextBlock title={browseHeader.title} description={browseHeader.description} />
+          </div>
         </div>
+      ) : (
+        <PageHeaderBar
+          title="성경"
+          description="하나님의 말씀을 읽고 묵상하세요."
+        />
       )}
 
       {/* Quick-reference bar */}
