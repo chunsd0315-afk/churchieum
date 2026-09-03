@@ -32,6 +32,10 @@ type Props = {
   onSelect: (id: string) => void;
   onAddChild: (parentId: string | null) => void;
   onTreeMoved?: () => void;
+  /** 검색 매칭 조직(하이라이트) */
+  matchedIds?: Set<string>;
+  /** 검색 시 강제 펼칠 조상 포함 ID */
+  forceExpandIds?: Set<string>;
 };
 
 type FlatRow = {
@@ -107,6 +111,7 @@ function TreeRow({
   canDrag,
   dropHint,
   isDragging,
+  isMatch,
 }: {
   row: FlatRow;
   selectedId: string | null;
@@ -117,6 +122,7 @@ function TreeRow({
   canDrag: boolean;
   dropHint: { id: string; position: OrgDropPosition; invalid?: boolean } | null;
   isDragging: boolean;
+  isMatch?: boolean;
 }) {
   const { node, depth } = row;
   const hasChildren = node.children.length > 0;
@@ -167,7 +173,11 @@ function TreeRow({
         ref={setRowRef}
         className={[
           'group flex items-center gap-0.5 rounded-[12px] pr-1 transition-colors',
-          active ? 'bg-primary-50 text-primary-700' : 'hover:bg-gray-50 text-gray-800',
+          active
+            ? 'bg-[#FFF7D6] text-[#1A1A1A] ring-1 ring-primary-400/60 font-bold'
+            : isMatch
+              ? 'bg-primary-50/70 text-gray-900'
+              : 'hover:bg-gray-50 text-gray-800',
           showInside ? 'ring-2 ring-primary-400 bg-primary-50/80' : '',
           showInvalid ? 'ring-2 ring-red-300 bg-red-50' : '',
         ].join(' ')}
@@ -208,7 +218,9 @@ function TreeRow({
           onClick={() => onSelect(node.id)}
           className="flex-1 min-w-0 text-left py-2.5 touch-target"
         >
-          <span className={`block text-[14px] font-semibold truncate ${!node.isActive ? 'text-gray-400 line-through' : ''}`}>
+          <span className={`block text-[14px] truncate ${
+            active ? 'font-bold text-[#1A1A1A]' : 'font-semibold'
+          } ${!node.isActive ? 'text-gray-400 line-through' : ''}`}>
             {node.name}
           </span>
           <span className="block text-[11px] text-gray-400 truncate">{typeLabel}</span>
@@ -239,6 +251,8 @@ export function OrgTreePanel({
   onSelect,
   onAddChild,
   onTreeMoved,
+  matchedIds,
+  forceExpandIds,
 }: Props) {
   const { terminologyVersion } = useOrgSettings();
   void terminologyVersion;
@@ -286,6 +300,21 @@ export function OrgTreePanel({
       return next;
     });
   }, []);
+
+  useEffect(() => {
+    if (!forceExpandIds || forceExpandIds.size === 0) return;
+    setExpanded(prev => {
+      let changed = false;
+      const next = new Set(prev);
+      forceExpandIds.forEach(id => {
+        if (!next.has(id)) {
+          next.add(id);
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [forceExpandIds]);
 
   useEffect(() => {
     if (!toast) return;
@@ -454,7 +483,7 @@ export function OrgTreePanel({
     : null;
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-white rounded-[20px] border border-gray-200 shadow-sm overflow-hidden">
+    <div className="flex flex-col h-full min-h-0 bg-white rounded-[20px] border border-[#ECECEC] shadow-[0_8px_30px_rgba(0,0,0,0.06)] overflow-hidden">
       <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-gray-100">
         <div className="flex items-center gap-2 min-w-0">
           <FolderTree className="w-4 h-4 text-primary-600 shrink-0" />
@@ -509,6 +538,7 @@ export function OrgTreePanel({
                   canDrag={canDrag && !moving}
                   dropHint={dropHint}
                   isDragging={activeId === row.id}
+                  isMatch={matchedIds?.has(row.id)}
                 />
               </div>
             ))}

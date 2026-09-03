@@ -208,7 +208,7 @@ export function OrgDetailPanel({
   const inputClass = 'w-full px-3.5 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:border-primary-400 focus:outline-none';
 
   return (
-    <div className="h-full flex flex-col min-h-0 bg-white rounded-[20px] border border-gray-200 shadow-sm overflow-hidden">
+    <div className="h-full flex flex-col min-h-0 bg-white rounded-[20px] border border-[#ECECEC] shadow-[0_8px_30px_rgba(0,0,0,0.06)] overflow-hidden">
       <div className="px-4 py-3 border-b border-gray-100 flex items-start justify-between gap-2">
         <div className="min-w-0">
           <h3 className="text-[17px] font-bold text-gray-900 truncate">
@@ -273,14 +273,6 @@ export function OrgDetailPanel({
               />
             </Field>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="정렬순서">
-                <input
-                  type="number"
-                  className={inputClass}
-                  value={sortOrder}
-                  onChange={e => setSortOrder(Number(e.target.value))}
-                />
-              </Field>
               <Field label="활성 여부">
                 <button
                   type="button"
@@ -291,6 +283,15 @@ export function OrgDetailPanel({
                 >
                   {isActive ? '활성' : '비활성'}
                 </button>
+              </Field>
+              <Field label="정렬 (내부)">
+                <input
+                  type="number"
+                  className={inputClass}
+                  value={sortOrder}
+                  onChange={e => setSortOrder(Number(e.target.value))}
+                  aria-label="정렬 순서"
+                />
               </Field>
             </div>
             <ChurchButton icon={<Save size={18} />} onClick={handleSaveInfo} className="w-full">

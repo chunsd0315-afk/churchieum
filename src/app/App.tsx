@@ -257,7 +257,7 @@ function AppContent() {
       >
         {adminPage === 'home' && <SafePage><AdminHome onNavigate={setAdminPage} /></SafePage>}
         {adminPage === 'church' && <SafePage><ChurchManagementPage /></SafePage>}
-        {adminPage === 'org' && <SafePage><OrganizationManagementPage /></SafePage>}
+        {adminPage === 'org' && <SafePage><OrganizationManagementPage onNavigate={setAdminPage} /></SafePage>}
         {adminPage === 'districts' && <SafePage><DistrictManagementPage /></SafePage>}
         {adminPage === 'zones' && <SafePage><ZoneManagementPage /></SafePage>}
         {adminPage === 'departments' && <SafePage><DepartmentManagementPage /></SafePage>}
