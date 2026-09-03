@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   ChevronLeft,
@@ -15,6 +15,7 @@ import {
   catalogPageLabels,
 } from '../common/home/roleMenus';
 import { HOME_MENU_CATALOG } from '../common/home/homeMenuCatalog';
+import { CHURCH_APP_SETTINGS_EVENT } from '../../services/churchAppSettingsStorage';
 
 export type Page =
   | 'home'
@@ -30,8 +31,6 @@ export type Page =
   | 'schedule'
   | 'church-info'
   | 'sharing';
-
-const SIDEBAR_NAV_ITEMS = buildSidebarNavItems<Page>(MEMBER_ROLE_MENUS);
 
 const BOTTOM_NAV_ITEMS = [
   { page: 'home' as const, label: '홈', icon: Home },
@@ -69,6 +68,18 @@ export function MemberLayout({ children, currentPage, onNavigate, onSwitchMode, 
   const { user } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifTick, setNotifTick] = useState(0);
+  const [menuTick, setMenuTick] = useState(0);
+
+  useEffect(() => {
+    const sync = () => setMenuTick(t => t + 1);
+    window.addEventListener(CHURCH_APP_SETTINGS_EVENT, sync);
+    return () => window.removeEventListener(CHURCH_APP_SETTINGS_EVENT, sync);
+  }, []);
+
+  const sidebarNavItems = useMemo(
+    () => buildSidebarNavItems<Page>(MEMBER_ROLE_MENUS),
+    [menuTick],
+  );
 
   const unreadCount = user?.id
     ? getUnreadNotificationCount(user.id)
@@ -127,7 +138,7 @@ export function MemberLayout({ children, currentPage, onNavigate, onSwitchMode, 
       isHomePage={isHome}
       mobileHomeHeader={mobileHomeHeader}
       mobileSubHeader={mobileSubHeader}
-      sidebarNavItems={SIDEBAR_NAV_ITEMS}
+      sidebarNavItems={sidebarNavItems}
       sidebarModeSwitcher={modeSwitcher}
       showSettingsButton={false}
       bottomNavItems={BOTTOM_NAV_ITEMS.map(i => ({ id: i.page, label: i.label, icon: i.icon }))}

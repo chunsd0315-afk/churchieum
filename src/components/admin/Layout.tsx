@@ -1,4 +1,4 @@
-﻿import { useState, useMemo } from 'react';
+﻿import { useState, useMemo, useEffect } from 'react';
 import { ChevronLeft, Settings,
   Home, BookOpen, BookHeart, User,
 } from 'lucide-react';
@@ -16,6 +16,7 @@ import {
 import { HOME_MENU_CATALOG, resolveCatalogItem } from '../common/home/homeMenuCatalog';
 import { useOrgSettings } from '../../contexts/OrgSettingsContext';
 import type { OrgSettings } from '../../contexts/OrgSettingsContext';
+import { CHURCH_APP_SETTINGS_EVENT } from '../../services/churchAppSettingsStorage';
 
 export type AdminPage =
   | 'home' | 'church' | 'org' | 'districts' | 'zones' | 'departments'
@@ -74,12 +75,19 @@ function useAdminPageCopy(settings: OrgSettings) {
 
 export function AdminLayout({ children, currentPage, onNavigate }: Props) {
   const [showSettings, setShowSettings] = useState(false);
+  const [menuTick, setMenuTick] = useState(0);
   const { settings } = useOrgSettings();
   const { pageLabels, pageSubtitles } = useAdminPageCopy(settings);
 
+  useEffect(() => {
+    const sync = () => setMenuTick(t => t + 1);
+    window.addEventListener(CHURCH_APP_SETTINGS_EVENT, sync);
+    return () => window.removeEventListener(CHURCH_APP_SETTINGS_EVENT, sync);
+  }, []);
+
   const sidebarNavItems = useMemo(
     () => buildSidebarNavItems<AdminNavId>(ADMIN_ROLE_MENUS, settings),
-    [settings],
+    [settings, menuTick],
   );
 
   const isHome = currentPage === 'home';

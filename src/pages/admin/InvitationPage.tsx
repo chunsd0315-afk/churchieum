@@ -10,7 +10,7 @@ import {
   MessageSquare, Share2, Clock, CheckCircle,
   Send, QrCode, Link,
   Users, Building, UserCog, MapPin, Layers, Plus,
-  AlertTriangle, Mail,
+  AlertTriangle, Mail, ShieldCheck,
 } from 'lucide-react';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
 import {
@@ -22,14 +22,14 @@ import TabSection from '../../components/layout/TabSection';
 import { useOrgSettings } from '../../contexts/OrgSettingsContext';
 
 /* ── Types ── */
-type MainTab = 'member' | 'clergy' | 'list';
+type MainTab = 'member' | 'clergy' | 'admin' | 'list';
 type InviteStatus = '대기중' | '발송완료' | '가입완료' | '만료';
 type ClergyPosition = '담임목사' | '목사' | '전도사' | '교육전도사' | '간사' | '직원' | '기타';
 type MemberJikbun  = '장로' | '안수집사' | '권사' | '서리집사' | '성도' | '기타';
 
 type InviteRow = {
   id: string;
-  type: 'member' | 'clergy';
+  type: 'member' | 'clergy' | 'admin';
   name: string;
   phone: string;
   email: string;
@@ -134,7 +134,13 @@ function ShareModal({ invite, onClose }: { invite: InviteRow; onClose: () => voi
         <div className="bg-gradient-to-br from-primary-500 to-secondary-500 px-5 py-4 text-white flex items-center justify-between">
           <div>
             <h3 className="font-bold text-lg">초대장 공유</h3>
-            <p className="text-sm opacity-80">{invite.name} · {invite.type === 'member' ? (invite.jikbun ?? '성도') : (invite.position ?? '')}</p>
+            <p className="text-sm opacity-80">{invite.name} · {
+              invite.type === 'member'
+                ? (invite.jikbun ?? '성도')
+                : invite.type === 'admin'
+                  ? '최고관리자'
+                  : (invite.position ?? '교역자')
+            }</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-xl"><X className="w-5 h-5" /></button>
         </div>
@@ -735,8 +741,18 @@ function PendingInviteList({ invites, onShare, onResend, onDelete }: {
                     </td>
                     <td className="px-4 py-3.5 text-xs text-gray-500">{inv.phone}</td>
                     <td className="px-4 py-3.5">
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${inv.type === 'clergy' ? 'bg-amber-100 text-amber-700' : 'bg-primary-100 text-primary-700'}`}>
-                        {inv.type === 'clergy' ? (inv.position ?? '교역자') : (inv.jikbun ?? '성도')}
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        inv.type === 'clergy'
+                          ? 'bg-amber-100 text-amber-700'
+                          : inv.type === 'admin'
+                            ? 'bg-[#FFF7D6] text-primary-800'
+                            : 'bg-primary-100 text-primary-700'
+                      }`}>
+                        {inv.type === 'clergy'
+                          ? (inv.position ?? '교역자')
+                          : inv.type === 'admin'
+                            ? '최고관리자'
+                            : (inv.jikbun ?? '성도')}
                       </span>
                     </td>
                     <td className="px-4 py-3.5 text-xs text-gray-500 max-w-[160px]">
@@ -781,8 +797,18 @@ function PendingInviteList({ invites, onShare, onResend, onDelete }: {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-0.5">
                       <span className="font-bold text-gray-900">{inv.name}</span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${inv.type === 'clergy' ? 'bg-amber-100 text-amber-700' : 'bg-primary-100 text-primary-700'}`}>
-                        {inv.type === 'clergy' ? (inv.position ?? '교역자') : (inv.jikbun ?? '성도')}
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        inv.type === 'clergy'
+                          ? 'bg-amber-100 text-amber-700'
+                          : inv.type === 'admin'
+                            ? 'bg-[#FFF7D6] text-primary-800'
+                            : 'bg-primary-100 text-primary-700'
+                      }`}>
+                        {inv.type === 'clergy'
+                          ? (inv.position ?? '교역자')
+                          : inv.type === 'admin'
+                            ? '최고관리자'
+                            : (inv.jikbun ?? '성도')}
                       </span>
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200 font-semibold">초대중</span>
                     </div>
@@ -814,6 +840,89 @@ function PendingInviteList({ invites, onShare, onResend, onDelete }: {
   );
 }
 
+// ─── Admin Invite Panel ───────────────────────────────────────────────────────
+function AdminInvitePanel({ onCreated }: { onCreated: (inv: InviteRow) => void }) {
+  const [form, setForm] = useState({ name: '', phone: '', email: '' });
+  const [errors, setErrors] = useState<{ name?: string; phone?: string }>({});
+  const [sent, setSent] = useState<InviteRow | null>(null);
+
+  const handleSend = () => {
+    const e: { name?: string; phone?: string } = {};
+    if (!form.name.trim()) e.name = '이름을 입력해주세요';
+    if (!form.phone.trim()) e.phone = '휴대폰 번호를 입력해주세요';
+    setErrors(e);
+    if (Object.keys(e).length > 0) return;
+    const inv: InviteRow = {
+      id: Date.now().toString(),
+      type: 'admin',
+      name: form.name.trim(),
+      phone: form.phone.trim(),
+      email: form.email.trim(),
+      code: generateCode(),
+      status: '대기중',
+      created_at: new Date().toISOString().split('T')[0],
+    };
+    onCreated(inv);
+    setSent(inv);
+  };
+
+  if (sent) {
+    return (
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center">
+        <CheckCircle className="w-10 h-10 text-secondary-500 mx-auto mb-3" />
+        <p className="font-bold text-gray-900 mb-1">최고관리자 초대가 생성되었습니다</p>
+        <p className="text-sm text-gray-500 mb-4">초대 코드: <span className="font-mono font-bold">{sent.code}</span></p>
+        <button
+          type="button"
+          onClick={() => { setSent(null); setForm({ name: '', phone: '', email: '' }); }}
+          className="text-sm font-semibold text-primary-700 hover:underline"
+        >
+          추가 초대하기
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 max-w-lg">
+      <h3 className="font-bold text-gray-900 text-sm mb-1 flex items-center gap-2">
+        <ShieldCheck className="w-4 h-4 text-primary-600" /> 최고관리자 초대
+      </h3>
+      <p className="text-xs text-gray-400 mb-4">이름·휴대전화만 입력하고 초대 링크를 전달합니다.</p>
+      <label className="block text-xs font-semibold text-gray-500 mb-1">이름</label>
+      <input
+        value={form.name}
+        onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+        className="w-full mb-1 px-3.5 py-3 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:border-primary-400 focus:outline-none"
+        placeholder="이름"
+      />
+      {errors.name && <p className="text-xs text-red-500 mb-2">{errors.name}</p>}
+      <label className="block text-xs font-semibold text-gray-500 mb-1 mt-2">휴대전화번호</label>
+      <input
+        value={form.phone}
+        onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+        className="w-full mb-1 px-3.5 py-3 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:border-primary-400 focus:outline-none"
+        placeholder="010-0000-0000"
+      />
+      {errors.phone && <p className="text-xs text-red-500 mb-2">{errors.phone}</p>}
+      <label className="block text-xs font-semibold text-gray-500 mb-1 mt-2">이메일 (선택)</label>
+      <input
+        value={form.email}
+        onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+        className="w-full mb-4 px-3.5 py-3 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:border-primary-400 focus:outline-none"
+        placeholder="email@church.kr"
+      />
+      <button
+        type="button"
+        onClick={handleSend}
+        className="w-full flex items-center justify-center gap-2 py-3.5 bg-primary-500 text-[#1A1A1A] font-bold rounded-2xl hover:bg-primary-600 text-sm min-h-[48px]"
+      >
+        <Send className="w-4 h-4" /> 초대 보내기
+      </button>
+    </div>
+  );
+}
+
 // ─── Main Export ──────────────────────────────────────────────────────────────
 type Props = { onNavigate?: (p: string) => void };
 
@@ -835,16 +944,17 @@ export default function InvitationPage({ onNavigate }: Props) {
   ));
 
   const TABS: { id: MainTab; label: string; icon: import('../../types/icons').NavIcon; badge?: number }[] = [
-    { id: 'member', label: '성도',   icon: Users,    badge: undefined },
-    { id: 'clergy', label: '교역자', icon: UserCog,  badge: undefined },
-    { id: 'list',   label: '초대중', icon: Mail,     badge: pendingCount },
+    { id: 'member', label: '성도', icon: Users, badge: undefined },
+    { id: 'clergy', label: '교역자', icon: UserCog, badge: undefined },
+    { id: 'admin', label: '최고관리자', icon: ShieldCheck, badge: undefined },
+    { id: 'list', label: '초대중', icon: Mail, badge: pendingCount },
   ];
 
   return (
     <div className="space-y-5 max-w-5xl pb-8">
       <PageHeaderBar
         title="초대관리"
-        description="교역자와 성도를 초대하고 초대 현황을 관리합니다."
+        description="초대할 대상을 선택하세요. 교역자·성도·최고관리자를 초대하고 현황을 관리합니다."
       />
       <TabSection
         tabs={TABS.map(t => ({ id: t.id, label: t.label, icon: t.icon, badge: t.badge }))}
@@ -859,6 +969,7 @@ export default function InvitationPage({ onNavigate }: Props) {
 
       {tab === 'member' && hasOrg && <MemberInvitePanel onCreated={handleCreated} />}
       {tab === 'clergy' && hasOrg && <ClergyInvitePanel onCreated={handleCreated} />}
+      {tab === 'admin' && <AdminInvitePanel onCreated={handleCreated} />}
       {tab === 'list' && (
         <PendingInviteList
           invites={invites}

@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../services/supabase';
+import { writeStoredChurchName, readStoredChurchName } from '../../services/currentUserDisplayMeta';
 import { useFileUpload } from '../../hooks/useFileUpload';
 import {
   Building2, MapPin, Clock, Globe, Youtube, Save, User, Phone,
@@ -83,6 +84,14 @@ export default function ChurchManagementPage() {
           worship_times: Array.isArray(church.worship_times) ? church.worship_times : EMPTY_CHURCH.worship_times,
         });
         setIsNew(false);
+        if (typeof church.name === 'string' && church.name.trim()) {
+          writeStoredChurchName(church.name);
+        }
+      } else {
+        const stored = readStoredChurchName();
+        if (stored) {
+          setData(prev => ({ ...prev, name: stored }));
+        }
       }
       setLoading(false);
     })();
@@ -114,10 +123,13 @@ export default function ChurchManagementPage() {
       } else {
         await supabase.from('churches').update(payload).eq('id', data.id);
       }
+      writeStoredChurchName(data.name);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch {
-      setError('저장 중 오류가 발생했습니다');
+      // 백엔드 실패 시에도 앱 표시용 교회명은 즉시 반영
+      writeStoredChurchName(data.name);
+      setError('클라우드 저장에 실패했습니다. 이 기기에는 교회명이 반영되었습니다.');
     }
     setSaving(false);
   };

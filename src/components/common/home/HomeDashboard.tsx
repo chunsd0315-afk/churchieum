@@ -6,10 +6,15 @@ import {
   DesktopMenuGrid,
   DS,
 } from '../design-system';
+import { useEffect, useState } from 'react';
 import { useBreakpoint } from '../../../hooks/useBreakpoint';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useChurchOrg } from '../../../hooks/useChurchOrg';
 import { useHomeDashboardData } from './useHomeDashboardData';
+import {
+  CHURCH_APP_SETTINGS_EVENT,
+  getHomeWidgets,
+} from '../../../services/churchAppSettingsStorage';
 
 export type HomeMenuItem = {
   id: string;
@@ -68,6 +73,13 @@ export default function HomeDashboard({
   const { user } = useAuth();
   const { churchName } = useChurchOrg(user);
   const { recentNotices, upcomingSchedules } = useHomeDashboardData();
+  const [homeWidgets, setHomeWidgets] = useState(() => getHomeWidgets());
+
+  useEffect(() => {
+    const sync = () => setHomeWidgets(getHomeWidgets());
+    window.addEventListener(CHURCH_APP_SETTINGS_EVENT, sync);
+    return () => window.removeEventListener(CHURCH_APP_SETTINGS_EVENT, sync);
+  }, []);
 
   const roleLabel = roleLabelForMode(mode, user?.position);
 
@@ -95,8 +107,11 @@ export default function HomeDashboard({
         <>
           <DesktopMenuGrid items={menuItems} />
           <HomeSummaryWidgets
-            schedules={upcomingSchedules}
-            notices={recentNotices}
+            schedules={homeWidgets.upcomingSchedules ? upcomingSchedules : []}
+            notices={homeWidgets.recentNotices ? recentNotices : []}
+            showSchedules={homeWidgets.upcomingSchedules}
+            showNotices={homeWidgets.recentNotices}
+            showTodayWord={homeWidgets.todayWord}
             onSchedulesMore={onSchedulesMore}
             onNoticesMore={onNoticesMore}
           />

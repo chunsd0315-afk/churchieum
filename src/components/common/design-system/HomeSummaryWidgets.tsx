@@ -8,6 +8,10 @@ type Props = {
   notices: NoticeItem[];
   onSchedulesMore?: () => void;
   onNoticesMore?: () => void;
+  showSchedules?: boolean;
+  showNotices?: boolean;
+  /** 참석 현황 자리에 오늘의 말씀 안내 — 기존 3열 유지용 */
+  showTodayWord?: boolean;
 };
 
 function WidgetCard({
@@ -61,24 +65,35 @@ function EmptyHint({ text }: { text: string }) {
 }
 
 /** PC 홈 하단 — 일정 · 공지 · 현황 위젯 */
-export function HomeSummaryWidgets({ schedules, notices, onSchedulesMore, onNoticesMore }: Props) {
+export function HomeSummaryWidgets({
+  schedules,
+  notices,
+  onSchedulesMore,
+  onNoticesMore,
+  showSchedules = true,
+  showNotices = true,
+  showTodayWord = true,
+}: Props) {
   const attendanceData = [
     { label: '주일예배', value: 128, color: DS.colors.accentBlue },
     { label: '새벽기도', value: 42, color: DS.colors.accentGreen },
     { label: '수요예배', value: 86, color: DS.colors.accentPurple },
   ];
   const total = attendanceData.reduce((s, d) => s + d.value, 0);
+  const visibleCount = [showSchedules, showNotices, showTodayWord].filter(Boolean).length;
+  if (visibleCount === 0) return null;
 
   return (
     <div
       className="w-full"
       style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(3, 1fr)',
+        gridTemplateColumns: `repeat(${Math.min(visibleCount, 3)}, 1fr)`,
         gap: DS.spacing.gridGapDesktop,
         marginTop: DS.spacing.sectionGap,
       }}
     >
+      {showSchedules && (
       <WidgetCard
         title="이번 주 일정"
         icon={<Soft3DIcon iconKey="schedule" size={36} />}
@@ -101,7 +116,9 @@ export function HomeSummaryWidgets({ schedules, notices, onSchedulesMore, onNoti
           </ul>
         )}
       </WidgetCard>
+      )}
 
+      {showNotices && (
       <WidgetCard
         title="최근 공지"
         icon={<Soft3DIcon iconKey="announcement" size={36} />}
@@ -122,7 +139,9 @@ export function HomeSummaryWidgets({ schedules, notices, onSchedulesMore, onNoti
           </ul>
         )}
       </WidgetCard>
+      )}
 
+      {showTodayWord && (
       <WidgetCard
         title="참석 현황"
         icon={<Soft3DIcon iconKey="statistics" size={36} />}
@@ -169,6 +188,7 @@ export function HomeSummaryWidgets({ schedules, notices, onSchedulesMore, onNoti
           </ul>
         </div>
       </WidgetCard>
+      )}
     </div>
   );
 }

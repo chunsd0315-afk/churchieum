@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   ChevronLeft, Home, BookOpen, BookHeart, User,
@@ -16,6 +16,7 @@ import {
   catalogPageLabels,
 } from '../common/home/roleMenus';
 import { HOME_MENU_CATALOG } from '../common/home/homeMenuCatalog';
+import { CHURCH_APP_SETTINGS_EVENT } from '../../services/churchAppSettingsStorage';
 
 export type PastorPage =
   | 'home'
@@ -34,8 +35,6 @@ export type PastorPage =
   | 'church-info';
 
 type PastorNavId = PastorPage | 'settings';
-
-const SIDEBAR_NAV_ITEMS = buildSidebarNavItems<PastorNavId>(PASTOR_ROLE_MENUS);
 
 const BOTTOM_NAV_ITEMS = [
   { page: 'home' as const, label: '홈', icon: Home },
@@ -70,10 +69,22 @@ type Props = {
 };
 
 export function PastorLayout({ children, currentPage, onNavigate }: Props) {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [notifTick, setNotifTick] = useState(0);
+  const [menuTick, setMenuTick] = useState(0);
+
+  useEffect(() => {
+    const sync = () => setMenuTick(t => t + 1);
+    window.addEventListener(CHURCH_APP_SETTINGS_EVENT, sync);
+    return () => window.removeEventListener(CHURCH_APP_SETTINGS_EVENT, sync);
+  }, []);
+
+  const sidebarNavItems = useMemo(
+    () => buildSidebarNavItems<PastorNavId>(PASTOR_ROLE_MENUS),
+    [menuTick],
+  );
 
   const unreadCount = user?.id ? getUnreadNotificationCount(user.id) : 0;
   void notifTick;
@@ -84,7 +95,9 @@ export function PastorLayout({ children, currentPage, onNavigate }: Props) {
 
   const handleNavigate = (id: string) => {
     if (id === 'settings') {
-      setShowSettings(true);
+      // 통합 설정은 최고관리자만 — 교역자는 내정보로
+      if (isAdmin) setShowSettings(true);
+      else onNavigate('profile');
       return;
     }
     onNavigate(id as PastorPage);
@@ -117,14 +130,14 @@ export function PastorLayout({ children, currentPage, onNavigate }: Props) {
   );
 
   return (
-    <HomeLayoutProvider openSettings={() => setShowSettings(true)}>
+    <HomeLayoutProvider openSettings={() => { if (isAdmin) setShowSettings(true); }}>
       <AppLayout
         currentPage={currentPage}
         onNavigate={handleNavigate}
         isHomePage={isHome}
         mobileHomeHeader={mobileHomeHeader}
         mobileSubHeader={mobileSubHeader}
-        sidebarNavItems={SIDEBAR_NAV_ITEMS.map(i => ({ page: i.page as PastorPage, label: i.label, iconKey: i.iconKey }))}
+        sidebarNavItems={sidebarNavItems.map(i => ({ page: i.page as PastorPage, label: i.label, iconKey: i.iconKey }))}
         bottomNavItems={BOTTOM_NAV_ITEMS.map(i => ({ id: i.page, label: i.label, icon: i.icon }))}
       >
         {children}
@@ -137,7 +150,7 @@ export function PastorLayout({ children, currentPage, onNavigate }: Props) {
           />
         )}
       </AppLayout>
-      {showSettings && (
+      {showSettings && isAdmin && (
         <ChurchSettingsPage onClose={() => { setShowSettings(false); onNavigate('home'); }} />
       )}
     </HomeLayoutProvider>
