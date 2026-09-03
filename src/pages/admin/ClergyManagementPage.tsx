@@ -15,6 +15,7 @@ import {
 } from '../../services/clergyData';
 import { getDistricts, getDepartments } from '../../services/orgData';
 import { useOrgSettings } from '../../contexts/OrgSettingsContext';
+import { useOrganizationTreeVersion } from '../../hooks/useOrganizationTreeVersion';
 import { useOrgMetaVersion } from '../../hooks/useOrgMeta';
 import { PageHeaderBar, ChurchList, CHURCH_LIST_ROW_CLASS } from '../../components/common/ui';
 import { resolveClergyProfileImage } from '../../services/profileImage';
@@ -555,7 +556,9 @@ type Props = { onNavigate?: (page: string) => void; initialFilter?: string };
 
 export default function ClergyManagementPage({ onNavigate: _onNavigate, initialFilter }: Props) {
   const metaVersion = useOrgMetaVersion();
+  const orgTreeVersion = useOrganizationTreeVersion();
   void metaVersion;
+  void orgTreeVersion;
   const [list, setList] = useState<ClergyMember[]>(() => getAllClergy());
   const [detailId, setDetailId] = useState<string | null>(null);
   const [search, setSearch] = useState('');

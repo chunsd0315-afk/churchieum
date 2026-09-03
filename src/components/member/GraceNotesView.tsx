@@ -46,6 +46,7 @@ import { migrateVisibility } from '../../types/sharedContent';
 import { resolveOrganizationShareMode } from '../../types/sharedContent';
 import { getVisibilityLabels, getPastorTerminologyPhrases } from '../../services/orgTerminology';
 import { useOrgSettings } from '../../contexts/OrgSettingsContext';
+import { useOrganizationTreeVersion } from '../../hooks/useOrganizationTreeVersion';
 import {
   getGraceShareTypeFilterLabel,
   getGraceShareTypeFilterOptions,
@@ -499,7 +500,9 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
 }) {
   const { user } = useAuth();
   const { districtDepartmentLabel, terminologyVersion, pastorPhrases } = useOrgSettings();
+  const orgTreeVersion = useOrganizationTreeVersion();
   void terminologyVersion;
+  void orgTreeVersion;
   const { isMobile } = useBreakpoint();
   const [tab, setTab] = useState<GraceCollectTab>('mine');
   const [collectionView, setCollectionView] = useState<'list' | 'filter'>('list');

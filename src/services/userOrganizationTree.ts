@@ -12,6 +12,7 @@ import {
   getDescendantIds,
   getMembershipsForMember,
   getOrganizationById,
+  getOrganizationNameById,
 } from './organizationStorage';
 import { resolveUserOrgMembership } from './graceNoteShareScope';
 import { getAssigneesForUser } from './orgAssigneeStorage';
@@ -304,7 +305,7 @@ export function getOrganizationPathLabel(
     cur = cur.parentId ? byId.get(cur.parentId) : undefined;
   }
 
-  return names.join(' > ') || orgId;
+  return names.length > 0 ? names.join(' > ') : getOrganizationNameById(orgId);
 }
 
 export function findOrgFilterNode(

@@ -1,5 +1,7 @@
 import type { AppUser } from './permissions';
 import type { ChurchEvent } from './supabase';
+import { getDepartmentNameById, getDistrictNameById, getZoneNameById } from './orgData';
+import { getOrganizationPathLabel } from './userOrganizationTree';
 
 export type ScheduleEvent = ChurchEvent & {
   visibility_type?: 'all' | 'district' | 'zone' | 'department';
@@ -144,5 +146,15 @@ export function isEventVisible(event: ScheduleEvent, user: AppUser | null): bool
 
 export function eventScopeBadge(event: ScheduleEvent): string {
   if (!event.visibility_type || event.visibility_type === 'all') return '전체';
+  if (event.scope_id) {
+    const live = getOrganizationPathLabel(event.scope_id);
+    if (live && live !== '조직 정보 없음') return live;
+    const legacyDistrict = getDistrictNameById(event.scope_id);
+    if (legacyDistrict !== '-') return legacyDistrict;
+    const legacyZone = getZoneNameById(event.scope_id);
+    if (legacyZone !== '-') return legacyZone;
+    const legacyDept = getDepartmentNameById(event.scope_id);
+    if (legacyDept !== '-') return legacyDept;
+  }
   return event.scope_name ?? eventTypeLabel(event.visibility_type);
 }

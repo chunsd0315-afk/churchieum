@@ -25,6 +25,7 @@ import {
   type AnnouncementSearchFilter,
 } from '../../components/announcement/AnnouncementSearchPanel';
 import { getAllOrganizations } from '../../services/organizationStorage';
+import { useOrganizationTreeVersion } from '../../hooks/useOrganizationTreeVersion';
 import { useAuth } from '../../contexts/AuthContext';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
 
@@ -74,9 +75,11 @@ export default function AnnouncementManagementPage() {
     [data, user],
   );
 
+  const orgTreeVersion = useOrganizationTreeVersion();
+
   const orgNameById = useMemo(
     () => new Map(getAllOrganizations().map(o => [o.id, o.name])),
-    [],
+    [orgTreeVersion],
   );
 
   const myOrgFallbackIds = useMemo(

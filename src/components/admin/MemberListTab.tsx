@@ -14,6 +14,7 @@ import {
   getDistrictNameById, getZoneNameById, getDepartmentNamesByIds,
 } from '../../services/orgData';
 import { useOrgSettings } from '../../contexts/OrgSettingsContext';
+import { useOrganizationTreeVersion } from '../../hooks/useOrganizationTreeVersion';
 import { ChurchList, CHURCH_LIST_ROW_CLASS } from '../common/ui';
 import { Avatar } from '../common/ui/Avatar';
 
@@ -349,6 +350,7 @@ type Props = {
 export default function MemberListTab({ onOpenForm, initialFilter }: Props) {
   const { isDesktop } = useBreakpoint();
   const { l1, l2, dept, settings } = useOrgSettings();
+  const orgTreeVersion = useOrganizationTreeVersion();
   const [search, setSearch] = useState('');
   const [selectedMember, setSelectedMember] = useState<RichMember | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -391,7 +393,7 @@ export default function MemberListTab({ onOpenForm, initialFilter }: Props) {
   };
 
   const [allMembers, setAllMembers] = useState<RichMember[]>(buildMembers);
-  useEffect(() => { setAllMembers(buildMembers()); }, [refreshKey]);
+  useEffect(() => { setAllMembers(buildMembers()); }, [refreshKey, orgTreeVersion]);
 
   const handleSort = (key: SortKey) => {
     setSortDir(d => sortKey === key ? (d === 'desc' ? 'asc' : 'desc') : 'desc');

@@ -8,6 +8,7 @@ import {
   buildOrgTree,
   getAllOrganizations,
   getAncestorIds,
+  ORG_TREE_CHANGED_EVENT,
 } from '../../services/organizationStorage';
 import { getAssigneesForOrg } from '../../services/orgAssigneeStorage';
 import { OrgTreePanel } from '../../components/admin/organization/OrgTreePanel';
@@ -79,6 +80,12 @@ export default function OrganizationManagementPage({ onNavigate }: Props) {
   const tree = buildOrgTree(true);
   void treeTick;
   void terminologyVersion;
+
+  useEffect(() => {
+    const handler = () => refreshTree();
+    window.addEventListener(ORG_TREE_CHANGED_EVENT, handler);
+    return () => window.removeEventListener(ORG_TREE_CHANGED_EVENT, handler);
+  }, [refreshTree]);
 
   const searchResult = useMemo(() => computeOrgSearch(searchQuery), [searchQuery, treeTick, terminologyVersion]);
 
@@ -178,6 +185,7 @@ export default function OrganizationManagementPage({ onNavigate }: Props) {
       onSelect={openSelect}
       onAddChild={openCreate}
       onTreeMoved={refreshTree}
+      onRenamed={refreshTree}
       matchedIds={searchQuery.trim() ? searchResult.matched : undefined}
       forceExpandIds={searchQuery.trim() ? searchResult.expand : undefined}
     />

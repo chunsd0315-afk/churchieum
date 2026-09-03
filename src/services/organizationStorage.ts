@@ -29,6 +29,7 @@ import {
 import { removeAssigneesForOrganizations } from './orgAssigneeStorage';
 import { CHURCH_ID_LS_KEY, DEFAULT_CHURCH_ID } from './orgSettingsRemote';
 import { canAccessAdmin, type AppUser } from './permissions';
+import { supabase, supabaseConfigured } from './supabase';
 
 // ─── New localStorage keys (do not rename casually) ───────────────────────────
 const LS_ORGS = 'org_nodes_v1';
@@ -409,6 +410,150 @@ export function upsertOrganization(input: Omit<Organization, 'createdAt' | 'upda
   else list.push(next);
   saveAllOrganizations(list);
   return next;
+}
+
+const DELETED_ORG_LABEL = '조직 정보 없음';
+
+/** organizationId → 최신 name (삭제·미존재 시 안전 라벨) */
+export function getOrganizationNameById(orgId: string | undefined | null): string {
+  if (!orgId) return DELETED_ORG_LABEL;
+  const org = getOrganizationById(orgId);
+  return org?.name?.trim() || DELETED_ORG_LABEL;
+}
+
+export function buildOrganizationNameMap(): Map<string, string> {
+  return new Map(getAllOrganizations().map(o => [o.id, o.name]));
+}
+
+/** 동일 상위 조직 아래 형제 이름 중복 검사 */
+export function validateOrganizationName(
+  name: string,
+  parentId: string | null,
+  excludeOrgId?: string,
+): string | null {
+  const trimmed = name.trim();
+  if (!trimmed) return '조직명을 입력해주세요.';
+  const siblings = getChildOrganizations(parentId).filter(o => o.id !== excludeOrgId);
+  if (siblings.some(s => s.name.trim() === trimmed)) {
+    return '같은 상위 조직 안에 동일한 조직명이 있습니다.';
+  }
+  return null;
+}
+
+export type OrganizationMutationResult =
+  | { ok: true; organization: Organization }
+  | { ok: false; error: string };
+
+function assertAdminMutation(actorIsAdmin?: boolean): string | null {
+  if (actorIsAdmin === false) return '최고관리자만 조직을 수정할 수 있습니다.';
+  if (actorIsAdmin === true) return null;
+  if (!canMutateOrgMeta()) return '최고관리자만 조직을 수정할 수 있습니다.';
+  return null;
+}
+
+/** Supabase legacy 테이블 name 동기화 (실패해도 UI는 localStorage 원본 유지) */
+export async function syncOrganizationNameToRemote(org: Organization): Promise<void> {
+  if (!supabaseConfigured) return;
+  const name = org.name.trim();
+  if (!name) return;
+  const updated_at = new Date().toISOString();
+  try {
+    if (org.legacyKind === 'district') {
+      await supabase.from('church_districts').update({ name, updated_at }).eq('id', org.id);
+    } else if (org.legacyKind === 'zone') {
+      await supabase.from('church_zones').update({ name, updated_at }).eq('id', org.id);
+    } else if (org.legacyKind === 'department') {
+      await supabase.from('departments').update({ name, updated_at }).eq('id', org.id);
+    }
+  } catch {
+    /* demo id·RLS 등 — localStorage가 데모 fallback */
+  }
+}
+
+/** 조직명만 변경 — 트리 인라인·기본정보 공통 */
+export function updateOrganizationName(
+  organizationId: string,
+  newName: string,
+  options?: { actorIsAdmin?: boolean },
+): OrganizationMutationResult {
+  const permError = assertAdminMutation(options?.actorIsAdmin);
+  if (permError) return { ok: false, error: permError };
+
+  const org = getOrganizationById(organizationId);
+  if (!org) return { ok: false, error: '조직을 찾을 수 없습니다.' };
+
+  const trimmed = newName.trim();
+  const nameError = validateOrganizationName(trimmed, org.parentId, org.id);
+  if (nameError) return { ok: false, error: nameError };
+
+  if (trimmed === org.name) {
+    return { ok: true, organization: org };
+  }
+
+  const updated = upsertOrganization({ ...org, name: trimmed });
+  void syncOrganizationNameToRemote(updated);
+  return { ok: true, organization: updated };
+}
+
+/** 기본정보 탭 저장 — 이름 검증·upsert 공통 */
+export function saveOrganizationInfo(params: {
+  creating: boolean;
+  orgId?: string | null;
+  draftParentId?: string | null;
+  patch: {
+    name: string;
+    type: string;
+    parentId: string | null;
+    description: string;
+    sortOrder: number;
+    isActive: boolean;
+  };
+  actorIsAdmin?: boolean;
+}): OrganizationMutationResult {
+  const { creating, orgId, draftParentId, patch, actorIsAdmin } = params;
+
+  if (!creating) {
+    const permError = assertAdminMutation(actorIsAdmin);
+    if (permError) return { ok: false, error: permError };
+  }
+
+  const parentId = creating ? (draftParentId ?? null) : patch.parentId;
+  const nameError = validateOrganizationName(
+    patch.name,
+    parentId,
+    creating ? undefined : orgId ?? undefined,
+  );
+  if (nameError) return { ok: false, error: nameError };
+
+  if (creating) {
+    const created = createOrganization({
+      name: patch.name,
+      type: patch.type,
+      parentId,
+      description: patch.description,
+    });
+    return { ok: true, organization: created };
+  }
+
+  if (!orgId) return { ok: false, error: '조직을 찾을 수 없습니다.' };
+  const org = getOrganizationById(orgId);
+  if (!org) return { ok: false, error: '조직을 찾을 수 없습니다.' };
+
+  if (wouldCreateCycle(org.id, patch.parentId)) {
+    return { ok: false, error: '상위 조직을 자기 자신이나 하위 조직으로 지정할 수 없습니다.' };
+  }
+
+  const updated = upsertOrganization({
+    ...org,
+    name: patch.name.trim(),
+    type: patch.type,
+    parentId: patch.parentId,
+    description: patch.description,
+    sortOrder: Number(patch.sortOrder) || 0,
+    isActive: patch.isActive,
+  });
+  void syncOrganizationNameToRemote(updated);
+  return { ok: true, organization: updated };
 }
 
 export function createOrganization(partial: {

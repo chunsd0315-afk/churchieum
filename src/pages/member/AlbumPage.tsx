@@ -10,6 +10,7 @@ import { useBreakpoint } from '../../hooks/useBreakpoint';
 import { canWriteContent, getAvailableScopes, type ContentScope } from '../../services/permissions';
 import { getDistricts, getZones, getDepartments } from '../../services/orgData';
 import { getAllOrganizations } from '../../services/organizationStorage';
+import { useOrganizationTreeVersion } from '../../hooks/useOrganizationTreeVersion';
 import {
   PageHeaderBar,
   ContentListToolbar,
@@ -140,11 +141,13 @@ export default function AlbumPage() {
 
   const listScrollRef = useRef(0);
 
+  const orgTreeVersion = useOrganizationTreeVersion();
+
   const orgNameById = useMemo(() => {
     const map = new Map<string, string>();
     for (const o of getAllOrganizations()) map.set(o.id, o.name);
     return map;
-  }, []);
+  }, [orgTreeVersion]);
 
   const myOrgIds = useMemo(
     () => getAnnouncementMyOrgSelectableIds(user, searchFilter.showFullOrgTree),

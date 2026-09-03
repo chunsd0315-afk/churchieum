@@ -10,14 +10,13 @@ import {
 } from '../../../types/organization';
 import {
   addMembership,
-  createOrganization,
   deleteOrganization,
   getAllOrganizations,
   getDemoMemberCandidates,
   getMembershipsForOrg,
   removeMembership,
-  upsertOrganization,
-  wouldCreateCycle,
+  saveOrganizationInfo,
+  ORG_TREE_CHANGED_EVENT,
 } from '../../../services/organizationStorage';
 import { useChurchRoles, useOrgTypes } from '../../../hooks/useOrgMeta';
 import {
@@ -76,6 +75,12 @@ export function OrgDetailPanel({
   const [editingAssignee, setEditingAssignee] = useState<OrganizationAssignee | null>(null);
 
   useEffect(() => {
+    const sync = () => setTick(t => t + 1);
+    window.addEventListener(ORG_TREE_CHANGED_EVENT, sync);
+    return () => window.removeEventListener(ORG_TREE_CHANGED_EVENT, sync);
+  }, []);
+
+  useEffect(() => {
     if (creating) {
       setName('');
       setType(types[0]?.name ?? '기타');
@@ -95,7 +100,7 @@ export function OrgDetailPanel({
       setSortOrder(current.sortOrder);
       setIsActive(current.isActive);
     }
-  }, [orgId, creating, draftParentId, types]);
+  }, [orgId, creating, draftParentId, types, tick]);
 
   const refresh = () => setTick(t => t + 1);
   void tick;
@@ -129,37 +134,26 @@ export function OrgDetailPanel({
   }
 
   const handleSaveInfo = () => {
-    if (!name.trim()) {
-      toast.error('조직명을 입력해주세요.');
-      return;
-    }
-    if (creating) {
-      const created = createOrganization({
+    const result = saveOrganizationInfo({
+      creating,
+      orgId: org?.id,
+      draftParentId,
+      patch: {
         name,
         type,
         parentId,
         description,
-      });
-      toast.success('조직이 추가되었습니다.');
-      onSaved(created.id);
-      return;
-    }
-    if (!org) return;
-    if (wouldCreateCycle(org.id, parentId)) {
-      toast.error('상위 조직을 자기 자신이나 하위 조직으로 지정할 수 없습니다.');
-      return;
-    }
-    upsertOrganization({
-      ...org,
-      name: name.trim(),
-      type,
-      parentId,
-      description,
-      sortOrder: Number(sortOrder) || 0,
-      isActive,
+        sortOrder: Number(sortOrder) || 0,
+        isActive,
+      },
+      actorIsAdmin: isAdmin,
     });
-    toast.success('조직 정보가 저장되었습니다.');
-    onSaved(org.id);
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success(creating ? '조직이 추가되었습니다.' : '조직 정보가 저장되었습니다.');
+    onSaved(result.organization.id);
     refresh();
   };
 

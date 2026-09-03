@@ -1,5 +1,7 @@
 import type { AppUser } from './permissions';
 import { canViewContent } from './permissions';
+import { getOrganizationPathLabel } from './userOrganizationTree';
+import { getDistrictNameById, getDepartmentNameById, getZoneNameById } from './orgData';
 
 export type AlbumSearchFilter = {
   scopeMode: 'all' | 'my_org';
@@ -239,6 +241,16 @@ export function formatAuthorLine(album: AlbumItem): string {
 export function getAlbumScopeBadge(album: AlbumItem): string {
   const merged = mergeAlbumScope(album);
   if (merged.visibility_type === 'all' || !merged.visibility_type) return '전체 공개';
+  if (merged.scope_id) {
+    const live = getOrganizationPathLabel(merged.scope_id);
+    if (live && live !== '조직 정보 없음') return live;
+    const d = getDistrictNameById(merged.scope_id);
+    if (d !== '-') return d;
+    const z = getZoneNameById(merged.scope_id);
+    if (z !== '-') return z;
+    const dep = getDepartmentNameById(merged.scope_id);
+    if (dep !== '-') return dep;
+  }
   if (merged.scope_name) return merged.scope_name;
   if (merged.category) return merged.category;
   if (merged.visibility === '교구별') return '교구';

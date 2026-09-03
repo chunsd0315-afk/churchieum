@@ -75,7 +75,7 @@ export function OrgSummaryPanel({ orgId, tick = 0, onGoMembers, onGoClergy }: Pr
       updatedAt: org.updatedAt,
       isActive: org.isActive,
     };
-  }, [org]);
+  }, [org, tick]);
 
   if (!org || !summary) {
     return (

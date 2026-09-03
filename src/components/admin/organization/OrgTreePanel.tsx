@@ -12,19 +12,26 @@ import {
   type DragMoveEvent,
   type DragStartEvent,
 } from '@dnd-kit/core';
-import { GripVertical, ChevronDown, ChevronRight, FolderTree, Plus } from 'lucide-react';
+import {
+  GripVertical, ChevronDown, ChevronRight, FolderTree, Plus,
+  MoreVertical, Pencil, Trash2, X, Check,
+} from 'lucide-react';
 import type { OrgTreeNode } from '../../../types/organization';
 import { useOrgSettings } from '../../../contexts/OrgSettingsContext';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useBreakpoint } from '../../../hooks/useBreakpoint';
 import { getOrganizationTypeDisplay } from '../../../services/orgTerminology';
 import {
   ORG_ROOT_DROP_ID,
+  deleteOrganization,
   getOrganizationById,
   moveOrganization,
   resolveOrganizationDropTarget,
+  updateOrganizationName,
   wouldCreateCycle,
   type OrgDropPosition,
 } from '../../../services/organizationStorage';
+import { ChurchButton } from '../../common/ui/ChurchButton';
 
 type Props = {
   tree: OrgTreeNode[];
@@ -32,6 +39,7 @@ type Props = {
   onSelect: (id: string) => void;
   onAddChild: (parentId: string | null) => void;
   onTreeMoved?: () => void;
+  onRenamed?: () => void;
   /** 검색 매칭 조직(하이라이트) */
   matchedIds?: Set<string>;
   /** 검색 시 강제 펼칠 조상 포함 ID */
@@ -109,9 +117,18 @@ function TreeRow({
   expanded,
   toggle,
   canDrag,
+  canEdit,
   dropHint,
   isDragging,
   isMatch,
+  editingId,
+  editDraft,
+  editError,
+  onStartEdit,
+  onEditDraftChange,
+  onCommitEdit,
+  onCancelEdit,
+  onOpenMobileMenu,
 }: {
   row: FlatRow;
   selectedId: string | null;
@@ -120,15 +137,26 @@ function TreeRow({
   expanded: Set<string>;
   toggle: (id: string) => void;
   canDrag: boolean;
+  canEdit: boolean;
   dropHint: { id: string; position: OrgDropPosition; invalid?: boolean } | null;
   isDragging: boolean;
   isMatch?: boolean;
+  editingId: string | null;
+  editDraft: string;
+  editError: string | null;
+  onStartEdit: (id: string, currentName: string) => void;
+  onEditDraftChange: (value: string) => void;
+  onCommitEdit: () => void;
+  onCancelEdit: () => void;
+  onOpenMobileMenu: (id: string) => void;
 }) {
   const { node, depth } = row;
   const hasChildren = node.children.length > 0;
   const isOpen = expanded.has(node.id);
   const active = selectedId === node.id;
   const typeLabel = getOrganizationTypeDisplay(node);
+  const isEditing = editingId === node.id;
+  const dragEnabled = canDrag && !isEditing;
 
   const {
     attributes,
@@ -137,14 +165,14 @@ function TreeRow({
     setActivatorNodeRef,
   } = useDraggable({
     id: node.id,
-    disabled: !canDrag,
+    disabled: !dragEnabled,
     data: { type: 'org', parentId: row.parentId },
   });
 
   const { setNodeRef: setDropRef, isOver } = useDroppable({
     id: node.id,
     data: { type: 'org', parentId: row.parentId },
-    disabled: !canDrag,
+    disabled: !dragEnabled,
   });
 
   const setRowRef = useCallback(
@@ -183,7 +211,7 @@ function TreeRow({
         ].join(' ')}
         style={{ paddingLeft: 4 + depth * 14 }}
       >
-        {canDrag ? (
+        {dragEnabled ? (
           <button
             type="button"
             ref={setActivatorNodeRef}
@@ -195,7 +223,7 @@ function TreeRow({
             <GripVertical className="w-4 h-4" />
           </button>
         ) : (
-          <span className="w-2 shrink-0" />
+          <span className="w-8 shrink-0" />
         )}
 
         <button
@@ -213,27 +241,86 @@ function TreeRow({
           )}
         </button>
 
-        <button
-          type="button"
-          onClick={() => onSelect(node.id)}
-          className="flex-1 min-w-0 text-left py-2.5 touch-target"
-        >
-          <span className={`block text-[14px] truncate ${
-            active ? 'font-bold text-[#1A1A1A]' : 'font-semibold'
-          } ${!node.isActive ? 'text-gray-400 line-through' : ''}`}>
-            {node.name}
-          </span>
-          <span className="block text-[11px] text-gray-400 truncate">{typeLabel}</span>
-        </button>
+        {isEditing ? (
+          <div className="flex-1 min-w-0 py-1.5 pr-1">
+            <input
+              autoFocus
+              value={editDraft}
+              onChange={e => onEditDraftChange(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') { e.preventDefault(); onCommitEdit(); }
+                if (e.key === 'Escape') { e.preventDefault(); onCancelEdit(); }
+              }}
+              className="w-full h-10 px-3 text-[14px] font-semibold bg-white border border-primary-400 rounded-[10px] focus:outline-none focus:ring-2 focus:ring-primary-200"
+              aria-label="조직명 수정"
+            />
+            {editError && (
+              <p className="text-[11px] text-red-500 mt-1 px-1">{editError}</p>
+            )}
+            <div className="flex gap-1.5 mt-1.5">
+              <button
+                type="button"
+                onClick={onCancelEdit}
+                className="h-8 px-2.5 rounded-[10px] text-xs font-semibold text-gray-600 hover:bg-gray-100"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={onCommitEdit}
+                className="h-8 px-2.5 rounded-[10px] text-xs font-bold bg-primary-500 text-[#1A1A1A] hover:bg-primary-600 inline-flex items-center gap-1"
+              >
+                <Check className="w-3.5 h-3.5" /> 저장
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => onSelect(node.id)}
+              onDoubleClick={() => canEdit && onStartEdit(node.id, node.name)}
+              className="flex-1 min-w-0 text-left py-2.5 touch-target"
+            >
+              <span className={`block text-[14px] truncate ${
+                active ? 'font-bold text-[#1A1A1A]' : 'font-semibold'
+              } ${!node.isActive ? 'text-gray-400 line-through' : ''}`}>
+                {node.name}
+              </span>
+              <span className="block text-[11px] text-gray-400 truncate">{typeLabel}</span>
+            </button>
 
-        <button
-          type="button"
-          aria-label="하위 조직 추가"
-          onClick={() => onAddChild(node.id)}
-          className="opacity-0 group-hover:opacity-100 focus:opacity-100 shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-primary-600 hover:bg-primary-100"
-        >
-          <Plus className="w-4 h-4" />
-        </button>
+            {canEdit && (
+              <>
+                <button
+                  type="button"
+                  aria-label="조직명 수정"
+                  onClick={() => onStartEdit(node.id, node.name)}
+                  className="opacity-0 group-hover:opacity-100 focus:opacity-100 shrink-0 w-8 h-8 hidden sm:flex items-center justify-center rounded-lg text-gray-500 hover:bg-primary-50 hover:text-primary-700"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="조직 메뉴"
+                  onClick={() => onOpenMobileMenu(node.id)}
+                  className="sm:hidden shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100"
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </button>
+              </>
+            )}
+
+            <button
+              type="button"
+              aria-label="하위 조직 추가"
+              onClick={() => onAddChild(node.id)}
+              className="opacity-0 group-hover:opacity-100 focus:opacity-100 shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-primary-600 hover:bg-primary-100"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </>
+        )}
       </div>
       {showAfter && (
         <div
@@ -251,16 +338,24 @@ export function OrgTreePanel({
   onSelect,
   onAddChild,
   onTreeMoved,
+  onRenamed,
   matchedIds,
   forceExpandIds,
 }: Props) {
   const { terminologyVersion } = useOrgSettings();
   void terminologyVersion;
   const { isAdmin } = useAuth();
+  const { isMobile } = useBreakpoint();
   const canDrag = isAdmin;
+  const canEdit = isAdmin;
 
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(collectIds(tree).slice(0, 40)));
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState('');
+  const [editError, setEditError] = useState<string | null>(null);
+  const [mobileMenuId, setMobileMenuId] = useState<string | null>(null);
+  const [mobileRenameOpen, setMobileRenameOpen] = useState(false);
   const [dropHint, setDropHint] = useState<{
     id: string;
     position: OrgDropPosition;
@@ -321,6 +416,44 @@ export function OrgTreePanel({
     const t = window.setTimeout(() => setToast(null), 2200);
     return () => window.clearTimeout(t);
   }, [toast]);
+
+  const startEdit = useCallback((id: string, currentName: string) => {
+    if (!canEdit) return;
+    setEditingId(id);
+    setEditDraft(currentName);
+    setEditError(null);
+    onSelect(id);
+  }, [canEdit, onSelect]);
+
+  const cancelEdit = useCallback(() => {
+    setEditingId(null);
+    setEditDraft('');
+    setEditError(null);
+  }, []);
+
+  const commitEdit = useCallback(() => {
+    if (!editingId) return;
+    const result = updateOrganizationName(editingId, editDraft, { actorIsAdmin: isAdmin });
+    if (!result.ok) {
+      setEditError(result.error);
+      return;
+    }
+    cancelEdit();
+    setMobileRenameOpen(false);
+    setMobileMenuId(null);
+    onRenamed?.();
+    setToast('조직명이 저장되었습니다.');
+  }, [editingId, editDraft, isAdmin, cancelEdit, onRenamed]);
+
+  const handleDeleteOrg = useCallback((id: string) => {
+    const org = getOrganizationById(id);
+    if (!org) return;
+    if (!window.confirm(`「${org.name}」과 하위 조직을 삭제할까요?`)) return;
+    deleteOrganization(id, true);
+    setMobileMenuId(null);
+    onRenamed?.();
+    setToast('조직이 삭제되었습니다.');
+  }, [onRenamed]);
 
   const updateHintFromEvent = useCallback(
     (overId: string | null, clientY: number) => {
@@ -536,9 +669,18 @@ export function OrgTreePanel({
                   expanded={expanded}
                   toggle={toggle}
                   canDrag={canDrag && !moving}
+                  canEdit={canEdit}
                   dropHint={dropHint}
                   isDragging={activeId === row.id}
                   isMatch={matchedIds?.has(row.id)}
+                  editingId={editingId}
+                  editDraft={editDraft}
+                  editError={editError}
+                  onStartEdit={startEdit}
+                  onEditDraftChange={setEditDraft}
+                  onCommitEdit={commitEdit}
+                  onCancelEdit={cancelEdit}
+                  onOpenMobileMenu={setMobileMenuId}
                 />
               </div>
             ))}
@@ -559,7 +701,89 @@ export function OrgTreePanel({
       {canDrag && (
         <p className="px-4 py-2 text-[11px] text-gray-400 border-t border-gray-100">
           왼쪽 ⠿ 핸들을 끌어 순서를 바꾸거나 다른 조직 아래로 이동할 수 있습니다.
+          {canEdit && !isMobile && ' 조직명은 더블클릭 또는 ✎ 아이콘으로 수정합니다.'}
         </p>
+      )}
+
+      {/* 모바일 ⋮ 메뉴 */}
+      {mobileMenuId && !mobileRenameOpen && (
+        <div className="fixed inset-0 z-[350] sm:hidden">
+          <button type="button" className="absolute inset-0 bg-black/40" onClick={() => setMobileMenuId(null)} aria-label="닫기" />
+          <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] p-4 pb-8 shadow-xl">
+            <p className="text-sm font-bold text-gray-900 mb-3 px-1">
+              {getOrganizationById(mobileMenuId)?.name ?? '조직'}
+            </p>
+            <div className="space-y-1">
+              <button
+                type="button"
+                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-[14px] hover:bg-gray-50 min-h-[48px]"
+                onClick={() => {
+                  const org = getOrganizationById(mobileMenuId);
+                  if (org) {
+                    setEditDraft(org.name);
+                    setEditingId(mobileMenuId);
+                    setEditError(null);
+                    setMobileRenameOpen(true);
+                  }
+                }}
+              >
+                <Pencil className="w-4 h-4 text-primary-600" />
+                <span className="text-sm font-semibold">이름 수정</span>
+              </button>
+              <button
+                type="button"
+                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-[14px] hover:bg-gray-50 min-h-[48px]"
+                onClick={() => { onAddChild(mobileMenuId); setMobileMenuId(null); }}
+              >
+                <Plus className="w-4 h-4 text-primary-600" />
+                <span className="text-sm font-semibold">하위 조직 추가</span>
+              </button>
+              <button
+                type="button"
+                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-[14px] hover:bg-red-50 min-h-[48px] text-red-600"
+                onClick={() => handleDeleteOrg(mobileMenuId)}
+              >
+                <Trash2 className="w-4 h-4" />
+                <span className="text-sm font-semibold">삭제</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 모바일 이름 수정 */}
+      {mobileRenameOpen && editingId && (
+        <div className="fixed inset-0 z-[360] sm:hidden flex items-end">
+          <button type="button" className="absolute inset-0 bg-black/40" onClick={() => { setMobileRenameOpen(false); cancelEdit(); }} aria-label="닫기" />
+          <div className="relative w-full bg-white rounded-t-[24px] p-5 pb-8 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-bold text-[#1A1A1A]">조직명 수정</h3>
+              <button type="button" onClick={() => { setMobileRenameOpen(false); cancelEdit(); }} className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <label className="block text-xs font-semibold text-gray-500 mb-1">조직명</label>
+            <input
+              autoFocus
+              value={editDraft}
+              onChange={e => setEditDraft(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') { e.preventDefault(); commitEdit(); }
+                if (e.key === 'Escape') { e.preventDefault(); setMobileRenameOpen(false); cancelEdit(); }
+              }}
+              className="w-full h-11 px-3.5 text-sm bg-white border border-[#ECECEC] rounded-[12px] focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 mb-1"
+            />
+            {editError && <p className="text-xs text-red-500 mb-3">{editError}</p>}
+            <div className="flex gap-2 mt-4">
+              <ChurchButton variant="outline" className="flex-1" onClick={() => { setMobileRenameOpen(false); cancelEdit(); }}>
+                취소
+              </ChurchButton>
+              <ChurchButton className="flex-1" onClick={commitEdit}>
+                저장
+              </ChurchButton>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -59,12 +59,21 @@ export function buildNoticeScopeBadges(ann: Announcement): ScopeBadge[] {
   }
 
   if (ann.scope === 'level1') {
-    const name = getDistrictNameById(ann.scopeId);
+    const live = ann.scopeId ? getOrganizationPathLabel(ann.scopeId) : '';
+    const name = live && live !== '조직 정보 없음'
+      ? live
+      : getDistrictNameById(ann.scopeId);
     const label = name !== '-' ? name : (ann.scopeName ?? '상위조직');
     return [{ type: 'district', label, variant: 'green' }];
   }
 
   if (ann.scope === 'level2') {
+    if (ann.scopeId) {
+      const livePath = getOrganizationPathLabel(ann.scopeId);
+      if (livePath && livePath !== '조직 정보 없음') {
+        return [{ type: 'districtGroup', label: livePath.replace(' > ', ' · '), variant: 'purple' }];
+      }
+    }
     const zone = getAllZones().find(z => z.id === ann.scopeId);
     if (zone) {
       const distName = getDistrictNameById(zone.district_id);
@@ -78,7 +87,10 @@ export function buildNoticeScopeBadges(ann: Announcement): ScopeBadge[] {
   }
 
   if (ann.scope === 'department') {
-    const name = getDepartmentNameById(ann.scopeId);
+    const live = ann.scopeId ? getOrganizationPathLabel(ann.scopeId) : '';
+    const name = live && live !== '조직 정보 없음'
+      ? live
+      : getDepartmentNameById(ann.scopeId);
     const label = name !== '-' ? name : (ann.scopeName ?? '부서');
     return [{ type: 'department', label, variant: 'orange' }];
   }

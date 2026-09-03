@@ -32,6 +32,7 @@ import {
 import { AnnouncementDetailView } from '../../components/announcement/AnnouncementDetailView';
 import { AnnouncementEditView } from '../../components/announcement/AnnouncementEditView';
 import { getAllOrganizations } from '../../services/organizationStorage';
+import { useOrganizationTreeVersion } from '../../hooks/useOrganizationTreeVersion';
 
 function isImportantNotice(a: Announcement): boolean {
   return a.isPinned || a.isImportant;
@@ -237,9 +238,11 @@ export default function AnnouncementPage() {
     [user, listTick],
   );
 
+  const orgTreeVersion = useOrganizationTreeVersion();
+
   const orgNameById = useMemo(
     () => new Map(getAllOrganizations().map(o => [o.id, o.name])),
-    [],
+    [orgTreeVersion],
   );
 
   const myOrgFallbackIds = useMemo(

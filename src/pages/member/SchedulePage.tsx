@@ -15,6 +15,7 @@ import {
   type ContentScope,
 } from '../../services/permissions';
 import { getDistricts, getZones, getDepartments } from '../../services/orgData';
+import { useOrganizationTreeVersion } from '../../hooks/useOrganizationTreeVersion';
 import {
   PageHeaderBar,
   DetailSettingsButton,
@@ -95,8 +96,12 @@ function scopeToVisibility(scope: ContentScope): Pick<ScheduleEvent, 'visibility
 export default function SchedulePage() {
   const { user } = useAuth();
   const { isMobile } = useBreakpoint();
+  const orgTreeVersion = useOrganizationTreeVersion();
   const canWrite = canWriteContent(user);
-  const orgData = { districts: getDistricts(), zones: getZones(), departments: getDepartments() };
+  const orgData = useMemo(
+    () => ({ districts: getDistricts(), zones: getZones(), departments: getDepartments() }),
+    [orgTreeVersion],
+  );
   const availableScopes = getAvailableScopes(user, orgData);
 
   const today = useMemo(() => new Date(), []);
