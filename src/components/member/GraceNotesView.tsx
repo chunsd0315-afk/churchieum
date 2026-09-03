@@ -26,7 +26,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { readOrgSettings } from '../../contexts/OrgSettingsContext';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
 import { MobileFab, PageHeaderBar } from '../common/ui';
-import { CONTENT_LIST_SHELL_CLASS } from '../common/ui/ContentListToolbar';
+import { CONTENT_LIST_SHELL_CLASS, CONTENT_CARD_GRID_CLASS } from '../common/ui/ContentListToolbar';
 import { MobileFullScreenPage } from '../layout/ContentEditorLayout';
 import {
   getGraceNoteViewInfo,
@@ -504,7 +504,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
   const [tab, setTab] = useState<GraceCollectTab>('mine');
   const [collectionView, setCollectionView] = useState<'list' | 'filter'>('list');
   const [viewMode, setViewModeState] = useState<ContentViewMode>(() =>
-    readStoredViewMode('grace', 'list'),
+    readStoredViewMode('grace', 'card'),
   );
   const setViewMode = useCallback((mode: ContentViewMode) => {
     setViewModeState(mode);
@@ -1338,7 +1338,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
           <p className="text-xs text-gray-400 mt-1 leading-relaxed">{emptyState.desc ?? ''}</p>
         </div>
       ) : viewMode === 'card' ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className={CONTENT_CARD_GRID_CLASS}>
           {filtered.map(note => {
             const badge = getGraceListBadge(note, user, tab);
             return (

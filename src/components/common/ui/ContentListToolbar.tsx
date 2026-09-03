@@ -71,9 +71,20 @@ export function ContentListToolbar({
   );
 }
 
-/** Soft-3D 콘텐츠 카드 — 앨범·주보·공지·은혜 공통 */
+/** Soft-3D 콘텐츠 카드 — 앨범·주보·공지·은혜·나눔 공통 */
 export const CONTENT_CARD_CLASS =
   'group bg-white rounded-[20px] border border-[#ECECEC] overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 hover:scale-[1.01] hover:shadow-[0_12px_36px_rgba(0,0,0,0.08)] transition-all duration-200 ease-out';
+
+/**
+ * PC 기본 4열 카드 그리드 (앨범 기준)
+ * 모바일 1 · 태블릿 2 · ~lg 3 · xl+ 4
+ */
+export const CONTENT_CARD_GRID_CLASS =
+  'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4';
+
+/** 앨범 모바일 2열 허용 */
+export const CONTENT_CARD_GRID_ALBUM_CLASS =
+  'grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4';
 
 /** 목록 컨테이너 — divide-y 연속 리스트 */
 export const CONTENT_LIST_SHELL_CLASS =

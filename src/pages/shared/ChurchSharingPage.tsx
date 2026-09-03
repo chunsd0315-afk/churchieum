@@ -1,6 +1,6 @@
 ﻿import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
-  Search, Plus, X, ChevronLeft, ChevronRight, HeartHandshake,
+  Plus, X, ChevronLeft, ChevronRight, HeartHandshake,
   MapPin, Tag, Calendar, MessageSquare, Users, Edit3, Trash2,
   CheckCircle, Image as ImageIcon, Paperclip,
 } from 'lucide-react';
@@ -30,8 +30,9 @@ import {
 import ContentEditorLayout, { MobileFullScreenPage } from '../../components/layout/ContentEditorLayout';
 import {
   PageHeaderBar,
-  DetailSettingsButton,
-  ViewModeToggle,
+  ContentListToolbar,
+  CONTENT_CARD_GRID_CLASS,
+  CONTENT_LIST_SHELL_CLASS,
   readStoredViewMode,
   writeStoredViewMode,
   ConfirmDialog,
@@ -692,7 +693,7 @@ export default function ChurchSharingPage() {
   const [toast, setToast] = useState('');
 
   const [viewMode, setViewModeState] = useState<ContentViewMode>(() =>
-    readStoredViewMode('sharing', 'list'),
+    readStoredViewMode('sharing', 'card'),
   );
   const setViewMode = (mode: ContentViewMode) => {
     setViewModeState(mode);
@@ -932,42 +933,19 @@ export default function ChurchSharingPage() {
         mobileFab={canCreate ? { label: '나눔 작성', onClick: () => setView('create') } : undefined}
       />
 
-      <div className="space-y-2">
-        <div className="flex flex-col sm:flex-row gap-2">
-          <div className="relative flex-1 min-w-0">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              value={searchFilter.keyword}
-              onChange={e => setKeyword(e.target.value)}
-              placeholder="검색어를 입력하세요"
-              className="w-full pl-12 pr-12 py-3 rounded-2xl border border-gray-200 text-sm bg-white min-h-[48px] focus:border-primary-400 focus:outline-none"
-            />
-            {searchFilter.keyword && (
-              <button
-                type="button"
-                onClick={() => setKeyword('')}
-                className="absolute right-4 top-1/2 -translate-y-1/2 touch-target"
-                aria-label="검색어 지우기"
-              >
-                <X className="w-5 h-5 text-gray-400" />
-              </button>
-            )}
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <DetailSettingsButton
-              onClick={() => {
-                if (!showSearch) setDraftFilter(searchFilter);
-                setShowSearch(s => !s);
-              }}
-              active={showSearch}
-              activeCount={countSharingDetailFilters(searchFilter)}
-              aria-expanded={showSearch}
-              className="flex-1 sm:flex-none"
-            />
-            <ViewModeToggle value={viewMode} onChange={setViewMode} />
-          </div>
-        </div>
-      </div>
+      <ContentListToolbar
+        search={searchFilter.keyword}
+        onSearchChange={setKeyword}
+        searchPlaceholder="검색어를 입력하세요"
+        onOpenDetailSettings={() => {
+          if (!showSearch) setDraftFilter(searchFilter);
+          setShowSearch(s => !s);
+        }}
+        detailSettingsActive={showSearch}
+        activeFilterCount={countSharingDetailFilters(searchFilter)}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+      />
 
       {showSearch && isMobile && (
         <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-end">
@@ -1035,22 +1013,23 @@ export default function ChurchSharingPage() {
           description="등록된 나눔이 없거나 검색 조건에 맞는 항목이 없습니다."
         />
       ) : viewMode === 'list' ? (
-        <div className="divide-y divide-gray-100 bg-white rounded-[24px] border border-[#ECECEC] overflow-hidden px-4">
+        <div className={CONTENT_LIST_SHELL_CLASS}>
           {filtered.map(p => (
-            <SharingListRow
-              key={p.id}
-              post={p}
-              requestCount={requestCounts[p.id] ?? 0}
-              messageCount={messageCounts[p.id] ?? 0}
-              canManage={canEditPost(p)}
-              onOpen={() => handleOpen(p)}
-              onEdit={() => { setSelected(p); setView('edit'); }}
-              onDelete={() => setDeleteConfirm(p.id)}
-            />
+            <div key={p.id} className="px-4">
+              <SharingListRow
+                post={p}
+                requestCount={requestCounts[p.id] ?? 0}
+                messageCount={messageCounts[p.id] ?? 0}
+                canManage={canEditPost(p)}
+                onOpen={() => handleOpen(p)}
+                onEdit={() => { setSelected(p); setView('edit'); }}
+                onDelete={() => setDeleteConfirm(p.id)}
+              />
+            </div>
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className={CONTENT_CARD_GRID_CLASS}>
           {filtered.map(p => (
             <SharingGridCard
               key={p.id}

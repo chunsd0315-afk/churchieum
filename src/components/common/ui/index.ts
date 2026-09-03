@@ -189,6 +189,8 @@ export type { DetailSettingsButtonProps } from './DetailSettingsButton';
 export {
   ContentListToolbar,
   CONTENT_CARD_CLASS,
+  CONTENT_CARD_GRID_CLASS,
+  CONTENT_CARD_GRID_ALBUM_CLASS,
   CONTENT_LIST_SHELL_CLASS,
 } from './ContentListToolbar';
 export type { ContentListToolbarProps } from './ContentListToolbar';

@@ -6,6 +6,7 @@ import {
   Calendar, HeartHandshake, MapPin, MessageSquare, Tag, Users,
 } from 'lucide-react';
 import { ChurchDropdownMenu, type ChurchDropdownItem } from '../common/ui/ChurchDropdownMenu';
+import { CONTENT_CARD_CLASS } from '../common/ui/ContentListToolbar';
 import type { SharingPost } from '../../services/sharingStorage';
 import { TYPE_LABELS, STATUS_LABELS } from '../../services/sharingStorage';
 import {
@@ -113,7 +114,7 @@ export function SharingGridCard({
   post, requestCount, messageCount, canManage, onOpen, onEdit, onDelete,
 }: ItemProps) {
   return (
-    <article className="group bg-white rounded-[20px] border border-[#ECECEC] overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 hover:shadow-[0_12px_36px_rgba(0,0,0,0.08)] transition-all duration-200 ease-out">
+    <article className={CONTENT_CARD_CLASS}>
       <button type="button" onClick={onOpen} className="w-full text-left">
         <div className="relative aspect-[4/3]">
           <Thumbnail post={post} />

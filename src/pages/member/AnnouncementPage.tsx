@@ -11,6 +11,7 @@ import {
   useToast,
   ContentListToolbar,
   CONTENT_CARD_CLASS,
+  CONTENT_CARD_GRID_CLASS,
   CONTENT_LIST_SHELL_CLASS,
   readStoredViewMode,
   writeStoredViewMode,
@@ -76,7 +77,7 @@ export default function AnnouncementPage() {
   const listScrollRef = useRef(0);
 
   const [viewMode, setViewModeState] = useState<ContentViewMode>(() =>
-    readStoredViewMode('announcement', 'list'),
+    readStoredViewMode('announcement', 'card'),
   );
   const setViewMode = useCallback((mode: ContentViewMode) => {
     setViewModeState(mode);
@@ -478,7 +479,7 @@ function AnnouncementListBody({
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className={CONTENT_CARD_GRID_CLASS}>
           {sortedList.map(a => (
             <AnnGridCard key={a.id} item={a} onClick={() => onOpenDetail(a.id)} />
           ))}

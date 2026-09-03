@@ -1,5 +1,5 @@
 ﻿import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { PageHeaderBar, ChurchDropdownMenu, ChurchList, CHURCH_LIST_ROW_CLASS, ContentListToolbar, readStoredViewMode, writeStoredViewMode, type ContentViewMode } from '../../components/common/ui';
+import { PageHeaderBar, ChurchDropdownMenu, ChurchList, CHURCH_LIST_ROW_CLASS, ContentListToolbar, CONTENT_CARD_GRID_CLASS, readStoredViewMode, writeStoredViewMode, type ContentViewMode } from '../../components/common/ui';
 import StatusBadge from '../../components/layout/StatusBadge';
 import EmptyState from '../../components/layout/EmptyState';
 import {
@@ -43,7 +43,7 @@ export default function AnnouncementManagementPage() {
   /* ─── List state ─────────────────────────────────────────────────── */
   const [data, setData]           = useState<Announcement[]>(() => getAllAnnouncements());
   const [viewMode, setViewModeState] = useState<ContentViewMode>(() =>
-    readStoredViewMode('announcement', 'list'),
+    readStoredViewMode('announcement', 'card'),
   );
   const setViewMode = (mode: ContentViewMode) => {
     setViewModeState(mode);
@@ -445,7 +445,7 @@ export default function AnnouncementManagementPage() {
                   ))}
                 </ChurchList>
               ) : (
-                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <div className={CONTENT_CARD_GRID_CLASS}>
                   {pinned.map(ann => (
                     <AnnGridCard key={ann.id} ann={ann} badges={buildNoticeScopeBadges(ann)}
                       onView={() => openDetail(ann)} onEdit={() => openEdit(ann)}
@@ -476,7 +476,7 @@ export default function AnnouncementManagementPage() {
                   ))}
                 </ChurchList>
               ) : (
-                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <div className={CONTENT_CARD_GRID_CLASS}>
                   {regular.map(ann => (
                     <AnnGridCard key={ann.id} ann={ann} badges={buildNoticeScopeBadges(ann)}
                       onView={() => openDetail(ann)} onEdit={() => openEdit(ann)}

@@ -15,6 +15,7 @@ import {
   PageHeaderBar,
   ContentListToolbar,
   CONTENT_CARD_CLASS,
+  CONTENT_CARD_GRID_CLASS,
   CONTENT_LIST_SHELL_CLASS,
   readStoredViewMode,
   writeStoredViewMode,
@@ -565,7 +566,7 @@ export default function BulletinPage() {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className={CONTENT_CARD_GRID_CLASS}>
           {filtered.map(b => (
             <BulletinGridCard
               key={b.id}
