@@ -1,6 +1,6 @@
 ﻿import { useState, useMemo, useEffect, useCallback, useRef, type Dispatch, type SetStateAction } from 'react';
 import {
-  Megaphone, Calendar, Star, Paperclip, ImageIcon, Plus, Search, X,
+  Megaphone, Star, Paperclip, ImageIcon, Plus,
 } from 'lucide-react';
 import { getAllAnnouncements, formatAnnouncementDate, type Announcement } from '../../services/announcementStorage';
 import { buildNoticeScopeBadges, isAnnouncementVisible } from '../../services/announcementHelpers';
@@ -9,8 +9,9 @@ import { useBreakpoint } from '../../hooks/useBreakpoint';
 import {
   PageHeaderBar,
   useToast,
-  DetailSettingsButton,
-  ViewModeToggle,
+  ContentListToolbar,
+  CONTENT_CARD_CLASS,
+  CONTENT_LIST_SHELL_CLASS,
   readStoredViewMode,
   writeStoredViewMode,
   type ContentViewMode,
@@ -394,49 +395,26 @@ function AnnouncementListBody({
               className="inline-flex items-center gap-2 h-12 px-4 rounded-[18px] bg-primary-500 text-[#1A1A1A] text-sm font-bold hover:bg-primary-600 active:bg-primary-700 active:scale-[0.98] transition-all touch-target"
             >
               <Plus className="w-4 h-4" />
-              공지 등록
+              공지 작성
             </button>
           ) : undefined
         }
-        mobileFab={canManage ? { label: '공지 등록', onClick: onCreate } : undefined}
+        mobileFab={canManage ? { label: '공지 작성', onClick: onCreate } : undefined}
       />
 
-      <div className="space-y-2">
-        <div className="flex flex-col sm:flex-row gap-2">
-          <div className="relative flex-1 min-w-0">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              value={searchFilter.keyword}
-              onChange={e => setKeyword(e.target.value)}
-              placeholder="키워드, 제목, 내용 검색"
-              className="w-full pl-12 pr-12 py-3 rounded-2xl border border-gray-200 text-sm bg-white min-h-[48px] focus:border-primary-400 focus:outline-none"
-            />
-            {searchFilter.keyword && (
-              <button
-                type="button"
-                onClick={() => setKeyword('')}
-                className="absolute right-4 top-1/2 -translate-y-1/2 touch-target"
-                aria-label="검색어 지우기"
-              >
-                <X className="w-5 h-5 text-gray-400" />
-              </button>
-            )}
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <DetailSettingsButton
-              onClick={() => {
-                if (!showSearch) setDraftFilter(searchFilter);
-                setShowSearch(s => !s);
-              }}
-              active={showSearch}
-              activeCount={countDetailSettingFilters(searchFilter)}
-              aria-expanded={showSearch}
-              className="flex-1 sm:flex-none"
-            />
-            <ViewModeToggle value={viewMode} onChange={setViewMode} />
-          </div>
-        </div>
-      </div>
+      <ContentListToolbar
+        search={searchFilter.keyword}
+        onSearchChange={setKeyword}
+        searchPlaceholder="키워드, 제목, 내용 검색"
+        onOpenDetailSettings={() => {
+          if (!showSearch) setDraftFilter(searchFilter);
+          setShowSearch(s => !s);
+        }}
+        detailSettingsActive={showSearch}
+        activeFilterCount={countDetailSettingFilters(searchFilter)}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+      />
 
       {showSearch && isMobile && (
         <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-end">
@@ -492,9 +470,11 @@ function AnnouncementListBody({
           description="아직 등록된 공지사항이 없어요."
         />
       ) : viewMode === 'list' ? (
-        <div className="church-list">
+        <div className={CONTENT_LIST_SHELL_CLASS}>
           {sortedList.map(a => (
-            <AnnListCard key={a.id} item={a} onClick={() => onOpenDetail(a.id)} />
+            <div key={a.id} className="px-4">
+              <AnnListCard item={a} onClick={() => onOpenDetail(a.id)} />
+            </div>
           ))}
         </div>
       ) : (
@@ -514,66 +494,53 @@ function AnnListCard({ item, onClick }: { item: Announcement; onClick: () => voi
   const hasThumb = images.length > 0;
   const important = isImportantNotice(item);
   const preview = (item.content || '').split('\n').filter(Boolean)[0] ?? '';
+  const scopeBadges = buildNoticeScopeBadges(item);
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`church-list-row min-h-[88px] md:min-h-[110px] md:py-5
-        ${important ? 'bg-amber-50/70 border-l-[3px] border-l-amber-500' : ''}`}
+      className={`w-full text-left flex items-start gap-3 py-3.5 min-h-[88px] touch-target rounded-xl
+        ${important ? 'bg-amber-50/70' : 'hover:bg-primary-50/40'} transition-colors`}
     >
-      <div className="flex items-start gap-3 md:gap-4">
-        {hasThumb && (
-          <div className="block md:hidden shrink-0 overflow-hidden bg-gray-100 rounded-[12px]"
-            style={{ width: '96px', height: '72px' }}>
-            <img src={images[0]} alt="" className="w-full h-full object-cover"
-              onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
-          </div>
-        )}
-        {hasThumb && (
-          <div className="hidden md:block shrink-0 overflow-hidden bg-gray-100 rounded-[12px]"
-            style={{ width: '120px', height: '80px' }}>
-            <img src={images[0]} alt="" className="w-full h-full object-cover"
-              onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
-          </div>
-        )}
+      {hasThumb ? (
+        <div className="relative w-[72px] h-[72px] shrink-0 rounded-xl overflow-hidden bg-gray-100">
+          <img
+            src={images[0]}
+            alt=""
+            className="w-full h-full object-cover"
+            onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          />
+        </div>
+      ) : null}
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
-            {important && (
-              <span className="inline-flex items-center gap-0.5 px-2 font-bold bg-amber-100 text-amber-700 text-[10px] rounded-full"
-                style={{ height: '20px' }}>
-                <Star className="w-2.5 h-2.5" /> 중요
-              </span>
-            )}
-            {buildNoticeScopeBadges(item).map((b, i) => (
-              <StatusBadge key={i} label={b.label} variant={b.variant} />
-            ))}
-          </div>
-          <h3 className="font-bold text-gray-900 leading-snug line-clamp-2" style={{ fontSize: '15px' }}>
-            {item.title}
-          </h3>
-          {preview && (
-            <p className="text-sm text-gray-500 mt-1 line-clamp-2 leading-snug">
-              {preview}
-            </p>
-          )}
-          <div className="flex items-center gap-3 mt-1.5">
-            <span className="text-[11px] text-gray-400 flex items-center gap-1">
-              <Calendar className="w-3 h-3" /> {formatAnnouncementDate(item) || item.date || ''}
+      <div className="flex-1 min-w-0">
+        <h3 className="font-semibold text-gray-900 text-sm line-clamp-2">{item.title}</h3>
+        {preview ? (
+          <p className="text-xs text-gray-500 mt-1 line-clamp-1">{preview}</p>
+        ) : null}
+        <p className="text-xs text-gray-400 mt-1">
+          {item.author} · {formatAnnouncementDate(item) || item.date || ''}
+        </p>
+        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+          {important ? (
+            <span className="inline-flex items-center gap-0.5 px-2 font-bold bg-amber-100 text-amber-700 text-[10px] rounded-full h-5">
+              <Star className="w-2.5 h-2.5" /> 중요
             </span>
-            <span className="text-[11px] text-gray-400">{item.author}</span>
-            {(images.length > 0 || files.length > 0) && (
-              <span className="text-[11px] text-gray-400 flex items-center gap-2 ml-auto">
-                {images.length > 0 && (
-                  <span className="flex items-center gap-0.5"><ImageIcon className="w-3 h-3" /> {images.length}</span>
-                )}
-                {files.length > 0 && (
-                  <span className="flex items-center gap-0.5"><Paperclip className="w-3 h-3" /> {files.length}</span>
-                )}
-              </span>
-            )}
-          </div>
+          ) : null}
+          {scopeBadges.map((b, i) => (
+            <StatusBadge key={i} label={b.label} variant={b.variant} />
+          ))}
+          {(images.length > 0 || files.length > 0) && (
+            <span className="text-[11px] text-gray-400 flex items-center gap-2 ml-auto">
+              {images.length > 0 && (
+                <span className="flex items-center gap-0.5"><ImageIcon className="w-3 h-3" /> {images.length}</span>
+              )}
+              {files.length > 0 && (
+                <span className="flex items-center gap-0.5"><Paperclip className="w-3 h-3" /> {files.length}</span>
+              )}
+            </span>
+          )}
         </div>
       </div>
     </button>
@@ -585,49 +552,60 @@ function AnnGridCard({ item, onClick }: { item: Announcement; onClick: () => voi
   const hasThumb = images.length > 0;
   const important = isImportantNotice(item);
   const preview = (item.content || '').split('\n').filter(Boolean)[0] ?? '';
+  const scopeBadges = buildNoticeScopeBadges(item);
+  const primaryBadge = important
+    ? { label: '중요', className: 'bg-amber-100 text-amber-700' }
+    : scopeBadges[0]
+      ? { label: scopeBadges[0].label, className: 'bg-gray-100 text-gray-600' }
+      : { label: '공지', className: 'bg-gray-100 text-gray-600' };
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`w-full text-left border rounded-[20px] flex flex-col
-        transition-all hover:shadow-lg hover:-translate-y-0.5 overflow-hidden
-        ${important
-          ? 'bg-amber-50/70 border-amber-200 border-l-4 border-l-amber-500'
-          : 'bg-white border-gray-200'
-        }`}
-      style={{ boxShadow: '0 8px 24px rgba(15,23,42,.04)' }}
-    >
-      {hasThumb && (
-        <div className="w-full overflow-hidden bg-gray-100" style={{ height: '140px' }}>
-          <img src={images[0]} alt="" className="w-full h-full object-cover"
-            onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
-        </div>
-      )}
-      <div className="flex-1 p-4">
-        <div className="flex flex-wrap gap-1 mb-2">
-          {important && (
-            <span className="inline-flex items-center gap-0.5 px-2 font-bold bg-amber-100 text-amber-700 text-[10px] rounded-full"
-              style={{ height: '20px' }}>
-              <Star className="w-2.5 h-2.5" /> 중요
+    <article className={CONTENT_CARD_CLASS}>
+      {hasThumb ? (
+        <button type="button" onClick={onClick} className="w-full text-left">
+          <div className="relative aspect-[4/3] bg-gray-100 overflow-hidden">
+            <img
+              src={images[0]}
+              alt=""
+              className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-200 ease-out"
+              onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+            />
+            {images.length > 1 ? (
+              <span className="absolute bottom-2 right-2 inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-black/55 text-white text-[11px] font-semibold backdrop-blur-sm">
+                <ImageIcon className="w-3 h-3" />
+                {images.length}
+              </span>
+            ) : null}
+          </div>
+        </button>
+      ) : null}
+
+      <div className="p-4 sm:p-5 space-y-2">
+        <div className="flex items-start gap-2 flex-wrap">
+          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${primaryBadge.className}`}>
+            {important ? <Star className="w-2.5 h-2.5 inline mr-0.5 -mt-0.5" /> : null}
+            {primaryBadge.label}
+          </span>
+          {!important && scopeBadges.slice(1).map((b, i) => (
+            <span key={i} className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 shrink-0">
+              {b.label}
             </span>
-          )}
-          {buildNoticeScopeBadges(item).map((b, i) => (
-            <StatusBadge key={i} label={b.label} variant={b.variant} />
           ))}
         </div>
-        <h3 className="font-bold text-gray-900 text-sm leading-snug line-clamp-2 mb-1">{item.title}</h3>
-        {preview && (
-          <p className="text-xs text-gray-500 line-clamp-2 mb-3 leading-snug">
-            {preview}
+
+        <button type="button" onClick={onClick} className="w-full text-left touch-target">
+          <h3 className="font-bold text-gray-900 text-sm line-clamp-2 group-hover:text-primary-800 transition-colors">
+            {item.title}
+          </h3>
+          {preview ? (
+            <p className="text-xs text-gray-500 mt-2 line-clamp-2 leading-relaxed">{preview}</p>
+          ) : null}
+          <p className="text-xs text-gray-500 mt-3">{item.author}</p>
+          <p className="text-xs text-gray-400 mt-0.5">
+            {formatAnnouncementDate(item) || item.date || ''}
           </p>
-        )}
-        <div className="flex items-center gap-2 text-[11px] text-gray-400 mt-auto">
-          <Calendar className="w-3 h-3 shrink-0" />
-          <span>{formatAnnouncementDate(item) || item.date || ''}</span>
-          <span className="ml-1">{item.author}</span>
-        </div>
+        </button>
       </div>
-    </button>
+    </article>
   );
 }

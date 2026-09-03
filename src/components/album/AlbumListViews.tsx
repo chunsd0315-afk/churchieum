@@ -5,6 +5,7 @@
 import { Camera, Edit3, Play, Trash2 } from 'lucide-react';
 import {
   ChurchDropdownMenu,
+  CONTENT_CARD_CLASS,
   type ChurchDropdownItem,
 } from '../common/ui';
 import type { AlbumItem } from '../../services/albumHelpers';
@@ -73,7 +74,7 @@ export function AlbumGridCard({ album, canManage, onOpen, onEdit, onDelete }: Ca
   const dateLabel = formatAlbumDate(album.event_date || album.created_at);
 
   return (
-    <article className="group bg-white rounded-[20px] border border-[#ECECEC] overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 hover:shadow-[0_12px_36px_rgba(0,0,0,0.08)] transition-all duration-200 ease-out">
+    <article className={CONTENT_CARD_CLASS}>
       <button
         type="button"
         onClick={onOpen}

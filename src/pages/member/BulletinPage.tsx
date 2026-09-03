@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback, type FormEvent } from 'react';
 import {
-  FileText, Calendar, Plus, Search, X, Edit2, Trash2, MoreVertical, Loader,
+  FileText, Calendar, Plus, Edit2, Trash2, MoreVertical, Loader,
 } from 'lucide-react';
 import { supabase } from '../../services/supabase';
 import { useFileUpload } from '../../hooks/useFileUpload';
@@ -13,8 +13,9 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
 import {
   PageHeaderBar,
-  DetailSettingsButton,
-  ViewModeToggle,
+  ContentListToolbar,
+  CONTENT_CARD_CLASS,
+  CONTENT_LIST_SHELL_CLASS,
   readStoredViewMode,
   writeStoredViewMode,
   ChurchDropdownMenu,
@@ -479,42 +480,19 @@ export default function BulletinPage() {
         mobileFab={canManage ? { label: '주보 작성', onClick: openNew } : undefined}
       />
 
-      <div className="space-y-2">
-        <div className="flex flex-col sm:flex-row gap-2">
-          <div className="relative flex-1 min-w-0">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              value={searchFilter.keyword}
-              onChange={e => setKeyword(e.target.value)}
-              placeholder="키워드, 주보 검색"
-              className="w-full pl-12 pr-12 py-3 rounded-2xl border border-gray-200 text-sm bg-white min-h-[48px] focus:border-primary-400 focus:outline-none"
-            />
-            {searchFilter.keyword && (
-              <button
-                type="button"
-                onClick={() => setKeyword('')}
-                className="absolute right-4 top-1/2 -translate-y-1/2 touch-target"
-                aria-label="검색어 지우기"
-              >
-                <X className="w-5 h-5 text-gray-400" />
-              </button>
-            )}
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <DetailSettingsButton
-              onClick={() => {
-                if (!showSearch) setDraftFilter(searchFilter);
-                setShowSearch(s => !s);
-              }}
-              active={showSearch}
-              activeCount={countBulletinDetailFilters(searchFilter)}
-              aria-expanded={showSearch}
-              className="flex-1 sm:flex-none"
-            />
-            <ViewModeToggle value={viewMode} onChange={setViewMode} />
-          </div>
-        </div>
-      </div>
+      <ContentListToolbar
+        search={searchFilter.keyword}
+        onSearchChange={setKeyword}
+        searchPlaceholder="키워드, 주보 검색"
+        onOpenDetailSettings={() => {
+          if (!showSearch) setDraftFilter(searchFilter);
+          setShowSearch(s => !s);
+        }}
+        detailSettingsActive={showSearch}
+        activeFilterCount={countBulletinDetailFilters(searchFilter)}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+      />
 
       {showSearch && isMobile && (
         <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-end">
@@ -573,20 +551,21 @@ export default function BulletinPage() {
           description="등록된 주보가 없거나 검색 조건에 맞는 주보가 없습니다."
         />
       ) : viewMode === 'list' ? (
-        <div className="church-list">
+        <div className={CONTENT_LIST_SHELL_CLASS}>
           {filtered.map(b => (
-            <BulletinListRow
-              key={b.id}
-              bulletin={b}
-              canManage={canManage}
-              onOpen={() => openDetail(b)}
-              onEdit={() => openEdit(b)}
-              onDelete={() => setDeleteConfirm(b.id)}
-            />
+            <div key={b.id} className="px-4">
+              <BulletinListRow
+                bulletin={b}
+                canManage={canManage}
+                onOpen={() => openDetail(b)}
+                onEdit={() => openEdit(b)}
+                onDelete={() => setDeleteConfirm(b.id)}
+              />
+            </div>
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filtered.map(b => (
             <BulletinGridCard
               key={b.id}
@@ -632,22 +611,27 @@ function BulletinListRow({
   onDelete: () => void;
 }) {
   return (
-    <div className="church-list-row flex items-center gap-4 group">
-      <button type="button" onClick={onOpen} className="flex items-center gap-4 flex-1 min-w-0 text-left touch-target">
-        <div className="w-14 h-16 bg-primary-50 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
-          {bulletin.image_url ? (
-            <img src={bulletin.image_url} alt="" className="w-full h-full object-cover" />
-          ) : (
-            <FileText className="w-7 h-7 text-primary-300" />
-          )}
-        </div>
-        <div className="flex-1 min-w-0">
-          <h4 className="font-semibold text-gray-900 text-sm truncate">{bulletin.title}</h4>
-          <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-            <Calendar className="w-3 h-3" />
-            {formatDate(bulletin.bulletin_date)}
-          </p>
-        </div>
+    <div className="flex items-center gap-3 py-3 group">
+      <button
+        type="button"
+        onClick={onOpen}
+        className="relative w-[72px] h-[72px] shrink-0 rounded-xl overflow-hidden bg-gray-100 touch-target"
+      >
+        {bulletin.image_url ? (
+          <img src={bulletin.image_url} alt="" className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100">
+            <FileText className="w-7 h-7 text-primary-200" />
+          </div>
+        )}
+      </button>
+      <button type="button" onClick={onOpen} className="flex-1 min-w-0 text-left touch-target">
+        <h4 className="font-semibold text-gray-900 text-sm truncate">{bulletin.title}</h4>
+        <p className="text-xs text-gray-500 mt-0.5">주보</p>
+        <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+          <Calendar className="w-3 h-3" />
+          {formatDate(bulletin.bulletin_date)}
+        </p>
       </button>
       {canManage && (
         <ChurchDropdownMenu
@@ -684,42 +668,56 @@ function BulletinGridCard({
   onDelete: () => void;
 }) {
   return (
-    <div className="bg-white rounded-[20px] border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+    <article className={CONTENT_CARD_CLASS}>
       <button type="button" onClick={onOpen} className="w-full text-left">
-        <div className="aspect-[3/4] bg-gradient-to-br from-primary-50 to-secondary-50 flex items-center justify-center overflow-hidden">
+        <div className="relative aspect-[4/3] bg-gray-100 overflow-hidden">
           {bulletin.image_url ? (
-            <img src={bulletin.image_url} alt="" className="w-full h-full object-cover" />
+            <img
+              src={bulletin.image_url}
+              alt=""
+              className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-200 ease-out"
+            />
           ) : (
-            <FileText className="w-12 h-12 text-primary-300" />
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100">
+              <FileText className="w-10 h-10 text-primary-200" />
+            </div>
           )}
         </div>
       </button>
-      <div className="p-4 flex items-start gap-2">
-        <button type="button" onClick={onOpen} className="flex-1 min-w-0 text-left">
-          <h4 className="font-bold text-gray-900 text-sm line-clamp-2">{bulletin.title}</h4>
-          <p className="text-xs text-gray-500 mt-1.5 flex items-center gap-1">
-            <Calendar className="w-3 h-3" />
-            {formatDate(bulletin.bulletin_date)}
-          </p>
+
+      <div className="p-4 space-y-2">
+        <div className="flex items-start justify-between gap-2">
+          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 shrink-0">
+            주보
+          </span>
+          {canManage && (
+            <div onClick={e => e.stopPropagation()}>
+              <ChurchDropdownMenu
+                trigger={
+                  <button
+                    type="button"
+                    className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 touch-target shrink-0"
+                    aria-label="더보기"
+                  >
+                    <MoreVertical className="w-4 h-4" />
+                  </button>
+                }
+                items={[
+                  { label: '수정', icon: <Edit2 className="w-4 h-4" />, onClick: onEdit },
+                  { label: '삭제', icon: <Trash2 className="w-4 h-4" />, onClick: onDelete, danger: true },
+                ]}
+              />
+            </div>
+          )}
+        </div>
+
+        <button type="button" onClick={onOpen} className="w-full text-left">
+          <h3 className="font-bold text-gray-900 text-sm line-clamp-2 group-hover:text-primary-800 transition-colors">
+            {bulletin.title}
+          </h3>
+          <p className="text-xs text-gray-400 mt-1.5">{formatDate(bulletin.bulletin_date)}</p>
         </button>
-        {canManage && (
-          <ChurchDropdownMenu
-            trigger={
-              <button
-                type="button"
-                className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 touch-target shrink-0"
-                aria-label="더보기"
-              >
-                <MoreVertical className="w-4 h-4" />
-              </button>
-            }
-            items={[
-              { label: '수정', icon: <Edit2 className="w-4 h-4" />, onClick: onEdit },
-              { label: '삭제', icon: <Trash2 className="w-4 h-4" />, onClick: onDelete, danger: true },
-            ]}
-          />
-        )}
       </div>
-    </div>
+    </article>
   );
 }

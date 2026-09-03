@@ -26,7 +26,7 @@ export function ViewModeToggle({ value, onChange, className = '' }: ViewModeTogg
         aria-pressed={value === 'card'}
         className={`flex items-center justify-center rounded-xl transition-all min-w-[44px] min-h-[44px] ${
           value === 'card'
-            ? 'bg-white shadow-sm text-primary-600'
+            ? 'bg-primary-500 shadow-sm text-[#1A1A1A]'
             : 'text-gray-400 hover:text-gray-600'
         }`}
       >
@@ -40,7 +40,7 @@ export function ViewModeToggle({ value, onChange, className = '' }: ViewModeTogg
         aria-pressed={value === 'list'}
         className={`flex items-center justify-center rounded-xl transition-all min-w-[44px] min-h-[44px] ${
           value === 'list'
-            ? 'bg-white shadow-sm text-primary-600'
+            ? 'bg-primary-500 shadow-sm text-[#1A1A1A]'
             : 'text-gray-400 hover:text-gray-600'
         }`}
       >

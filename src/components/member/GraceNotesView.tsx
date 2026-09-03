@@ -26,7 +26,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { readOrgSettings } from '../../contexts/OrgSettingsContext';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
 import { MobileFab, PageHeaderBar } from '../common/ui';
-import { sermonPrimaryBtnClass } from '../common/sermon/sermonDesign';
+import { CONTENT_LIST_SHELL_CLASS } from '../common/ui/ContentListToolbar';
 import { MobileFullScreenPage } from '../layout/ContentEditorLayout';
 import {
   getGraceNoteViewInfo,
@@ -1296,8 +1296,12 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
   );
 
   const writeBtn = onWrite && user ? (
-    <button type="button" onClick={onWrite} className={sermonPrimaryBtnClass}>
-      <Plus className="w-5 h-5" /> 작성
+    <button
+      type="button"
+      onClick={onWrite}
+      className="inline-flex items-center gap-2 h-12 px-4 rounded-[18px] bg-primary-500 text-[#1A1A1A] text-sm font-bold hover:bg-primary-600 active:bg-primary-700 active:scale-[0.98] transition-all touch-target"
+    >
+      <Plus className="w-4 h-4" /> 작성
     </button>
   ) : undefined;
 
@@ -1315,6 +1319,7 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
         onSearchChange={setSearch}
         searchPlaceholder="키워드, 말씀, 설교 검색"
         onOpenDetailSettings={openFilter}
+        detailSettingsActive={collectionView === 'filter'}
         activeFilterCount={activeChips.length}
         chips={activeChips.map(c => ({
           key: c.key,
@@ -1360,29 +1365,30 @@ export function GraceNoteListView({ onBack, onWrite, onDetail, onEdit, initialPl
           })}
         </div>
       ) : (
-        <div className="church-list">
+        <div className={CONTENT_LIST_SHELL_CLASS}>
           {filtered.map(note => {
             const badge = getGraceListBadge(note, user, tab);
             return (
-              <GraceNoteListRow
-                key={note.id}
-                note={note}
-                shareBadge={badge}
-                onClick={() => onDetail(note.id)}
-                menuItems={isOwn(note) ? [
-                  {
-                    label: '수정',
-                    icon: <Edit3 style={{ width: '15px', height: '15px' }} />,
-                    onClick: () => onEdit(note),
-                  },
-                  {
-                    label: '삭제',
-                    icon: <Trash2 style={{ width: '15px', height: '15px' }} />,
-                    danger: true,
-                    onClick: () => setDeleteId(note.id),
-                  },
-                ] : undefined}
-              />
+              <div key={note.id} className="px-4">
+                <GraceNoteListRow
+                  note={note}
+                  shareBadge={badge}
+                  onClick={() => onDetail(note.id)}
+                  menuItems={isOwn(note) ? [
+                    {
+                      label: '수정',
+                      icon: <Edit3 style={{ width: '15px', height: '15px' }} />,
+                      onClick: () => onEdit(note),
+                    },
+                    {
+                      label: '삭제',
+                      icon: <Trash2 style={{ width: '15px', height: '15px' }} />,
+                      danger: true,
+                      onClick: () => setDeleteId(note.id),
+                    },
+                  ] : undefined}
+                />
+              </div>
             );
           })}
         </div>

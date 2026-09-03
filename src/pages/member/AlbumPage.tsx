@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect, useMemo, useRef, useCallback, type FormEvent } from 'react';
-import { Image, Plus, Search, X, Loader } from 'lucide-react';
+import { Image, Plus, Loader } from 'lucide-react';
 import { supabase } from '../../services/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
@@ -12,8 +12,8 @@ import { getDistricts, getZones, getDepartments } from '../../services/orgData';
 import { getAllOrganizations } from '../../services/organizationStorage';
 import {
   PageHeaderBar,
-  DetailSettingsButton,
-  ViewModeToggle,
+  ContentListToolbar,
+  CONTENT_LIST_SHELL_CLASS,
   readStoredViewMode,
   writeStoredViewMode,
   ConfirmDialog,
@@ -558,42 +558,19 @@ export default function AlbumPage() {
         mobileFab={canManage ? { label: '앨범 작성', onClick: openNew } : undefined}
       />
 
-      <div className="space-y-2">
-        <div className="flex flex-col sm:flex-row gap-2">
-          <div className="relative flex-1 min-w-0">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              value={searchFilter.keyword}
-              onChange={e => setKeyword(e.target.value)}
-              placeholder="키워드, 앨범 검색"
-              className="w-full pl-12 pr-12 py-3 rounded-2xl border border-gray-200 text-sm bg-white min-h-[48px] focus:border-primary-400 focus:outline-none"
-            />
-            {searchFilter.keyword && (
-              <button
-                type="button"
-                onClick={() => setKeyword('')}
-                className="absolute right-4 top-1/2 -translate-y-1/2 touch-target"
-                aria-label="검색어 지우기"
-              >
-                <X className="w-5 h-5 text-gray-400" />
-              </button>
-            )}
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <DetailSettingsButton
-              onClick={() => {
-                if (!showSearch) setDraftFilter(searchFilter);
-                setShowSearch(s => !s);
-              }}
-              active={showSearch}
-              activeCount={countDetailSettingFilters(searchFilter)}
-              aria-expanded={showSearch}
-              className="flex-1 sm:flex-none"
-            />
-            <ViewModeToggle value={viewMode} onChange={setViewMode} />
-          </div>
-        </div>
-      </div>
+      <ContentListToolbar
+        search={searchFilter.keyword}
+        onSearchChange={setKeyword}
+        searchPlaceholder="키워드, 앨범 검색"
+        onOpenDetailSettings={() => {
+          if (!showSearch) setDraftFilter(searchFilter);
+          setShowSearch(s => !s);
+        }}
+        detailSettingsActive={showSearch}
+        activeFilterCount={countDetailSettingFilters(searchFilter)}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+      />
 
       {showSearch && isMobile && (
         <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-end">
@@ -652,7 +629,7 @@ export default function AlbumPage() {
           description="등록된 앨범이 없거나 검색 조건에 맞는 앨범이 없습니다."
         />
       ) : viewMode === 'list' ? (
-        <div className="divide-y divide-gray-100 bg-white rounded-[24px] border border-[#ECECEC] overflow-hidden">
+        <div className={CONTENT_LIST_SHELL_CLASS}>
           {filtered.map(album => (
             <div key={album.id} className="px-4">
               <AlbumListRow
@@ -666,7 +643,7 @@ export default function AlbumPage() {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filtered.map(album => (
             <AlbumGridCard
               key={album.id}

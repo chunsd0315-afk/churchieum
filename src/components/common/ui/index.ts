@@ -186,6 +186,13 @@ export type { ChurchConfirmDialogProps } from './ChurchConfirmDialog';
 export { DetailSettingsButton } from './DetailSettingsButton';
 export type { DetailSettingsButtonProps } from './DetailSettingsButton';
 
+export {
+  ContentListToolbar,
+  CONTENT_CARD_CLASS,
+  CONTENT_LIST_SHELL_CLASS,
+} from './ContentListToolbar';
+export type { ContentListToolbarProps } from './ContentListToolbar';
+
 export { ViewModeToggle, readStoredViewMode, writeStoredViewMode } from './ViewModeToggle';
 export type { ViewModeToggleProps, ContentViewMode, ViewModeStorageKey } from './ViewModeToggle';
 

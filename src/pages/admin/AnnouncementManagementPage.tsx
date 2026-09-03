@@ -1,10 +1,10 @@
 ﻿import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { PageHeaderBar, ChurchDropdownMenu, ChurchList, CHURCH_LIST_ROW_CLASS, DetailSettingsButton, ViewModeToggle, readStoredViewMode, writeStoredViewMode, type ContentViewMode } from '../../components/common/ui';
+import { PageHeaderBar, ChurchDropdownMenu, ChurchList, CHURCH_LIST_ROW_CLASS, ContentListToolbar, readStoredViewMode, writeStoredViewMode, type ContentViewMode } from '../../components/common/ui';
 import StatusBadge from '../../components/layout/StatusBadge';
 import EmptyState from '../../components/layout/EmptyState';
 import {
   Megaphone, Plus, Edit2, Trash2, Pin, Star,
-  Calendar, ImageIcon, Paperclip, Bell, Search, X, AlertTriangle,
+  Calendar, ImageIcon, Paperclip, Bell, AlertTriangle,
 } from 'lucide-react';
 import {
   getAllAnnouncements, updateAnnouncement, deleteAnnouncement,
@@ -356,44 +356,22 @@ export default function AnnouncementManagementPage() {
             <Plus className="w-4 h-4" /> 공지 작성
           </button>
         }
-        mobileFab={{ label: '공지사항 등록', onClick: openNew }}
+        mobileFab={{ label: '공지 작성', onClick: openNew }}
       />
 
-      {/* Toolbar: 검색 + 상세설정 + 보기전환 */}
-      <div className="flex flex-col sm:flex-row gap-2">
-        <div className="relative flex-1 min-w-0">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <input
-            value={searchFilter.keyword}
-            onChange={e => setKeyword(e.target.value)}
-            placeholder="키워드, 제목, 내용 검색"
-            className="w-full pl-12 pr-12 py-3 rounded-2xl border border-gray-200 text-sm bg-white min-h-[48px] focus:border-primary-400 focus:outline-none"
-          />
-          {searchFilter.keyword && (
-            <button
-              type="button"
-              onClick={() => setKeyword('')}
-              className="absolute right-4 top-1/2 -translate-y-1/2 touch-target"
-              aria-label="검색어 지우기"
-            >
-              <X className="w-5 h-5 text-gray-400" />
-            </button>
-          )}
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <DetailSettingsButton
-            onClick={() => {
-              if (!showSearch) setDraftFilter(searchFilter);
-              setShowSearch(s => !s);
-            }}
-            active={showSearch}
-            activeCount={countDetailSettingFilters(searchFilter)}
-            aria-expanded={showSearch}
-            className="flex-1 sm:flex-none"
-          />
-          <ViewModeToggle value={viewMode} onChange={setViewMode} />
-        </div>
-      </div>
+      <ContentListToolbar
+        search={searchFilter.keyword}
+        onSearchChange={setKeyword}
+        searchPlaceholder="키워드, 제목, 내용 검색"
+        onOpenDetailSettings={() => {
+          if (!showSearch) setDraftFilter(searchFilter);
+          setShowSearch(s => !s);
+        }}
+        detailSettingsActive={showSearch}
+        activeFilterCount={countDetailSettingFilters(searchFilter)}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+      />
 
       {showSearch && isMobile && (
         <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-end">
@@ -686,66 +664,65 @@ function AnnListCard({ ann, badges, onView, onEdit, onDelete, onTogglePin, onTog
 /* ─── Grid Card ──────────────────────────────────────────────────────────── */
 function AnnGridCard({ ann, badges, onView, onEdit, onDelete, onTogglePin, onNotify }: CardActions) {
   const images = Array.isArray(ann.images) ? ann.images : [];
-  const files = Array.isArray(ann.files) ? ann.files : [];
   const hasThumb = images.length > 0;
   const preview = (ann.content || '').split('\n').filter(Boolean)[0] ?? '';
-  return (
-    <div
-      className={`bg-white border rounded-[20px] flex flex-col transition-all hover:shadow-lg hover:-translate-y-0.5 overflow-hidden ${
-        ann.isPinned ? 'border-l-4 border-l-red-400 border-t-gray-200 border-r-gray-200 border-b-gray-200' : 'border-gray-200'
-      }`}
-      style={{ boxShadow: '0 8px 24px rgba(15,23,42,.04)' }}
-    >
-      {/* Top thumbnail */}
-      {hasThumb && (
-        <div
-          className="w-full shrink-0 overflow-hidden bg-gray-100 cursor-pointer"
-          style={{ height: '140px' }}
-          onClick={onView}
-        >
-          <img
-            src={images[0]}
-            alt=""
-            className="w-full h-full object-cover"
-            onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-          />
-        </div>
-      )}
+  const primaryBadge = ann.isPinned
+    ? { label: '고정', className: 'bg-red-50 text-red-600' }
+    : ann.isImportant
+      ? { label: '중요', className: 'bg-amber-100 text-amber-700' }
+      : badges[0]
+        ? { label: badges[0].label, className: 'bg-gray-100 text-gray-600' }
+        : { label: '공지', className: 'bg-gray-100 text-gray-600' };
 
-      <div className={`flex-1 cursor-pointer ${hasThumb ? 'p-4' : 'p-5'}`} onClick={onView}>
-        {/* Badges */}
-        <div className="flex items-center gap-1.5 mb-3 flex-wrap">
-          {badges.map((b, i) => (
-            <StatusBadge key={i} label={b.label} variant={b.variant} />
-          ))}
-          {ann.isPinned && (
-            <span className="inline-flex items-center gap-0.5 px-2.5 font-bold bg-red-50 text-red-500 border border-red-200 text-[11px]"
-              style={{ height: '22px', borderRadius: '999px' }}>
-              <Pin className="w-2.5 h-2.5" /> 고정
+  return (
+    <article className="group bg-white rounded-[20px] border border-[#ECECEC] overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 hover:scale-[1.01] hover:shadow-[0_12px_36px_rgba(0,0,0,0.08)] transition-all duration-200 ease-out">
+      {hasThumb ? (
+        <button type="button" onClick={onView} className="w-full text-left">
+          <div className="relative aspect-[4/3] bg-gray-100 overflow-hidden">
+            <img
+              src={images[0]}
+              alt=""
+              className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-200 ease-out"
+              onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+            />
+            {images.length > 1 ? (
+              <span className="absolute bottom-2 right-2 inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-black/55 text-white text-[11px] font-semibold backdrop-blur-sm">
+                <ImageIcon className="w-3 h-3" />
+                {images.length}
+              </span>
+            ) : null}
+          </div>
+        </button>
+      ) : null}
+
+      <div className="p-4 sm:p-5 space-y-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex flex-wrap gap-1.5 min-w-0">
+            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${primaryBadge.className}`}>
+              {ann.isPinned ? <Pin className="w-2.5 h-2.5 inline mr-0.5 -mt-0.5" /> : null}
+              {primaryBadge.label}
             </span>
-          )}
+            {!ann.isPinned && !ann.isImportant && badges.slice(1).map((b, i) => (
+              <span key={i} className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 shrink-0">
+                {b.label}
+              </span>
+            ))}
+          </div>
+          <CardMenu ann={ann} onEdit={onEdit} onDelete={onDelete} onTogglePin={onTogglePin} onNotify={onNotify} />
         </div>
-        {/* Title */}
-        <h4 className="font-bold text-gray-900 mb-2 leading-snug line-clamp-2" style={{ fontSize: '15px' }}>{ann.title}</h4>
-        {/* Summary */}
-        {preview && <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed mb-2">{preview}</p>}
-        {/* Author */}
-        <p className="text-[12px] text-gray-400">{ann.author}</p>
+
+        <button type="button" onClick={onView} className="w-full text-left touch-target">
+          <h3 className="font-bold text-gray-900 text-sm line-clamp-2 group-hover:text-primary-800 transition-colors">
+            {ann.title}
+          </h3>
+          {preview ? (
+            <p className="text-xs text-gray-500 mt-2 line-clamp-2 leading-relaxed">{preview}</p>
+          ) : null}
+          <p className="text-xs text-gray-500 mt-3">{ann.author}</p>
+          <p className="text-xs text-gray-400 mt-0.5">{formatAnnouncementDate(ann)}</p>
+        </button>
       </div>
-      {/* Footer */}
-      <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-        <div className="flex items-center gap-2.5 text-[12px] text-gray-400">
-          <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{formatAnnouncementDate(ann)}</span>
-          {(images.length > 0 || files.length > 0) && (
-            <span className="flex items-center gap-1">
-              {images.length > 0 && <><ImageIcon className="w-3 h-3" />{images.length}</>}
-              {files.length > 0 && <><Paperclip className="w-3 h-3" />{files.length}</>}
-            </span>
-          )}
-        </div>
-        <CardMenu ann={ann} onEdit={onEdit} onDelete={onDelete} onTogglePin={onTogglePin} onNotify={onNotify} />
-      </div>
-    </div>
+    </article>
   );
 }
 
