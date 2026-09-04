@@ -82,14 +82,17 @@ function readScheduleHistory(): ScheduleHistory | null {
   return null;
 }
 
-function scopeToVisibility(scope: ContentScope): Pick<ScheduleEvent, 'visibility_type' | 'scope_id' | 'scope_name'> {
+function scopeToVisibility(
+  scope: ContentScope & { sharedOrganizationIds?: string[] },
+): Pick<ScheduleEvent, 'visibility_type' | 'scope_id' | 'scope_name' | 'sharedOrganizationIds'> {
   if (scope.type === 'all') {
-    return { visibility_type: 'all' };
+    return { visibility_type: 'all', sharedOrganizationIds: [] };
   }
   return {
     visibility_type: scope.type,
     scope_id: scope.id,
     scope_name: scope.name,
+    sharedOrganizationIds: scope.sharedOrganizationIds,
   };
 }
 

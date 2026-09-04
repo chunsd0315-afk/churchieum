@@ -7,10 +7,19 @@ import { Image, Plus, Loader } from 'lucide-react';
 import { supabase } from '../../services/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
-import { canWriteContent, getAvailableScopes, type ContentScope } from '../../services/permissions';
-import { getDistricts, getZones, getDepartments } from '../../services/orgData';
+import { canWriteContent } from '../../services/permissions';
 import { getAllOrganizations } from '../../services/organizationStorage';
 import { useOrganizationTreeVersion } from '../../hooks/useOrganizationTreeVersion';
+import {
+  VisibilitySelector,
+  defaultContentVisibilityValue,
+  validateContentVisibility,
+  type ContentVisibilityValue,
+} from '../../components/common/shared-content/VisibilitySelector';
+import {
+  contentScopeToContentVisibility,
+  contentVisibilityToContentScope,
+} from '../../services/contentVisibilityScope';
 import {
   PageHeaderBar,
   ContentListToolbar,
@@ -62,19 +71,12 @@ function readAlbumHistory(): AlbumHistory | null {
 
 const CAT_LABELS = ['교구', '부서', '교회학교', '행사'];
 
-const SCOPE_TYPE_LABEL: Record<string, string> = {
-  all: '전체 성도',
-  district: '특정 교구',
-  zone: '특정 구역',
-  department: '특정 부서',
-};
-
 type AlbumForm = {
   title: string;
   description: string;
   event_date: string;
   category: string;
-  scope: ContentScope;
+  visibility: ContentVisibilityValue;
 };
 
 const EMPTY_FORM: AlbumForm = {
@@ -82,7 +84,7 @@ const EMPTY_FORM: AlbumForm = {
   description: '',
   event_date: new Date().toISOString().split('T')[0],
   category: '행사',
-  scope: { type: 'all', name: '전체 성도' },
+  visibility: defaultContentVisibilityValue({ visibility: 'public' }, 'broadcast'),
 };
 
 async function enrichAlbumCounts(albums: AlbumItem[]): Promise<AlbumItem[]> {
@@ -111,9 +113,6 @@ export default function AlbumPage() {
   const { user } = useAuth();
   const { isMobile } = useBreakpoint();
   const canManage = canWriteContent(user);
-
-  const orgData = { districts: getDistricts(), zones: getZones(), departments: getDepartments() };
-  const availableScopes = getAvailableScopes(user, orgData);
 
   const [albums, setAlbums] = useState<AlbumItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -279,10 +278,7 @@ export default function AlbumPage() {
   const openNew = () => {
     if (!canManage) return;
     setEditing(null);
-    setForm({
-      ...EMPTY_FORM,
-      scope: availableScopes[0] ?? { type: 'all', name: '전체 성도' },
-    });
+    setForm({ ...EMPTY_FORM });
     setShowForm(true);
   };
 
@@ -295,11 +291,12 @@ export default function AlbumPage() {
       description: merged.description || '',
       event_date: merged.event_date || new Date().toISOString().split('T')[0],
       category: merged.category || '행사',
-      scope: {
-        type: merged.visibility_type ?? 'all',
-        id: merged.scope_id,
-        name: merged.scope_name,
-      },
+      visibility: contentScopeToContentVisibility({
+        visibility_type: merged.visibility_type,
+        scope_id: merged.scope_id,
+        scope_name: merged.scope_name,
+        sharedOrganizationIds: merged.sharedOrganizationIds,
+      }),
     });
     setDetailId(null);
     setShowForm(true);
@@ -314,40 +311,47 @@ export default function AlbumPage() {
   const handleSubmit = async (e?: FormEvent) => {
     e?.preventDefault();
     if (!canManage || saving || !form.title.trim()) return;
+
+    const visError = validateContentVisibility(form.visibility);
+    if (visError) {
+      showToast(visError);
+      return;
+    }
+
     setSaving(true);
 
-    const visibilityMap: Record<string, string> = {
-      all: '전체성도',
-      district: '교구별',
-      zone: '교구별',
-      department: '부서별',
-    };
+    const scope = contentVisibilityToContentScope(form.visibility);
+    const visibilityLabel =
+      form.visibility.visibility === 'public'
+        ? '전체성도'
+        : scope.type === 'department'
+          ? '부서별'
+          : '교구별';
 
     const payload = {
       title: form.title.trim(),
       description: form.description.trim() || null,
       event_date: form.event_date || null,
       category: form.category,
-      visibility: visibilityMap[form.scope.type] ?? '전체성도',
+      visibility: visibilityLabel,
+    };
+
+    const scopePayload = {
+      visibility_type: scope.type,
+      scope_id: scope.id,
+      scope_name: scope.name,
+      sharedOrganizationIds: scope.sharedOrganizationIds,
     };
 
     try {
       if (editing) {
         await supabase.from('albums').update(payload).eq('id', editing.id);
-        saveAlbumScope(editing.id, {
-          visibility_type: form.scope.type,
-          scope_id: form.scope.id,
-          scope_name: form.scope.name,
-        });
+        saveAlbumScope(editing.id, scopePayload);
         showToast('앨범이 수정되었습니다');
       } else {
         const { data } = await supabase.from('albums').insert(payload).select().single();
         if (data) {
-          saveAlbumScope(data.id, {
-            visibility_type: form.scope.type,
-            scope_id: form.scope.id,
-            scope_name: form.scope.name,
-          });
+          saveAlbumScope(data.id, scopePayload);
         } else {
           const local: AlbumItem = {
             id: `local-${Date.now()}`,
@@ -358,11 +362,7 @@ export default function AlbumPage() {
             author_name: user?.name,
             author_position: user?.position,
           };
-          saveAlbumScope(local.id, {
-            visibility_type: form.scope.type,
-            scope_id: form.scope.id,
-            scope_name: form.scope.name,
-          });
+          saveAlbumScope(local.id, scopePayload);
           setAlbums(prev => [mergeAlbumList([local])[0], ...prev]);
         }
         showToast('앨범이 등록되었습니다');
@@ -384,11 +384,7 @@ export default function AlbumPage() {
           author_position: user?.position,
           photo_count: 0,
         };
-        saveAlbumScope(local.id, {
-          visibility_type: form.scope.type,
-          scope_id: form.scope.id,
-          scope_name: form.scope.name,
-        });
+        saveAlbumScope(local.id, scopePayload);
         setAlbums(prev => [mergeAlbumList([local])[0], ...prev]);
         showToast('앨범이 등록되었습니다 (로컬 저장)');
         setShowForm(false);
@@ -425,7 +421,7 @@ export default function AlbumPage() {
           <button
             type="button"
             onClick={() => handleSubmit()}
-            disabled={saving || !form.title.trim()}
+            disabled={saving || !form.title.trim() || !!validateContentVisibility(form.visibility)}
             className="inline-flex items-center gap-1.5 h-12 px-5 bg-primary-500 hover:bg-primary-600 text-[#1A1A1A] rounded-[18px] text-sm font-bold disabled:opacity-50 transition-colors"
           >
             {saving ? '저장 중...' : editing ? '수정' : '등록'}
@@ -477,18 +473,11 @@ export default function AlbumPage() {
             />
           </div>
           <div>
-            <label className="text-xs font-semibold text-gray-600 mb-1.5 block">공개 범위</label>
-            <select
-              value={Math.max(0, availableScopes.findIndex(s => s.type === form.scope.type && s.id === form.scope.id))}
-              onChange={e => setForm({ ...form, scope: availableScopes[Number(e.target.value)] ?? form.scope })}
-              className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm min-h-[48px] focus:outline-none focus:border-primary-400"
-            >
-              {availableScopes.map((s, i) => (
-                <option key={i} value={i}>
-                  {SCOPE_TYPE_LABEL[s.type]} {s.name && s.type !== 'all' ? `(${s.name})` : ''}
-                </option>
-              ))}
-            </select>
+            <VisibilitySelector
+              preset="broadcast"
+              value={form.visibility}
+              onChange={visibility => setForm({ ...form, visibility })}
+            />
           </div>
         </div>
       </ContentEditorLayout>

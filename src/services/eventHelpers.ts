@@ -7,6 +7,7 @@ export type ScheduleEvent = ChurchEvent & {
   visibility_type?: 'all' | 'district' | 'zone' | 'department';
   scope_id?: string;
   scope_name?: string;
+  sharedOrganizationIds?: string[];
 };
 
 export const EVENT_TYPE_LABELS: Record<string, string> = {
@@ -81,6 +82,7 @@ type StoredVis = {
   visibility_type: ScheduleEvent['visibility_type'];
   scope_id?: string;
   scope_name?: string;
+  sharedOrganizationIds?: string[];
 };
 
 export function loadEventVisibilityMap(): Record<string, StoredVis> {
@@ -117,6 +119,24 @@ export function isEventVisible(event: ScheduleEvent, user: AppUser | null): bool
   if (user.role === 'super_admin') return true;
   const vis = event.visibility_type ?? 'all';
   if (vis === 'all') return true;
+
+  const orgIds = event.sharedOrganizationIds?.length
+    ? event.sharedOrganizationIds
+    : event.scope_id
+      ? [event.scope_id]
+      : [];
+  if (orgIds.length > 0) {
+    const mine = new Set([
+      user.districtId,
+      user.zoneId,
+      ...(user.departmentIds ?? []),
+      ...(user.assignedDistrictIds ?? []),
+      ...(user.assignedZoneIds ?? []),
+      ...(user.assignedDepartmentIds ?? []),
+    ].filter(Boolean) as string[]);
+    if (orgIds.some(id => mine.has(id))) return true;
+  }
+
   if (vis === 'district') {
     const id = event.scope_id;
     if (!id) return true;
@@ -145,7 +165,29 @@ export function isEventVisible(event: ScheduleEvent, user: AppUser | null): bool
 }
 
 export function eventScopeBadge(event: ScheduleEvent): string {
-  if (!event.visibility_type || event.visibility_type === 'all') return '전체';
+  if (!event.visibility_type || event.visibility_type === 'all') return '전체 공개';
+  const orgIds = event.sharedOrganizationIds?.length
+    ? event.sharedOrganizationIds
+    : event.scope_id
+      ? [event.scope_id]
+      : [];
+  if (orgIds.length > 0) {
+    const names = orgIds.map(id => {
+      const live = getOrganizationPathLabel(id);
+      if (live && live !== '조직 정보 없음') {
+        return live.includes(' > ') ? live.split(' > ').pop()! : live;
+      }
+      const legacyDistrict = getDistrictNameById(id);
+      if (legacyDistrict !== '-') return legacyDistrict;
+      const legacyZone = getZoneNameById(id);
+      if (legacyZone !== '-') return legacyZone;
+      const legacyDept = getDepartmentNameById(id);
+      if (legacyDept !== '-') return legacyDept;
+      return '';
+    }).filter(Boolean);
+    if (names.length === 1) return `${names[0]} 공유`;
+    if (names.length > 1) return `${names.length}개 조직 공유`;
+  }
   if (event.scope_id) {
     const live = getOrganizationPathLabel(event.scope_id);
     if (live && live !== '조직 정보 없음') return live;

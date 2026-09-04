@@ -3,13 +3,15 @@ import ContentEditorLayout from '../layout/ContentEditorLayout';
 import type { ContentScope } from '../../services/permissions';
 import type { ScheduleEvent } from '../../services/eventHelpers';
 import { EVENT_TYPE_OPTIONS } from '../../services/eventHelpers';
-
-const SCOPE_TYPE_LABEL: Record<string, string> = {
-  all: '전체',
-  district: '교구',
-  zone: '구역',
-  department: '부서',
-};
+import {
+  VisibilitySelector,
+  validateContentVisibility,
+  type ContentVisibilityValue,
+} from '../common/shared-content/VisibilitySelector';
+import {
+  contentScopeToContentVisibility,
+  contentVisibilityToContentScope,
+} from '../../services/contentVisibilityScope';
 
 type Props = {
   editing: ScheduleEvent | null;
@@ -18,7 +20,7 @@ type Props = {
   saving?: boolean;
   onSave: (payload: {
     event: Omit<ScheduleEvent, 'id' | 'created_at' | 'is_recurring'>;
-    scope: ContentScope;
+    scope: ContentScope & { sharedOrganizationIds?: string[] };
   }) => void;
   onBack: () => void;
 };
@@ -26,31 +28,34 @@ type Props = {
 export function ScheduleEventForm({
   editing,
   initialDate,
-  availableScopes,
+  availableScopes: _availableScopes,
   saving = false,
   onSave,
   onBack,
 }: Props) {
+  void _availableScopes;
   const [title, setTitle] = useState(editing?.title ?? '');
   const [date, setDate] = useState(editing?.event_date ?? initialDate ?? new Date().toISOString().slice(0, 10));
   const [time, setTime] = useState(editing?.event_time?.slice(0, 5) ?? '');
   const [location, setLocation] = useState(editing?.location ?? '');
   const [description, setDescription] = useState(editing?.description ?? '');
   const [eventType, setEventType] = useState(editing?.event_type ?? 'worship');
-  const [scope, setScope] = useState<ContentScope>(() => {
-    if (editing?.visibility_type && editing.visibility_type !== 'all') {
-      return {
-        type: editing.visibility_type,
-        id: editing.scope_id,
-        name: editing.scope_name,
-      };
-    }
-    return availableScopes[0] ?? { type: 'all', name: '전체' };
-  });
+  const [visibility, setVisibility] = useState<ContentVisibilityValue>(() =>
+    contentScopeToContentVisibility({
+      visibility_type: editing?.visibility_type,
+      scope_id: editing?.scope_id,
+      scope_name: editing?.scope_name,
+      sharedOrganizationIds: editing?.sharedOrganizationIds,
+    }),
+  );
+
+  const visError = validateContentVisibility(visibility);
 
   const handleSubmit = (e?: FormEvent) => {
     e?.preventDefault();
     if (!title.trim() || !date) return;
+    if (visError) return;
+    const scope = contentVisibilityToContentScope(visibility);
     onSave({
       event: {
         title: title.trim(),
@@ -76,7 +81,7 @@ export function ScheduleEventForm({
         <button
           type="button"
           onClick={() => handleSubmit()}
-          disabled={saving || !title.trim()}
+          disabled={saving || !title.trim() || !!visError}
           className="inline-flex items-center gap-1.5 h-12 px-5 bg-primary-500 hover:bg-primary-600 text-[#1A1A1A] rounded-[18px] text-sm font-bold disabled:opacity-50 transition-colors"
         >
           {saving ? '저장 중...' : editing ? '수정' : '등록'}
@@ -134,35 +139,23 @@ export function ScheduleEventForm({
             className="w-full px-3.5 py-3 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:border-primary-400 focus:outline-none resize-none"
           />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1.5">일정 종류</label>
-            <select
-              value={eventType}
-              onChange={e => setEventType(e.target.value)}
-              className="w-full px-3 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-xl min-h-[48px] focus:border-primary-400 focus:outline-none"
-            >
-              {EVENT_TYPE_OPTIONS.map(opt => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1.5">공개 범위</label>
-            <select
-              value={availableScopes.indexOf(scope)}
-              onChange={e => setScope(availableScopes[Number(e.target.value)] ?? scope)}
-              className="w-full px-3 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-xl min-h-[48px] focus:border-primary-400 focus:outline-none"
-            >
-              {availableScopes.map((s, i) => (
-                <option key={i} value={i}>
-                  {SCOPE_TYPE_LABEL[s.type] ?? s.type}
-                  {s.name && s.type !== 'all' ? ` · ${s.name}` : ''}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div>
+          <label className="block text-xs font-semibold text-gray-600 mb-1.5">일정 종류</label>
+          <select
+            value={eventType}
+            onChange={e => setEventType(e.target.value)}
+            className="w-full px-3 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-xl min-h-[48px] focus:border-primary-400 focus:outline-none"
+          >
+            {EVENT_TYPE_OPTIONS.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
         </div>
+        <VisibilitySelector
+          preset="broadcast"
+          value={visibility}
+          onChange={setVisibility}
+        />
       </form>
     </ContentEditorLayout>
   );

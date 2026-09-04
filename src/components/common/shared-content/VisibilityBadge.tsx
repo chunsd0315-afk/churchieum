@@ -40,6 +40,16 @@ export function VisibilityBadge({
   sharedOrganizationIds?: string[];
   className?: string;
 }) {
+  const raw = String(visibility ?? '');
+  if (raw === 'public' || raw === 'all' || raw === '전체공개' || raw === '전체성도') {
+    return (
+      <span
+        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-sky-50 text-sky-700 ${className}`}
+      >
+        전체 공개
+      </span>
+    );
+  }
   const v = migrateVisibility(visibility);
   const phrases = getPastorTerminologyPhrases(readOrgSettings());
   const label =

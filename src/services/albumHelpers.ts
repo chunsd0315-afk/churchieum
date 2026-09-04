@@ -27,6 +27,8 @@ export type AlbumItem = {
   visibility_type?: 'all' | 'district' | 'zone' | 'department';
   scope_id?: string;
   scope_name?: string;
+  /** 공통 공개범위 — 내 조직과 공유 */
+  sharedOrganizationIds?: string[];
 };
 
 export type AlbumPhoto = {
@@ -44,6 +46,7 @@ type StoredScope = {
   visibility_type: AlbumItem['visibility_type'];
   scope_id?: string;
   scope_name?: string;
+  sharedOrganizationIds?: string[];
 };
 
 export const DEMO_ALBUMS: AlbumItem[] = [
@@ -174,6 +177,12 @@ export function mergeAlbumScope(album: AlbumItem): AlbumItem {
     visibility_type: vis.visibility_type ?? 'all',
     scope_id: vis.scope_id ?? album.scope_id,
     scope_name: vis.scope_name ?? album.scope_name,
+    sharedOrganizationIds:
+      vis.sharedOrganizationIds
+      ?? album.sharedOrganizationIds
+      ?? (vis.scope_id || album.scope_id
+        ? [vis.scope_id ?? album.scope_id!]
+        : []),
   };
 }
 
@@ -183,7 +192,12 @@ export function mergeAlbumList(albums: AlbumItem[]): AlbumItem[] {
 
 export function saveAlbumScope(
   albumId: string,
-  scope: { visibility_type: AlbumItem['visibility_type']; scope_id?: string; scope_name?: string },
+  scope: {
+    visibility_type: AlbumItem['visibility_type'];
+    scope_id?: string;
+    scope_name?: string;
+    sharedOrganizationIds?: string[];
+  },
 ): void {
   try {
     const map = readScopeMap();
@@ -195,9 +209,10 @@ export function saveAlbumScope(
 }
 
 function albumOrgIds(album: AlbumItem): string[] {
-  const ids: string[] = [];
-  if (album.scope_id) ids.push(album.scope_id);
-  return ids;
+  const merged = mergeAlbumScope(album);
+  if (merged.sharedOrganizationIds?.length) return merged.sharedOrganizationIds;
+  if (merged.scope_id) return [merged.scope_id];
+  return [];
 }
 
 export function isAlbumVisible(user: AppUser | null, album: AlbumItem): boolean {
@@ -241,6 +256,27 @@ export function formatAuthorLine(album: AlbumItem): string {
 export function getAlbumScopeBadge(album: AlbumItem): string {
   const merged = mergeAlbumScope(album);
   if (merged.visibility_type === 'all' || !merged.visibility_type) return '전체 공개';
+  const orgIds = albumOrgIds(merged);
+  if (orgIds.length > 0) {
+    const names = orgIds
+      .map(id => {
+        const live = getOrganizationPathLabel(id);
+        if (live && live !== '조직 정보 없음') {
+          const short = live.includes(' > ') ? live.split(' > ').pop()! : live;
+          return short;
+        }
+        const d = getDistrictNameById(id);
+        if (d !== '-') return d;
+        const z = getZoneNameById(id);
+        if (z !== '-') return z;
+        const dep = getDepartmentNameById(id);
+        if (dep !== '-') return dep;
+        return '';
+      })
+      .filter(Boolean);
+    if (names.length === 1) return `${names[0]} 공유`;
+    if (names.length > 1) return `${names.length}개 조직 공유`;
+  }
   if (merged.scope_id) {
     const live = getOrganizationPathLabel(merged.scope_id);
     if (live && live !== '조직 정보 없음') return live;

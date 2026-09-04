@@ -1,8 +1,25 @@
 export { VisibilitySelector } from './VisibilitySelector';
+export type {
+  ContentVisibilityMode,
+  ContentVisibilityPreset,
+  ContentVisibilityValue,
+  VisibilitySelectorProps,
+} from './VisibilitySelector';
+export {
+  defaultContentVisibilityValue,
+  normalizeVisibility,
+  validateContentVisibility,
+  contentVisibilityBadgeLabel,
+  visibilityValueToSaveFields,
+} from './VisibilitySelector';
+export {
+  OrganizationShareSelector,
+  useUserShareableOrganizations,
+  formatOrgAssigneeLine,
+} from './OrganizationShareSelector';
 export { PastorShareSelector } from './PastorShareSelector';
 export { DirectPastorOrgShareSelector } from './DirectPastorOrgShareSelector';
 export type { DirectPastorOrgShareSelectorProps } from './DirectPastorOrgShareSelector';
-export { OrganizationShareSelector } from './OrganizationShareSelector';
 export { OrganizationFilterSelector } from './OrganizationFilterSelector';
 export type { OrganizationFilterItem } from './OrganizationFilterSelector';
 export { UserOrganizationTreeSelector } from './UserOrganizationTreeSelector';
