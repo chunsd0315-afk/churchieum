@@ -8,30 +8,25 @@ type Props = {
   showEnglish?: boolean;
   showTagline?: boolean;
   textColor?: TextColor;
-  /** 프리미엄 브랜드 마크 (Premium Yellow 포인트) */
+  /** 프리미엄 브랜드 마크 (Color Leather Bible) */
   premium?: boolean;
   className?: string;
 };
 
-const PREMIUM_YELLOW = '#FFCD00';
-const PREMIUM_TEXT = '#1A1A1A';
-const PREMIUM_SLOGAN = '#666666';
+const BRAND_TEXT = '#4A2B1A';
+const BRAND_SLOGAN = '#8A7E75';
 
-// ─── SVG mark ───────────────────────────────────────────────────────────────
-
+/** Brown leather bible · gold cross · red bookmark */
 export function ChurchieumIconSVG({
   size = 48,
   className = '',
-  premium = false,
+  premium: _premium = false,
 }: {
   size?: number;
   className?: string;
   premium?: boolean;
 }) {
-  const stroke = premium ? PREMIUM_TEXT : 'white';
-  const crossBar = premium ? PREMIUM_YELLOW : 'white';
-  const fill = premium ? PREMIUM_TEXT : 'white';
-
+  void _premium;
   return (
     <svg
       width={size}
@@ -42,85 +37,69 @@ export function ChurchieumIconSVG({
       className={className}
       aria-hidden
     >
-      <line x1="24" y1="2" x2="24" y2="12.5" stroke={stroke} strokeWidth="2.8" strokeLinecap="round" />
-      <line x1="18.5" y1="7" x2="29.5" y2="7" stroke={crossBar} strokeWidth="2.8" strokeLinecap="round" />
-
-      <path
-        d="M8 44 L8 26 Q8 12.5 24 12.5 Q40 12.5 40 26 L40 44"
-        stroke={stroke}
-        strokeWidth="2.5"
+      <defs>
+        <linearGradient id="leatherCover" x1="8" y1="6" x2="40" y2="42" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#D8A875" />
+          <stop offset="45%" stopColor="#8A542F" />
+          <stop offset="100%" stopColor="#4A2B1A" />
+        </linearGradient>
+        <linearGradient id="leatherGloss" x1="14" y1="10" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#fff" stopOpacity="0.35" />
+          <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {/* cover */}
+      <rect x="8" y="7" width="30" height="36" rx="5" fill="url(#leatherCover)" />
+      {/* stitch */}
+      <rect
+        x="11"
+        y="10"
+        width="24"
+        height="30"
+        rx="3.5"
         fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        stroke="#FFF5E8"
+        strokeOpacity="0.45"
+        strokeWidth="1"
+        strokeDasharray="2 1.8"
       />
-
-      <path
-        d="M15.5 24.5 Q24 17 32.5 24.5"
-        stroke={premium ? PREMIUM_YELLOW : stroke}
-        strokeWidth="2.2"
-        fill="none"
-        strokeLinecap="round"
-        opacity={premium ? 1 : 0.82}
-      />
-
-      <circle cx="15.5" cy="29" r="3.6" fill={fill} opacity={premium ? 1 : 0.92} />
-      <path
-        d="M11.8 44 L11.8 35 Q11.8 32.7 15.5 32.7 Q19.2 32.7 19.2 35 L19.2 44"
-        fill={fill}
-        opacity={premium ? 0.88 : 0.8}
-      />
-
-      <circle cx="32.5" cy="29" r="3.6" fill={fill} opacity={premium ? 1 : 0.92} />
-      <path
-        d="M28.8 44 L28.8 35 Q28.8 32.7 32.5 32.7 Q36.2 32.7 36.2 35 L36.2 44"
-        fill={fill}
-        opacity={premium ? 0.88 : 0.8}
-      />
+      {/* pages edge */}
+      <rect x="36" y="10" width="4" height="30" rx="1" fill="#FFF5E8" opacity="0.9" />
+      <rect x="36" y="12" width="3" height="2" rx="0.5" fill="#EADFD5" />
+      <rect x="36" y="16" width="3" height="2" rx="0.5" fill="#EADFD5" />
+      {/* gold cross */}
+      <rect x="20.5" y="16" width="3.2" height="14" rx="1" fill="#E7B447" />
+      <rect x="16.5" y="20" width="11.2" height="3.2" rx="1" fill="#F5D56A" />
+      {/* red bookmark */}
+      <path d="M38 14h4v16l-2 3-2-3V14z" fill="#C45A4C" />
+      <ellipse cx="18" cy="14" rx="7" ry="4" fill="url(#leatherGloss)" />
     </svg>
   );
 }
 
 function IconBox({ size, premium = false }: { size: number; premium?: boolean }) {
-  const br = Math.round(size * 0.22);
-  const iconSize = Math.round(size * 0.63);
-
-  if (premium) {
-    return (
-      <div
-        className="churchieum-logo-mark"
-        style={{
-          width: size,
-          height: size,
-          borderRadius: br,
-          background: '#FFFFFF',
-          border: '1px solid rgba(26, 26, 26, 0.06)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 6px 28px rgba(0, 0, 0, 0.06)',
-          flexShrink: 0,
-        }}
-      >
-        <ChurchieumIconSVG size={iconSize} premium />
-      </div>
-    );
-  }
+  const br = Math.round(size * 0.24);
+  const iconSize = Math.round(size * 0.88);
 
   return (
     <div
+      className="churchieum-logo-mark"
       style={{
         width: size,
         height: size,
         borderRadius: br,
-        background: 'linear-gradient(135deg, #4CAF50 0%, #1E88E5 100%)',
+        background: premium
+          ? 'linear-gradient(145deg, #FFF9F2 0%, #FFF5E8 100%)'
+          : 'linear-gradient(135deg, #8A542F 0%, #4A2B1A 100%)',
+        border: '1px solid rgba(138, 84, 47, 0.12)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        boxShadow: '0 6px 20px rgba(30,136,229,0.32)',
+        boxShadow: '0 8px 24px rgba(80, 50, 30, 0.14)',
         flexShrink: 0,
       }}
     >
-      <ChurchieumIconSVG size={iconSize} />
+      <ChurchieumIconSVG size={iconSize} premium={premium} />
     </div>
   );
 }
@@ -135,55 +114,49 @@ export default function ChurchieumLogo({
   premium = false,
   className = '',
 }: Props) {
-  const tc1 = textColor === 'light' ? 'text-white' : 'text-gray-900';
-  const tc2 = textColor === 'light' ? 'text-white/60' : 'text-gray-500';
-  const tc3 = textColor === 'light' ? 'text-white/42' : 'text-gray-400';
+  const tc1 = textColor === 'light' ? 'text-white' : '';
+  const tc2 = textColor === 'light' ? 'text-white/60' : '';
+  const tc3 = textColor === 'light' ? 'text-white/42' : '';
 
   if (variant === 'icon') {
     return (
       <div className={className}>
-        <IconBox size={size} premium={premium} />
+        <IconBox size={size} premium />
       </div>
     );
   }
 
-  const titleStyle = premium
-    ? { fontSize: Math.round(size * 0.34), fontWeight: 700 as const, color: PREMIUM_TEXT }
-    : { fontSize: Math.round(size * 0.55) };
-  const sloganStyle = premium
-    ? {
-        fontSize: Math.max(13, Math.round(size * 0.19)),
-        fontWeight: 500 as const,
-        color: PREMIUM_SLOGAN,
-        marginTop: 10,
-      }
-    : { fontSize: Math.round(size * 0.17), marginTop: 8 };
+  const titleStyle = {
+    fontSize: Math.round(size * (variant === 'full' ? 0.34 : 0.44)),
+    fontWeight: 700 as const,
+    color: textColor === 'light' ? '#FFFFFF' : BRAND_TEXT,
+  };
+  const sloganStyle = {
+    fontSize: Math.max(13, Math.round(size * 0.19)),
+    fontWeight: 500 as const,
+    color: textColor === 'light' ? 'rgba(255,255,255,0.7)' : BRAND_SLOGAN,
+    marginTop: 10,
+  };
 
   if (variant === 'full') {
     return (
       <div className={`flex flex-col items-center churchieum-brand-font ${className}`}>
-        <IconBox size={size} premium={premium} />
+        <IconBox size={size} premium />
         {showText && (
-          <div className="text-center" style={{ marginTop: premium ? 8 : 16 }}>
-            <p
-              className={`tracking-tight leading-none ${premium ? '' : `font-extrabold ${tc1}`}`}
-              style={premium ? titleStyle : titleStyle}
-            >
+          <div className="text-center" style={{ marginTop: 8 }}>
+            <p className={`tracking-tight leading-none ${tc1}`} style={titleStyle}>
               교회이음
             </p>
             {showEnglish && (
               <p
                 className={`mt-1 font-semibold tracking-[0.25em] ${tc2}`}
-                style={{ fontSize: Math.round(size * 0.19) }}
+                style={{ fontSize: Math.round(size * 0.19), color: BRAND_SLOGAN }}
               >
                 CHURCHIEUM
               </p>
             )}
             {showTagline && (
-              <p
-                className={`leading-relaxed churchieum-brand-slogan ${premium ? '' : tc3}`}
-                style={sloganStyle}
-              >
+              <p className={`leading-relaxed churchieum-brand-slogan ${tc3}`} style={sloganStyle}>
                 교회를 잇고, 말씀을 잇고, 믿음을 잇다.
               </p>
             )}
@@ -195,36 +168,22 @@ export default function ChurchieumLogo({
 
   return (
     <div className={`flex items-center gap-3 churchieum-brand-font ${className}`}>
-      <IconBox size={size} premium={premium} />
+      <IconBox size={size} premium />
       {showText && (
         <div>
-          <p
-            className={`leading-tight ${premium ? '' : `font-bold ${tc1}`}`}
-            style={
-              premium
-                ? { fontSize: Math.round(size * 0.44), fontWeight: 700, color: PREMIUM_TEXT }
-                : { fontSize: Math.round(size * 0.44) }
-            }
-          >
+          <p className={`leading-tight ${tc1}`} style={titleStyle}>
             교회이음
           </p>
           {showEnglish && (
             <p
               className={`font-medium tracking-widest mt-0.5 ${tc2}`}
-              style={{ fontSize: Math.round(size * 0.21) }}
+              style={{ fontSize: Math.round(size * 0.21), color: BRAND_SLOGAN }}
             >
               CHURCHIEUM
             </p>
           )}
           {showTagline && (
-            <p
-              className={`churchieum-brand-slogan ${premium ? '' : tc3}`}
-              style={
-                premium
-                  ? { ...sloganStyle, marginTop: 8 }
-                  : { fontSize: Math.round(size * 0.17), marginTop: 4 }
-              }
-            >
+            <p className={`churchieum-brand-slogan ${tc3}`} style={{ ...sloganStyle, marginTop: 8 }}>
               교회를 잇고, 말씀을 잇고, 믿음을 잇다.
             </p>
           )}

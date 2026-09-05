@@ -7,6 +7,7 @@ import LoginPage from './LoginPage';
 import ModeSelectPage from './ModeSelectPage';
 import { MemberLayout, type Page } from '../components/member/Layout';
 import MemberHome from '../components/member/MemberHome';
+import AllMenusPage from '../components/member/AllMenusPage';
 import SermonPage from '../pages/member/SermonPage';
 import GraceNotesPage from '../pages/member/GraceNotesPage';
 import AnnouncementPage from '../pages/member/AnnouncementPage';
@@ -171,6 +172,7 @@ function AppContent() {
         isAdmin={isAdmin}
       >
         {memberPage === 'home' && <SafePage><MemberHome onNavigate={setMemberPage} /></SafePage>}
+        {memberPage === 'all-menus' && <SafePage><AllMenusPage onNavigate={setMemberPage} /></SafePage>}
         {memberPage === 'sermon' && <SafePage><SermonPage /></SafePage>}
         {memberPage === 'grace-notes' && <SafePage><GraceNotesPage /></SafePage>}
         {memberPage === 'announcement' && <SafePage><AnnouncementPage /></SafePage>}

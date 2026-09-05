@@ -1,9 +1,6 @@
 ﻿import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import {
-  ChevronLeft,
-  Home, BookHeart, BookOpen, Megaphone, User,
-} from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import { getUnreadNotificationCount } from '../../services/prayerNotificationStorage';
 import { AppLayout } from '../layout/AppLayout';
 import { MobileAppHomeHeader } from '../layout/MobileAppHomeHeader';
@@ -30,20 +27,22 @@ export type Page =
   | 'bulletin'
   | 'schedule'
   | 'church-info'
-  | 'sharing';
+  | 'sharing'
+  | 'all-menus';
 
-const BOTTOM_NAV_ITEMS = [
-  { page: 'home' as const, label: '홈', icon: Home },
-  { page: 'grace-notes' as const, label: HOME_MENU_CATALOG.grace.label, icon: BookHeart },
-  { page: 'sermon' as const, label: HOME_MENU_CATALOG.sermon.label, icon: BookOpen },
-  { page: 'announcement' as const, label: HOME_MENU_CATALOG.announcement.label, icon: Megaphone },
-  { page: 'profile' as const, label: HOME_MENU_CATALOG.profile.label, icon: User },
+const BOTTOM_NAV_ITEMS: Array<{ page: Page; label: string; iconKey: import('../../config/menuIconMap').MenuIconKey }> = [
+  { page: 'home', label: '홈', iconKey: 'home' },
+  { page: 'sermon', label: HOME_MENU_CATALOG.sermon.label, iconKey: 'sermon' },
+  { page: 'grace-notes', label: HOME_MENU_CATALOG.grace.label, iconKey: 'grace' },
+  { page: 'profile', label: HOME_MENU_CATALOG.profile.label, iconKey: 'profile' },
+  { page: 'all-menus', label: '더보기', iconKey: 'settings' },
 ];
 
 const PAGE_LABELS: Partial<Record<Page, string>> = {
   home: '홈',
   ...catalogPageLabels(MEMBER_ROLE_MENUS),
   departments: '부서',
+  'all-menus': '전체 메뉴',
 };
 
 const PAGE_SUBTITLES: Partial<Record<Page, string>> = {
@@ -86,14 +85,14 @@ export function MemberLayout({ children, currentPage, onNavigate, onSwitchMode, 
     : 0;
   void notifTick;
 
-  const isHome = currentPage === 'home';
+  const isHome = currentPage === 'home' || currentPage === 'all-menus';
   const pageLabel   = PAGE_LABELS[currentPage] ?? '메뉴';
   const pageSubtitle = PAGE_SUBTITLES[currentPage];
 
   // Mode switcher for sidebar (admin users)
   const modeSwitcher = isAdmin ? (
-    <div className="flex gap-1 p-1 rounded-[10px]" style={{ background: '#F1F5F9' }}>
-      <button className="flex-1 py-1.5 bg-white rounded-[8px] text-[11px] font-bold shadow-sm" style={{ color: '#B45309' }}>
+    <div className="flex gap-1 p-1 rounded-[10px]" style={{ background: '#FFF5E8' }}>
+      <button className="flex-1 py-1.5 bg-white rounded-[8px] text-[11px] font-bold shadow-sm" style={{ color: '#8A542F' }}>
         성도모드
       </button>
       <button
@@ -105,7 +104,22 @@ export function MemberLayout({ children, currentPage, onNavigate, onSwitchMode, 
     </div>
   ) : undefined;
 
-  const mobileHomeHeader = (
+  const mobileHomeHeader = currentPage === 'all-menus' ? (
+    <MobileSubPageHeader
+      title="전체 메뉴"
+      description="필요한 메뉴를 찾아보세요."
+      leading={(
+        <button
+          onClick={() => onNavigate('home')}
+          className="flex items-center gap-1 px-3 py-2 rounded-[10px] transition-colors"
+          style={{ color: '#5C524A' }}
+        >
+          <ChevronLeft className="w-5 h-5" />
+          <span className="text-sm font-medium">뒤로</span>
+        </button>
+      )}
+    />
+  ) : (
     <MobileAppHomeHeader
       onProfileClick={() => onNavigate('profile')}
       onNotificationsClick={() => setShowNotifications(true)}
@@ -141,7 +155,7 @@ export function MemberLayout({ children, currentPage, onNavigate, onSwitchMode, 
       sidebarNavItems={sidebarNavItems}
       sidebarModeSwitcher={modeSwitcher}
       showSettingsButton={false}
-      bottomNavItems={BOTTOM_NAV_ITEMS.map(i => ({ id: i.page, label: i.label, icon: i.icon }))}
+      bottomNavItems={BOTTOM_NAV_ITEMS.map(i => ({ id: i.page, label: i.label, iconKey: i.iconKey }))}
     >
       {children}
       {showNotifications && user?.id && (

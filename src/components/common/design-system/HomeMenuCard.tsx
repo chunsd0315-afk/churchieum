@@ -14,7 +14,7 @@ type Props = {
   item: HomeMenuCardItem;
 };
 
-/** PC 홈 메뉴 카드 — Soft-3D 아이콘 중심 · Radius 24 */
+/** PC 홈 메뉴 카드 — Color Leather 3D · Radius 24 */
 export function HomeMenuCard({ item }: Props) {
   return (
     <button
@@ -24,8 +24,8 @@ export function HomeMenuCard({ item }: Props) {
       className={[
         'group w-full flex flex-col text-left',
         'bg-white',
-        'transition-all duration-200',
-        'hover:scale-[1.03]',
+        'transition-all duration-200 ease-out',
+        'hover:-translate-y-[3px]',
         'active:scale-[0.97]',
       ].join(' ')}
       style={{
@@ -37,9 +37,11 @@ export function HomeMenuCard({ item }: Props) {
       }}
       onMouseEnter={e => {
         e.currentTarget.style.boxShadow = DS.shadow.cardHover;
+        e.currentTarget.style.borderColor = DS.colors.gold;
       }}
       onMouseLeave={e => {
         e.currentTarget.style.boxShadow = DS.shadow.card;
+        e.currentTarget.style.borderColor = DS.colors.borderCard;
       }}
     >
       <div className="flex items-center justify-center flex-1 min-h-0" style={{ marginBottom: 8 }}>

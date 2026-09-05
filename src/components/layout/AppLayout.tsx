@@ -80,7 +80,7 @@ function DesktopAppLayout<P extends string>({
   children,
 }: AppLayoutConfig<P>) {
   return (
-    <div className="flex flex-col h-screen overflow-hidden" style={{ background: '#FFFFFF' }}>
+    <div className="flex flex-col h-screen overflow-hidden" style={{ background: 'var(--color-bg-page)' }}>
       <PCTopHeader
         showSettings={showSettingsButton}
         onSettingsClick={onSettingsClick}
@@ -98,7 +98,7 @@ function DesktopAppLayout<P extends string>({
 
         <main
           className="flex-1 overflow-y-auto min-w-0"
-          style={{ background: '#FFFFFF' }}
+          style={{ background: 'var(--color-bg-page)' }}
         >
           <PageContentWell>
             {children}
@@ -131,7 +131,7 @@ function MobileAppLayout<P extends string>({
   const hasBottomNav = bottomNavItems && bottomNavItems.length > 0;
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#FFFFFF' }}>
+    <div className="min-h-screen flex flex-col" style={{ background: 'var(--color-bg-page)' }}>
       {/* Header — switches between home header and sub-page header */}
       {isHomePage ? mobileHomeHeader : mobileSubHeader}
 

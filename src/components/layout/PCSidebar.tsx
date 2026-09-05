@@ -7,6 +7,7 @@ import { saveProfileImage } from '../../services/profileImage';
 import { UserProfileAvatar } from '../common/ui/UserProfileAvatar';
 import { useCurrentUserDisplayMeta } from '../../hooks/useCurrentUserDisplayMeta';
 import { DS } from '../common/design-system/tokens';
+import ChurchieumLogo from '../common/ChurchieumLogo';
 
 type NavItem<P extends string> = {
   page: P;
@@ -66,6 +67,17 @@ export default function PCSidebar<P extends string>({
         padding: collapsed ? '18px 10px' : '18px 14px',
       }}
     >
+      {!collapsed && (
+        <div className="mb-4 px-1">
+          <ChurchieumLogo variant="horizontal" size={36} premium />
+        </div>
+      )}
+      {collapsed && (
+        <div className="mb-3 flex justify-center">
+          <ChurchieumLogo variant="icon" size={36} premium />
+        </div>
+      )}
+
       {/* User profile — PC: 이름·직분만 (조직 정보 없음) */}
       <div
         className="mb-3"
@@ -83,7 +95,7 @@ export default function PCSidebar<P extends string>({
               type="button"
               onClick={() => fileInputRef.current?.click()}
               className="w-11 h-11 rounded-2xl overflow-hidden flex items-center justify-center shadow-sm relative"
-              style={{ background: 'linear-gradient(135deg, #FFCD00 0%, #FF9D42 100%)' }}
+              style={{ background: `linear-gradient(135deg, ${DS.colors.gold} 0%, ${DS.colors.leatherLight} 100%)` }}
               aria-label="프로필 사진 변경"
             >
               <UserProfileAvatar

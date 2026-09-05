@@ -5,51 +5,61 @@
 @tailwind utilities;
 
 /* ══════════════════════════════════════════════════════════════════
-   교회이음 Design Tokens — v3.0 Premium Warm Yellow
+   교회이음 Design Tokens — v4.0 Color Leather Premium 3D
 
-   Concept: KB Pay × 카카오페이 × Apple × Soft-3D
-   Feel: 고급 · 밝음 · 친근 · 깔끔 · 신뢰 · 교회다움
+   Concept: Color Leather × KidsNote × Apple Soft × Warm Church
+   Feel: 가죽 성경의 따뜻함 · 키즈노트 친근함 · 밝고 깨끗한 Ivory UI
 
-   Primary: #FFCD00 (Warm Premium Yellow — point only)
+   Primary Gold: #E7B447 · Leather Brown (point): #8A542F
+   Background Ivory: #FFF9F2 · Surface: #FFFFFF
    Typography: Pretendard Variable — 400 · 500 · 700
    Card Radius: 24px · Button Radius: 18px · Button Height: 48px
    ══════════════════════════════════════════════════════════════════ */
 
 :root {
   /* ── Design System (canonical) ───────────────────── */
-  --color-brand-primary:    #FFCD00;
-  --color-brand-secondary:  #4A8CFF;
-  --color-brand-background: #FFFDF7;
-  --color-brand-success:    #22C55E;
-  --color-brand-warning:    #FF9D42;
-  --color-brand-error:      #FF5A5F;
+  --color-brand-primary:    #E7B447;
+  --color-brand-secondary:  #5B8DEF;
+  --color-brand-background: #FFF9F2;
+  --color-brand-success:    #4CAF70;
+  --color-brand-warning:    #F0A05A;
+  --color-brand-error:      #E85D5D;
   --radius-brand:           18px;
   --height-btn:             48px;
 
+  /* ── Color Leather palette ───────────────────────── */
+  --color-leather:          #8A542F;
+  --color-leather-deep:     #4A2B1A;
+  --color-leather-light:    #D8A875;
+  --color-gold:             #E7B447;
+  --color-ivory:            #FFF5E8;
+  --color-bg-ivory:         #FFF9F2;
+
   /* ── Typography (canonical) ────────────────────────── */
   --font-family-brand:      'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-family-serif:      'Noto Serif KR', 'Batang', Georgia, serif;
   --font-weight-regular:    400;
   --font-weight-medium:     500;
   --font-weight-semibold:   600;
   --font-weight-bold:       700;
 
-  /* ── Color: Primary (Warm Yellow) ────────────────── */
-  --color-primary-50:  #FFFBEA;
-  --color-primary-100: #FFF7D6;
-  --color-sky-blue:      #4A8CFF;
+  /* ── Color: Primary (Gold) ───────────────────────── */
+  --color-primary-50:  #FFFBF0;
+  --color-primary-100: #FFF3C4;
+  --color-sky-blue:      #5B8DEF;
   --color-soft-blue-bg:  #EEF4FF;
   --color-accent-yellow: #FFCD00;
   --color-premium-yellow: #FFCD00;
-  --color-brand-title: #1A1A1A;
-  --color-brand-slogan: #666666;
-  --color-primary-200: #FFEEA8;
-  --color-primary-300: #FFE066;
-  --color-primary-400: #FFD633;
-  --color-primary-500: #FFCD00;
-  --color-primary-600: #F5BE00;
-  --color-primary-700: #E6B000;
-  --color-primary-800: #C99700;
-  --color-primary-900: #8A6800;
+  --color-brand-title: #2A211C;
+  --color-brand-slogan: #8A7E75;
+  --color-primary-200: #FFE9A0;
+  --color-primary-300: #F5D56A;
+  --color-primary-400: #EDC24E;
+  --color-primary-500: #E7B447;
+  --color-primary-600: #D7A63A;
+  --color-primary-700: #C7952F;
+  --color-primary-800: #A67A24;
+  --color-primary-900: #8A542F;
 
   /* ── Color: Secondary (Accent Blue) ──────────────── */
   --color-secondary-50:  #EEF4FF;
@@ -121,27 +131,27 @@
   --color-neutral-950: #0A0A0A;
 
   /* ── Color: Surface / Background ───────────────── */
-  --color-bg-page:    #FFFDF7;
+  --color-bg-page:    #FFF9F2;
   --color-bg-surface: #FFFFFF;
-  --color-bg-sunken:  #F5F5F5;
+  --color-bg-sunken:  #F7F1EA;
   --color-bg-raised:  #FFFFFF;
-  --color-bg-warm:    #FFFBEA;
+  --color-bg-warm:    #FFF5E8;
 
   /* ── Color: Border ───────────────────────────────── */
-  --color-border-subtle:  #F5F5F5;
-  --color-border-default: #ECECEC;
-  --color-border-strong:  #D4D4D4;
-  --color-border-focus:   #FFCD00;
+  --color-border-subtle:  #F3EBE3;
+  --color-border-default: #EADFD5;
+  --color-border-strong:  #DCC9B5;
+  --color-border-focus:   #E7B447;
 
   /* ── Color: Text ─────────────────────────────────── */
-  --color-text-primary:   #1A1A1A;
-  --color-text-secondary: #4B5563;
-  --color-text-tertiary:  #9CA3AF;
-  --color-text-disabled:  #C4C4C4;
-  --color-text-inverse:   #1A1A1A;
-  --color-text-on-yellow: #1A1A1A;
-  --color-text-link:      #4A8CFF;
-  --color-text-link-hover: #2F6FE0;
+  --color-text-primary:   #2A211C;
+  --color-text-secondary: #5C524A;
+  --color-text-tertiary:  #8A7E75;
+  --color-text-disabled:  #C4B8AE;
+  --color-text-inverse:   #FFFFFF;
+  --color-text-on-yellow: #2A211C;
+  --color-text-link:      #5B8DEF;
+  --color-text-link-hover: #3D6FD4;
 
   /* ── Typography: Font Family ─────────────────────── */
   --font-sans: var(--font-family-brand), -apple-system, BlinkMacSystemFont, 'system-ui', sans-serif;
@@ -235,14 +245,15 @@
   --shadow-lg:      0 8px 30px 0 rgba(0, 0, 0, 0.06);
   --shadow-xl:      0 16px 40px 0 rgba(0, 0, 0, 0.08);
   --shadow-2xl:     0 24px 64px 0 rgba(0, 0, 0, 0.12);
-  --shadow-card:    0 8px 30px rgba(0, 0, 0, 0.06);
-  --shadow-card-md: 0 8px 30px rgba(0, 0, 0, 0.06);
-  --shadow-card-hover: 0 12px 40px rgba(0, 0, 0, 0.10);
-  --shadow-btn-primary: 0 4px 14px 0 rgba(255, 205, 0, 0.35);
-  --shadow-btn-primary-hover: 0 6px 20px 0 rgba(255, 205, 0, 0.45);
-  --shadow-overlay: 0 20px 60px 0 rgba(0, 0, 0, 0.16);
-  --shadow-inset:   inset 0 2px 4px 0 rgba(0, 0, 0, 0.04);
-  --shadow-focus:   0 0 0 3px rgba(255, 205, 0, 0.35);
+  --shadow-card:    0 8px 30px rgba(80, 50, 30, 0.07);
+  --shadow-card-md: 0 8px 30px rgba(80, 50, 30, 0.07);
+  --shadow-card-hover: 0 14px 36px rgba(80, 50, 30, 0.12);
+  --shadow-btn-primary: 0 4px 14px 0 rgba(231, 180, 71, 0.35);
+  --shadow-btn-primary-hover: 0 6px 20px 0 rgba(231, 180, 71, 0.45);
+  --shadow-overlay: 0 20px 60px 0 rgba(42, 33, 28, 0.16);
+  --shadow-inset:   inset 0 2px 4px 0 rgba(80, 50, 30, 0.04);
+  --shadow-focus:   0 0 0 3px rgba(231, 180, 71, 0.35);
+  --shadow-leather-icon: 0 8px 20px rgba(80, 50, 30, 0.16);
 
   /* ── Z-index Scale ───────────────────────────────── */
   --z-base:       0;
@@ -375,8 +386,8 @@
   .btn-secondary {
     @apply bg-white font-semibold px-6
            active:scale-[0.97];
-    color: var(--color-text-primary);
-    border: 1px solid var(--color-border-default);
+    color: var(--color-leather);
+    border: 1px solid var(--color-border-strong);
     min-height: var(--height-btn);
     height: var(--height-btn);
     font-size: var(--text-md);
@@ -386,7 +397,23 @@
     transition-timing-function: var(--ease-out);
   }
   .btn-secondary:hover {
-    background-color: var(--color-bg-sunken);
+    background-color: var(--color-bg-warm);
+  }
+
+  /* Color Leather 3D icon hover (PC) */
+  .leather-icon-3d {
+    transform-style: preserve-3d;
+    transition: transform 200ms ease-out, filter 200ms ease-out;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .group:hover .leather-icon-3d,
+    .leather-icon-3d:hover {
+      transform: perspective(600px) rotateX(3deg) rotateY(-3deg) translateY(-3px) scale(1.03);
+      filter: brightness(1.06) drop-shadow(0 10px 18px rgba(80, 50, 30, 0.22));
+    }
+  }
+  .leather-icon-3d:active {
+    transform: scale(0.98);
   }
 
   .btn-outline {

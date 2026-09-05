@@ -1,5 +1,4 @@
 import { BannerSceneIllustration } from './BannerSceneIllustration';
-import { RoleBadge } from './RoleBadge';
 import { DS } from './tokens';
 
 type Props = {
@@ -10,45 +9,16 @@ type Props = {
   mode: 'admin' | 'pastor' | 'member';
 };
 
-function honorificName(name?: string, position?: string): string {
-  if (!name) return '';
-  const pos = position?.trim();
-  if (pos && !name.includes(pos)) return `${name} ${pos}님`;
-  return `${name}님`;
-}
-
-const SUBTITLE: Record<Props['mode'], string> = {
-  admin: '우리 교회를 사랑으로 이어요',
-  pastor: '말씀과 기도로 함께합니다',
-  member: '오늘도 주님 안에서 평안하세요',
+const TODAY_WORD = {
+  verse: '너의 말씀은 내 발에 등이요\n내 길에 빛이니이다',
+  ref: '시편 119:105',
 };
 
-const TODAY_WORD: Record<Props['mode'], { verse: string; ref: string }> = {
-  member: {
-    verse: '여호와는 나의 목자시니 내게 부족함이 없으리로다',
-    ref: '시편 23:1',
-  },
-  pastor: {
-    verse: '너는 말씀을 전파하라 때를 얻든지 못 얻든지 항상 힘쓰라',
-    ref: '디모데후서 4:2',
-  },
-  admin: {
-    verse: '모든 것을 품위 있게 하고 질서 있게 하라',
-    ref: '고린도전서 14:40',
-  },
-};
-
-/** 홈 Hero Card — 오늘의 말씀 · 환영 · Soft-3D 일러스트 */
+/** 홈 Hero Card — 오늘의 말씀 · Color Leather Bible */
 export function RoleGreetingBanner({
-  userName,
-  roleLabel,
-  position,
   churchName,
-  mode,
 }: Props) {
-  const displayHonorific = honorificName(userName, position);
-  const subtitle = SUBTITLE[mode];
-  const word = TODAY_WORD[mode];
+  const word = TODAY_WORD;
 
   return (
     <div
@@ -62,66 +32,54 @@ export function RoleGreetingBanner({
         marginBottom: DS.spacing.sectionGap,
       }}
     >
+      {/* warm light orbs */}
       <div
-        className="absolute -right-8 -top-8 rounded-full pointer-events-none"
+        className="absolute -right-10 -top-10 rounded-full pointer-events-none"
         style={{
-          width: 200,
-          height: 200,
-          background: 'radial-gradient(circle, rgba(255,205,0,0.22) 0%, transparent 70%)',
+          width: 220,
+          height: 220,
+          background: 'radial-gradient(circle, rgba(231,180,71,0.28) 0%, transparent 70%)',
+        }}
+      />
+      <div
+        className="absolute left-8 bottom-0 rounded-full pointer-events-none"
+        style={{
+          width: 160,
+          height: 120,
+          background: 'radial-gradient(circle, rgba(76,175,112,0.12) 0%, transparent 70%)',
         }}
       />
 
-      <div className="relative z-10 flex items-center min-h-[180px] px-5 py-5 sm:px-8">
-        <div className="flex-1 min-w-0 pr-3 sm:max-w-[58%]">
-          <div className="flex items-center gap-2 mb-2.5 flex-wrap">
-            {roleLabel && <RoleBadge label={roleLabel} mode={mode} />}
-            <span
-              className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold"
-              style={{
-                background: DS.colors.primary,
-                color: DS.colors.textOnYellow,
-              }}
-            >
-              오늘의 말씀
-            </span>
-          </div>
-
-          <h2
-            className="font-bold leading-snug"
+      <div className="relative z-10 flex items-center min-h-[200px] px-5 py-6 sm:px-8 gap-4">
+        <div className="flex-1 min-w-0 sm:max-w-[58%]">
+          <span
+            className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold mb-4"
             style={{
-              fontSize: DS.typography.bannerTitle.size,
-              fontWeight: DS.typography.bannerTitle.weight,
-              color: DS.colors.textPrimary,
-              marginBottom: 8,
-              letterSpacing: '-0.02em',
+              background: DS.colors.primary,
+              color: DS.colors.textOnYellow,
+              boxShadow: '0 4px 12px rgba(231,180,71,0.35)',
             }}
           >
-            {displayHonorific ? (
-              <>
-                안녕하세요,{' '}
-                <span style={{ color: '#B45309' }}>{displayHonorific}</span>
-              </>
-            ) : (
-              subtitle
-            )}
-          </h2>
+            오늘의 말씀
+          </span>
 
           <p
+            className="whitespace-pre-line leading-snug mb-3"
             style={{
-              fontSize: 15,
+              fontFamily: "var(--font-family-serif), 'Noto Serif KR', Georgia, serif",
+              fontSize: 'clamp(18px, 2.4vw, 24px)',
+              fontWeight: 600,
               color: DS.colors.textPrimary,
-              lineHeight: 1.55,
-              fontWeight: 500,
-              marginBottom: 4,
+              letterSpacing: '-0.01em',
             }}
           >
-            “{word.verse}”
+            {word.verse}
           </p>
           <p
             style={{
-              fontSize: 12,
+              fontSize: 13,
               color: DS.colors.textMuted,
-              fontWeight: 400,
+              fontWeight: 500,
             }}
           >
             {word.ref}
@@ -130,15 +88,15 @@ export function RoleGreetingBanner({
         </div>
 
         <div
-          className="hidden sm:flex items-end justify-end shrink-0"
-          style={{ width: '42%', height: 148 }}
+          className="hidden sm:flex items-center justify-end shrink-0"
+          style={{ width: '42%', height: 160 }}
         >
           <BannerSceneIllustration />
         </div>
 
         <div
-          className="sm:hidden absolute right-0 bottom-0 pointer-events-none opacity-90"
-          style={{ width: 128, height: 96 }}
+          className="sm:hidden absolute right-1 bottom-1 pointer-events-none opacity-95"
+          style={{ width: 140, height: 110 }}
         >
           <BannerSceneIllustration />
         </div>

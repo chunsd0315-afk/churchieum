@@ -1,4 +1,4 @@
-/** SVG 배너 장식 — 십자가 · 구름 · 햇빛 · 나무 (Warm Soft-3D) */
+/** Hero 장식 — 가죽 성경책 · 금십자가 · 따뜻한 빛 · 나뭇잎 */
 export function BannerSceneIllustration() {
   return (
     <svg
@@ -8,48 +8,57 @@ export function BannerSceneIllustration() {
       className="w-full h-full"
       aria-hidden
     >
-      {/* 햇빛 */}
-      <circle cx="232" cy="36" r="22" fill="#FFCD00" opacity="0.9" />
-      <circle cx="232" cy="36" r="14" fill="#FFE566" />
-      <circle cx="226" cy="30" r="5" fill="#fff" opacity="0.45" />
-
-      {/* 구름 */}
-      <ellipse cx="60" cy="32" rx="36" ry="14" fill="white" opacity="0.95" />
-      <ellipse cx="88" cy="36" rx="24" ry="11" fill="white" opacity="0.85" />
-      <ellipse cx="40" cy="38" rx="18" ry="9" fill="white" opacity="0.75" />
-      <ellipse cx="170" cy="28" rx="28" ry="11" fill="white" opacity="0.8" />
-
-      {/* 언덕 */}
-      <ellipse cx="140" cy="150" rx="120" ry="28" fill="#86EFAC" opacity="0.55" />
-      <ellipse cx="80" cy="152" rx="70" ry="22" fill="#4ADE80" opacity="0.35" />
-
-      {/* 나무 왼쪽 */}
-      <circle cx="48" cy="108" r="18" fill="#22C55E" filter="url(#bShadow)" />
-      <circle cx="62" cy="102" r="13" fill="#4ADE80" />
-      <rect x="52" y="112" width="7" height="18" rx="3" fill="#92400E" />
-
-      {/* 중앙 십자가 언덕 */}
-      <g filter="url(#bShadow)">
-        <ellipse cx="140" cy="128" rx="36" ry="12" fill="#86EFAC" />
-        <rect x="134" y="72" width="12" height="52" rx="3" fill="#1E293B" />
-        <rect x="116" y="86" width="48" height="11" rx="3" fill="#1E293B" />
-        <rect x="136" y="74" width="4" height="10" rx="1" fill="#475569" opacity="0.4" />
-      </g>
-
-      {/* 나무 오른쪽 */}
-      <circle cx="220" cy="112" r="15" fill="#16A34A" filter="url(#bShadow)" />
-      <circle cx="232" cy="108" r="11" fill="#22C55E" />
-      <rect x="224" y="114" width="6" height="16" rx="2" fill="#92400E" />
-
-      {/* 작은 꽃/잎 */}
-      <circle cx="100" cy="130" r="4" fill="#FF5DA8" opacity="0.7" />
-      <circle cx="180" cy="134" r="3.5" fill="#FFCD00" opacity="0.8" />
-
       <defs>
-        <filter id="bShadow" x="-20%" y="-20%" width="140%" height="140%">
-          <feDropShadow dx="0" dy="3" stdDeviation="3" floodColor="#000" floodOpacity="0.12" />
+        <linearGradient id="heroLeather" x1="120" y1="40" x2="220" y2="140" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#D8A875" />
+          <stop offset="50%" stopColor="#8A542F" />
+          <stop offset="100%" stopColor="#4A2B1A" />
+        </linearGradient>
+        <linearGradient id="heroSun" x1="220" y1="20" x2="250" y2="50" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#FFE9A8" />
+          <stop offset="100%" stopColor="#E7B447" />
+        </linearGradient>
+        <filter id="heroShadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="6" stdDeviation="5" floodColor="#4A2B1A" floodOpacity="0.22" />
         </filter>
       </defs>
+
+      {/* soft bokeh */}
+      <circle cx="48" cy="40" r="28" fill="#E7B447" opacity="0.12" />
+      <circle cx="240" cy="120" r="36" fill="#4CAF70" opacity="0.10" />
+
+      {/* warm sun */}
+      <circle cx="236" cy="36" r="22" fill="url(#heroSun)" opacity="0.95" />
+      <circle cx="230" cy="30" r="6" fill="#fff" opacity="0.4" />
+
+      {/* leaves */}
+      <ellipse cx="52" cy="118" rx="22" ry="10" fill="#4CAF70" opacity="0.55" transform="rotate(-18 52 118)" />
+      <ellipse cx="78" cy="128" rx="16" ry="7" fill="#66C085" opacity="0.5" transform="rotate(12 78 128)" />
+      <ellipse cx="220" cy="130" rx="18" ry="8" fill="#4CAF70" opacity="0.45" transform="rotate(-8 220 130)" />
+
+      {/* leather bible */}
+      <g filter="url(#heroShadow)">
+        <rect x="108" y="42" width="88" height="96" rx="10" fill="url(#heroLeather)" />
+        <rect
+          x="116"
+          y="50"
+          width="72"
+          height="80"
+          rx="7"
+          fill="none"
+          stroke="#FFF5E8"
+          strokeOpacity="0.4"
+          strokeWidth="1.4"
+          strokeDasharray="3 2.4"
+        />
+        <rect x="190" y="52" width="10" height="76" rx="2" fill="#FFF5E8" opacity="0.88" />
+        {/* gold cross */}
+        <rect x="144" y="68" width="8" height="36" rx="2" fill="#E7B447" />
+        <rect x="132" y="80" width="32" height="8" rx="2" fill="#F5D56A" />
+        {/* red bookmark */}
+        <path d="M196 56h10v36l-5 6-5-6V56z" fill="#C45A4C" />
+        <ellipse cx="130" cy="58" rx="22" ry="12" fill="#fff" opacity="0.22" />
+      </g>
     </svg>
   );
 }

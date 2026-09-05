@@ -29,9 +29,9 @@ export function SidebarMenuItem<P extends string>({
         padding: '0 12px',
         fontSize: 14,
         fontWeight: isActive ? 700 : 500,
-        color: DS.colors.textPrimary,
         background: isActive ? DS.colors.activeBg : 'transparent',
-        boxShadow: 'none',
+        boxShadow: isActive ? `inset 0 0 0 1px ${DS.colors.activeAccent}55` : 'none',
+        color: isActive ? DS.colors.activeText : DS.colors.textPrimary,
       }}
       onMouseEnter={e => {
         if (!isActive) e.currentTarget.style.background = DS.colors.bgGray;
@@ -45,7 +45,7 @@ export function SidebarMenuItem<P extends string>({
       {isActive && (
         <span
           className="shrink-0 rounded-full"
-          style={{ width: 6, height: 6, background: DS.colors.primary }}
+          style={{ width: 6, height: 6, background: DS.colors.gold }}
           aria-hidden
         />
       )}
