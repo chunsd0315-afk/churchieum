@@ -7,7 +7,6 @@ import { saveProfileImage } from '../../services/profileImage';
 import { UserProfileAvatar } from '../common/ui/UserProfileAvatar';
 import { useCurrentUserDisplayMeta } from '../../hooks/useCurrentUserDisplayMeta';
 import { DS } from '../common/design-system/tokens';
-import ChurchieumLogo from '../common/ChurchieumLogo';
 
 type NavItem<P extends string> = {
   page: P;
@@ -54,7 +53,13 @@ export default function PCSidebar<P extends string>({
   };
 
   const homeActive = currentPage === ('home' as P);
-  const profileTooltip = meta.userDisplayName;
+  const profileTooltip = [
+    meta.userDisplayName,
+    meta.churchName,
+    meta.organizationPathLabel,
+  ]
+    .filter(Boolean)
+    .join(' · ');
   const profileAlt = `${meta.userDisplayName} 프로필`;
 
   return (
@@ -67,18 +72,7 @@ export default function PCSidebar<P extends string>({
         padding: collapsed ? '18px 10px' : '18px 14px',
       }}
     >
-      {!collapsed && (
-        <div className="mb-4 px-1">
-          <ChurchieumLogo variant="horizontal" size={36} premium />
-        </div>
-      )}
-      {collapsed && (
-        <div className="mb-3 flex justify-center">
-          <ChurchieumLogo variant="icon" size={36} premium />
-        </div>
-      )}
-
-      {/* User profile — PC: 이름·직분만 (조직 정보 없음) */}
+      {/* User profile — 이름·교회명·조직경로 (브랜드 로고 없음) */}
       <div
         className="mb-3"
         style={{
@@ -87,7 +81,7 @@ export default function PCSidebar<P extends string>({
         }}
       >
         <div
-          className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'}`}
+          className={`flex items-start ${collapsed ? 'justify-center' : 'gap-3'}`}
           title={profileTooltip}
         >
           <div className="relative group shrink-0">
@@ -117,7 +111,7 @@ export default function PCSidebar<P extends string>({
           </div>
 
           {!collapsed && (
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 pt-0.5">
               <p
                 className="font-bold truncate leading-snug"
                 style={{ fontSize: 14, color: DS.colors.textPrimary }}
@@ -125,6 +119,22 @@ export default function PCSidebar<P extends string>({
               >
                 {meta.userDisplayName}
               </p>
+              <p
+                className="truncate leading-snug mt-1"
+                style={{ fontSize: 13, fontWeight: 700, color: DS.colors.leatherDeep }}
+                title={meta.churchName}
+              >
+                {meta.churchName}
+              </p>
+              {meta.organizationPathLabel ? (
+                <p
+                  className="truncate leading-snug mt-0.5"
+                  style={{ fontSize: 12, fontWeight: 500, color: DS.colors.textMuted }}
+                  title={meta.organizationPathLabel}
+                >
+                  {meta.organizationPathLabel}
+                </p>
+              ) : null}
             </div>
           )}
         </div>

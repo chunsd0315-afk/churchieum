@@ -15,7 +15,7 @@ type Props = {
 };
 
 /**
- * 모바일 홈 상단 — 가죽 성경 로고 + 교회이음 · 알림 · 프로필
+ * 모바일 홈 상단 — 가죽 성경 로고 + 교회명·조직경로 · 알림 · 프로필
  */
 export function MobileAppHomeHeader({
   onProfileClick,
@@ -35,7 +35,25 @@ export function MobileAppHomeHeader({
     >
       <div className="px-4 h-14 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0 flex-1">
-          <ChurchieumLogo variant="horizontal" size={36} premium className="shrink-0" />
+          <ChurchieumLogo variant="icon" size={36} premium className="shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p
+              className="truncate leading-tight"
+              style={{ fontSize: 16, fontWeight: 700, color: DS.colors.leatherDeep }}
+              title={meta.churchName}
+            >
+              {meta.churchName}
+            </p>
+            {meta.organizationPathLabel ? (
+              <p
+                className="truncate leading-snug mt-0.5"
+                style={{ fontSize: 11, fontWeight: 500, color: DS.colors.textMuted }}
+                title={meta.organizationPathLabel}
+              >
+                {meta.organizationPathLabel}
+              </p>
+            ) : null}
+          </div>
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
           {onNotificationsClick && (
@@ -61,7 +79,10 @@ export function MobileAppHomeHeader({
             className="p-1.5 rounded-full transition-colors"
             aria-label="내 정보"
           >
-            <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 ring-2" style={{ boxShadow: `0 0 0 2px ${DS.colors.gold}` }}>
+            <div
+              className="w-9 h-9 rounded-full overflow-hidden shrink-0 ring-2"
+              style={{ boxShadow: `0 0 0 2px ${DS.colors.gold}` }}
+            >
               <UserProfileAvatar user={user} src={meta.profileImageUrl} size={36} />
             </div>
           </button>
