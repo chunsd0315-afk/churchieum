@@ -141,8 +141,10 @@ function MobileAppLayout<P extends string>({
         style={{ paddingBottom: hasBottomNav ? 'calc(64px + env(safe-area-inset-bottom, 0px))' : undefined }}
       >
         {isHomePage ? (
-          /* Home pages use their own full-bleed layout */
-          <div className="px-4 pt-4 pb-5">{children}</div>
+          /* Home: 좌우 12~16px · 가로 스크롤 방지 */
+          <div className="w-full min-w-0 max-w-full overflow-x-hidden px-3 sm:px-4 pt-4 pb-5">
+            {children}
+          </div>
         ) : (
           /* Sub-pages: 통일 900px 콘텐츠 웰 (좌우 24 · 상단 24 · 하단 40) */
           <div className="w-full mx-auto" style={{ maxWidth: '900px', padding: '24px 24px 40px' }}>

@@ -166,11 +166,13 @@ export default function ChurchieumLogo({
     );
   }
 
+  const shortSlogan = '말씀으로 이어지는 우리 교회';
+
   return (
     <div className={`flex items-center gap-3 churchieum-brand-font ${className}`}>
       <IconBox size={size} premium />
       {showText && (
-        <div>
+        <div className="min-w-0">
           <p className={`leading-tight ${tc1}`} style={titleStyle}>
             교회이음
           </p>
@@ -182,9 +184,19 @@ export default function ChurchieumLogo({
               CHURCHIEUM
             </p>
           )}
-          {showTagline && (
-            <p className={`churchieum-brand-slogan ${tc3}`} style={{ ...sloganStyle, marginTop: 8 }}>
-              교회를 잇고, 말씀을 잇고, 믿음을 잇다.
+          {(showTagline || premium) && (
+            <p
+              className={`churchieum-brand-slogan truncate ${tc3}`}
+              style={{
+                fontSize: Math.max(11, Math.round(size * 0.28)),
+                fontWeight: 500,
+                color: textColor === 'light' ? 'rgba(255,255,255,0.7)' : BRAND_SLOGAN,
+                marginTop: 2,
+                letterSpacing: '-0.01em',
+              }}
+              title={showTagline ? '교회를 잇고, 말씀을 잇고, 믿음을 잇다.' : shortSlogan}
+            >
+              {showTagline ? '교회를 잇고, 말씀을 잇고, 믿음을 잇다.' : shortSlogan}
             </p>
           )}
         </div>

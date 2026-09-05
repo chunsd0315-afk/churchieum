@@ -20,18 +20,19 @@ type LeatherPalette = {
   light: string;
 };
 
+/** Soft clay leather — bright midtones, never heavy brown wash */
 const PALETTE: Record<string, LeatherPalette> = {
-  brown: { base: '#8A542F', mid: '#A66B3D', dark: '#4A2B1A', light: '#D8A875' },
-  coral: { base: '#E8796A', mid: '#F09082', dark: '#C45A4C', light: '#F7C4BC' },
-  pink: { base: '#F07A9A', mid: '#F595AF', dark: '#D45A7A', light: '#FAC8D6' },
-  yellow: { base: '#E7B447', mid: '#F0C45E', dark: '#C7952F', light: '#FFE9A8' },
-  green: { base: '#4CAF70', mid: '#66C085', dark: '#2E8A4F', light: '#B8E6C8' },
-  blue: { base: '#5B8DEF', mid: '#7AA3F5', dark: '#3D6FD4', light: '#C5D8FB' },
-  purple: { base: '#9B7EDE', mid: '#B199E8', dark: '#7A5CC4', light: '#DED0F5' },
-  teal: { base: '#3DB8A8', mid: '#5BC9BB', dark: '#2A9488', light: '#B8EBE4' },
-  orange: { base: '#F0A05A', mid: '#F5B478', dark: '#D4803A', light: '#FAD9B8' },
-  gray: { base: '#9A9088', mid: '#B0A89F', dark: '#6E665E', light: '#E0DAD4' },
-  mix: { base: '#4CAF70', mid: '#5B8DEF', dark: '#2E8A4F', light: '#B8E6C8' },
+  brown: { base: '#A66B3D', mid: '#C48955', dark: '#6B3F22', light: '#E8C49A' },
+  coral: { base: '#F08A7C', mid: '#F5A89E', dark: '#D46A5C', light: '#FBD4CE' },
+  pink: { base: '#F28AA8', mid: '#F7A8BE', dark: '#D86A88', light: '#FCD4E0' },
+  yellow: { base: '#EBC05A', mid: '#F3D078', dark: '#D4A63A', light: '#FFF0B8' },
+  green: { base: '#5CBC80', mid: '#7AD098', dark: '#3A9A5E', light: '#C8F0D6' },
+  blue: { base: '#6B9AF0', mid: '#8CB0F5', dark: '#4A78D8', light: '#D0E0FC' },
+  purple: { base: '#A890E4', mid: '#BFA8EC', dark: '#8870C8', light: '#E6DAF8' },
+  teal: { base: '#4CC4B4', mid: '#6ED4C6', dark: '#34A090', light: '#C4F0E8' },
+  orange: { base: '#F2B06A', mid: '#F6C488', dark: '#E08848', light: '#FCE0C0' },
+  gray: { base: '#A8A098', mid: '#C0B8B0', dark: '#7A726A', light: '#E8E2DC' },
+  mix: { base: '#5CBC80', mid: '#6B9AF0', dark: '#3A9A5E', light: '#C8F0D6' },
 };
 
 function LeatherShell({
@@ -61,47 +62,47 @@ function LeatherShell({
     >
       {title ? <title>{title}</title> : null}
       <defs>
-        <linearGradient id={`${uid}-leather`} x1="10" y1="6" x2="54" y2="58" gradientUnits="userSpaceOnUse">
+        <linearGradient id={`${uid}-leather`} x1="12" y1="4" x2="52" y2="56" gradientUnits="userSpaceOnUse">
           <stop offset="0%" stopColor={palette.light} />
-          <stop offset="42%" stopColor={palette.mid} />
-          <stop offset="100%" stopColor={palette.dark} />
+          <stop offset="48%" stopColor={palette.mid} />
+          <stop offset="100%" stopColor={palette.base} />
         </linearGradient>
-        <linearGradient id={`${uid}-gloss`} x1="18" y1="10" x2="40" y2="36" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#fff" stopOpacity="0.42" />
+        <linearGradient id={`${uid}-gloss`} x1="16" y1="8" x2="38" y2="34" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#fff" stopOpacity="0.5" />
           <stop offset="100%" stopColor="#fff" stopOpacity="0" />
         </linearGradient>
         <filter id={`${uid}-drop`} x="-35%" y="-25%" width="170%" height="170%">
-          <feDropShadow dx="0" dy="4" stdDeviation="3" floodColor="#4A2B1A" floodOpacity="0.22" />
+          <feDropShadow dx="0" dy="5" stdDeviation="3.5" floodColor="#8A542F" floodOpacity="0.18" />
         </filter>
       </defs>
       <g filter={`url(#${uid}-drop)`}>
-        <rect x="6" y="6" width="52" height="52" rx="14" fill={`url(#${uid}-leather)`} />
-        {/* stitch */}
+        <rect x="6" y="6" width="52" height="52" rx="15" fill={`url(#${uid}-leather)`} />
+        {/* soft stitch */}
         <rect
           x="11"
           y="11"
           width="42"
           height="42"
-          rx="11"
+          rx="12"
           fill="none"
-          stroke="#FFF5E8"
-          strokeOpacity="0.55"
-          strokeWidth="1.4"
-          strokeDasharray="2.8 2.2"
+          stroke="#FFF9F2"
+          strokeOpacity="0.62"
+          strokeWidth="1.35"
+          strokeDasharray="2.6 2.4"
         />
-        {/* gold edge highlight */}
+        {/* gold edge accent */}
         <rect
           x="7.5"
           y="7.5"
           width="49"
           height="49"
-          rx="13"
+          rx="14"
           fill="none"
           stroke="#E7B447"
-          strokeOpacity="0.35"
-          strokeWidth="1"
+          strokeOpacity="0.4"
+          strokeWidth="1.1"
         />
-        <ellipse cx="24" cy="20" rx="14" ry="8" fill={`url(#${uid}-gloss)`} />
+        <ellipse cx="24" cy="19" rx="15" ry="9" fill={`url(#${uid}-gloss)`} />
         {children}
       </g>
     </svg>
@@ -143,11 +144,11 @@ export function IconSermon({ size, className, title }: IconSvgProps) {
 export function IconGrace({ size, className, title }: IconSvgProps) {
   return (
     <LeatherShell size={size} className={className} title={title} palette={PALETTE.coral}>
-      <path
-        d="M32 44c0 0-10-7-10-15 0-5 4-8 8-8 2.2 0 4 1.2 5 3 1-1.8 2.8-3 5-3 4 0 8 3 8 8 0 8-10 15-10 15z"
-        fill="#FFF9F2"
-      />
-      <ellipse cx="28" cy="28" rx="2.5" ry="3" fill="#fff" opacity="0.45" />
+      {/* praying hands — soft clay */}
+      <ellipse cx="24" cy="36" rx="8" ry="12" fill="#FFF9F2" transform="rotate(-10 24 36)" />
+      <ellipse cx="40" cy="36" rx="8" ry="12" fill="#FFEDE8" transform="rotate(10 40 36)" />
+      <path d="M28 20c0-3 2-6 4-8 2 2 4 5 4 8" stroke="#E7B447" strokeWidth="2.2" strokeLinecap="round" fill="none" />
+      <circle cx="32" cy="14" r="2.5" fill="#E7B447" />
     </LeatherShell>
   );
 }

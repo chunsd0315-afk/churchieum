@@ -84,7 +84,6 @@ export default function AllMenusPage({ onNavigate }: Props) {
 
   return (
     <div className="pb-4">
-      {/* Hero banner */}
       <div
         className="relative overflow-hidden mb-5 px-5 py-6"
         style={{
@@ -96,12 +95,12 @@ export default function AllMenusPage({ onNavigate }: Props) {
       >
         <p
           className="font-bold leading-snug"
-          style={{ fontSize: 17, color: DS.colors.leatherDeep, maxWidth: '90%' }}
+          style={{ fontSize: 17, color: DS.colors.leatherDeep, maxWidth: '88%' }}
         >
           하나님과, 사람과, 세상을 잇는 교회이음.
         </p>
         <div
-          className="absolute right-3 bottom-2 opacity-80 pointer-events-none"
+          className="absolute right-3 bottom-2 opacity-90 pointer-events-none"
           style={{ width: 72, height: 56 }}
         >
           <MenuIcon iconKey="churchInfo" size={56} />
@@ -140,38 +139,59 @@ export default function AllMenusPage({ onNavigate }: Props) {
               {section.title}
             </h2>
             <div
-              className="bg-white overflow-hidden"
+              className="grid grid-cols-4 gap-2"
               style={{
+                padding: 12,
                 borderRadius: DS.radius.card,
+                background: DS.colors.bgSurface,
                 border: `1px solid ${DS.colors.borderCard}`,
                 boxShadow: DS.shadow.card,
               }}
             >
-              {section.items.map((item, idx) => (
+              {section.items.map(item => (
                 <button
-                  key={item.page}
+                  key={`${section.title}-${item.page}-${item.iconKey}`}
                   type="button"
                   onClick={() => onNavigate(item.page)}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 text-left active:scale-[0.99] transition-transform touch-target"
-                  style={{
-                    borderTop: idx === 0 ? undefined : `1px solid ${DS.colors.borderSubtle}`,
-                    minHeight: 64,
-                  }}
+                  className="flex flex-col items-center gap-1.5 py-2 px-1 rounded-[16px] active:scale-[0.97] transition-transform touch-target"
+                  aria-label={item.label}
                 >
-                  <MenuIcon iconKey={item.iconKey} size={44} label={item.label} />
-                  <div className="min-w-0 flex-1">
-                    <p className="font-bold truncate" style={{ fontSize: 15, color: DS.colors.textPrimary }}>
-                      {item.label}
-                    </p>
-                    <p className="truncate" style={{ fontSize: 12, color: DS.colors.textMuted }}>
-                      {item.description}
-                    </p>
-                  </div>
+                  <MenuIcon iconKey={item.iconKey} size={48} label={item.label} />
+                  <span
+                    className="text-center leading-tight line-clamp-2"
+                    style={{ fontSize: 12, fontWeight: 700, color: DS.colors.textPrimary }}
+                  >
+                    {item.label}
+                  </span>
                 </button>
               ))}
             </div>
           </section>
         ))}
+      </div>
+
+      <div
+        className="mt-6 px-5 py-5"
+        style={{
+          borderRadius: DS.radius.card,
+          background: 'linear-gradient(135deg, #FFF5E8 0%, #F3FAF4 100%)',
+          border: `1px solid ${DS.colors.borderCard}`,
+        }}
+      >
+        <p
+          className="leading-snug"
+          style={{
+            fontFamily: "var(--font-family-serif), 'Noto Serif KR', Georgia, serif",
+            fontSize: 14,
+            fontWeight: 600,
+            color: DS.colors.textPrimary,
+          }}
+        >
+          모든 것을 품위 있게 하고 질서 있게 하라
+        </p>
+        <p className="mt-1" style={{ fontSize: 12, color: DS.colors.textMuted }}>
+          고린도전서 14:40
+        </p>
       </div>
     </div>
   );

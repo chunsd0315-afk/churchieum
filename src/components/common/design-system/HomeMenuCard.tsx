@@ -22,7 +22,7 @@ export function HomeMenuCard({ item }: Props) {
       onClick={item.onClick}
       aria-label={item.label}
       className={[
-        'group w-full flex flex-col text-left',
+        'group w-full min-w-0 flex flex-col text-left',
         'bg-white',
         'transition-all duration-200 ease-out',
         'hover:-translate-y-[3px]',

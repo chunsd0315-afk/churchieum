@@ -92,7 +92,10 @@ export default function HomeDashboard({
   }
 
   return (
-    <div className="w-full" style={{ background: isMobile ? DS.colors.bgPage : 'transparent' }}>
+    <div
+      className="w-full min-w-0 max-w-full overflow-x-hidden"
+      style={{ background: isMobile ? DS.colors.bgPage : 'transparent' }}
+    >
       <RoleGreetingBanner
         userName={user?.name}
         roleLabel={roleLabel}
