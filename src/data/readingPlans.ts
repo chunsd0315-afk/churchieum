@@ -57,7 +57,7 @@ export const READING_PLANS: ReadingPlan[] = [
     durationDays: 365,
     scope: 'all',
     chaptersPerDay: 3,
-    color: 'from-primary-500 to-primary-700',
+    color: 'from-[#E7B447] to-[#C7952F]',
     badge: '365일',
   },
   {
@@ -67,7 +67,7 @@ export const READING_PLANS: ReadingPlan[] = [
     durationDays: 120,
     scope: 'all',
     chaptersPerDay: 9,
-    color: 'from-amber-500 to-orange-600',
+    color: 'from-[#D8A875] to-[#8A542F]',
     badge: '120일',
   },
   {
@@ -77,7 +77,7 @@ export const READING_PLANS: ReadingPlan[] = [
     durationDays: 180,
     scope: 'all',
     chaptersPerDay: 6,
-    color: 'from-emerald-500 to-teal-600',
+    color: 'from-[#E7B447] to-[#A66B3D]',
     badge: '180일',
   },
   {
@@ -87,7 +87,7 @@ export const READING_PLANS: ReadingPlan[] = [
     durationDays: 90,
     scope: 'all',
     chaptersPerDay: 13,
-    color: 'from-red-500 to-rose-600',
+    color: 'from-[#C48955] to-[#6E4429]',
     badge: '90일',
   },
   {
@@ -97,7 +97,7 @@ export const READING_PLANS: ReadingPlan[] = [
     durationDays: 30,
     scope: 'nt',
     chaptersPerDay: 9,
-    color: 'from-blue-500 to-indigo-600',
+    color: 'from-[#E7B447] to-[#8A542F]',
     badge: '30일',
   },
   {
@@ -107,7 +107,7 @@ export const READING_PLANS: ReadingPlan[] = [
     durationDays: 365,
     scope: 'all',
     chaptersPerDay: 4,
-    color: 'from-violet-500 to-purple-600',
+    color: 'from-[#D8A875] to-[#6E4429]',
     badge: '맥체인',
   },
   {
@@ -117,7 +117,7 @@ export const READING_PLANS: ReadingPlan[] = [
     durationDays: 365,
     scope: 'all',
     chaptersPerDay: 3,
-    color: 'from-stone-500 to-stone-700',
+    color: 'from-[#E7B447] to-[#6E4429]',
     badge: '역사순',
   },
 ];
