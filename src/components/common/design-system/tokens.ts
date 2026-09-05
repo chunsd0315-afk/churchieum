@@ -93,7 +93,8 @@ export const DS = {
   layout: {
     contentMax: 900,
     sidebarWidth: 240,
-    bannerHeight: 228,
+    bannerHeight: 190,
+    bannerHeightMobile: 168,
     cardHeightDesktop: 168,
     cardHeightMobile: 118,
   },
