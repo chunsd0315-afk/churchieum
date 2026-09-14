@@ -100,23 +100,24 @@ function makeSeed(): SharingPost[] {
   const days = (n: number) => new Date(now.getTime() - n * 86400000).toISOString();
   const seed = (
     overrides: Partial<SharingPost> & Pick<SharingPost, 'type' | 'category' | 'title' | 'content' | 'churchName' | 'location'>
-  ): SharingPost => ({
-    id: 'seed_' + Math.random().toString(36).slice(2),
-    churchId: 'demo',
-    writerId: 'demo-pastor01',
-    writerName: '정재명',
-    writerRole: '목사',
-    images: SEED_IMAGES_BY_TITLE[overrides.title] ?? [],
-    files: [],
-    status: 'active',
-    createdAt: days(Math.floor(Math.random() * 30)),
-    updatedAt: days(Math.floor(Math.random() * 5)),
-    ...overrides,
-    // overrides에 images가 비어 있으면 제목 매핑 유지
-    images: (overrides.images && overrides.images.length > 0)
-      ? overrides.images
-      : (SEED_IMAGES_BY_TITLE[overrides.title] ?? []),
-  });
+  ): SharingPost => {
+    const { images: overrideImages, ...rest } = overrides;
+    return {
+      id: 'seed_' + Math.random().toString(36).slice(2),
+      churchId: 'demo',
+      writerId: 'demo-pastor01',
+      writerName: '정재명',
+      writerRole: '목사',
+      files: [],
+      status: 'active',
+      createdAt: days(Math.floor(Math.random() * 30)),
+      updatedAt: days(Math.floor(Math.random() * 5)),
+      ...rest,
+      images: (overrideImages && overrideImages.length > 0)
+        ? overrideImages
+        : (SEED_IMAGES_BY_TITLE[overrides.title] ?? []),
+    };
+  };
   return [
     seed({ type: 'give',     category: '의자',       title: '의자 50개 무료 나눔합니다',              content: '예배당 의자 50개를 무료로 나눔합니다. 상태 양호하며 직접 가져가실 분만 연락주세요. 트럭 지참 부탁드립니다.',             churchName: '순복음성북교회', location: '서울 성북구' }),
     seed({ type: 'need',     category: '악기',       title: '전자피아노가 필요합니다',                 content: '교회 개척 후 예배를 위한 전자피아노가 필요합니다. 상태 무관하며 운반비는 저희가 부담하겠습니다.',                       churchName: '작은은혜교회',   location: '경기 고양시' }),

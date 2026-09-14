@@ -21,7 +21,6 @@ import {
   sharingMatchesTab,
   sortSharingPosts,
   TYPE_COLORS,
-  TYPE_GRADIENT,
   STATUS_COLORS,
   formatSharingDate,
   type SharingTabKey,
