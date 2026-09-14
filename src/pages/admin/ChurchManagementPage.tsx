@@ -1,11 +1,15 @@
 ﻿import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../services/supabase';
-import { writeStoredChurchName, readStoredChurchName } from '../../services/currentUserDisplayMeta';
+import { writeStoredChurchName } from '../../services/currentUserDisplayMeta';
+import {
+  applyChurchManagementToProfile,
+  getChurchBasicProfile,
+} from '../../services/churchProfileStorage';
 import { useFileUpload } from '../../hooks/useFileUpload';
 import {
   Building2, MapPin, Clock, Globe, Youtube, Save, User, Phone,
   FileText, Plus, Trash2, CheckCircle, AlertCircle,
-  ChevronRight, Award, Upload, Loader2, Image as ImageIcon, X,
+  ChevronRight, Award, Upload, Loader2, Image as ImageIcon, X, Quote,
 } from 'lucide-react';
 
 type ChurchData = {
@@ -15,6 +19,9 @@ type ChurchData = {
   description: string;
   pastor_name: string;
   address: string;
+  phone: string;
+  fax: string;
+  motto: string;
   website_url: string;
   youtube_url: string;
   latitude: number | null;
@@ -25,7 +32,7 @@ type ChurchData = {
   photo_url?: string;
 };
 
-type WorshipEntry = { type: string; time: string; day: string };
+type WorshipEntry = { type: string; time: string; day: string; location?: string };
 
 const DENOMINATIONS = [
   '예장통합', '예장합동', '기감', '기독교대한성결교', '침례교', '기장', '순복음', '기타',
@@ -33,26 +40,35 @@ const DENOMINATIONS = [
 const DAYS = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
 const WORSHIP_PRESETS = ['주일 1부 예배', '주일 2부 예배', '주일 3부 예배', '수요 예배', '금요 기도회', '새벽 기도회', '특별 집회'];
 
-const EMPTY_CHURCH: ChurchData = {
-  id: '',
-  name: '',
-  denomination: '예장통합',
-  description: '',
-  pastor_name: '',
-  address: '',
-  website_url: '',
-  youtube_url: '',
-  latitude: null,
-  longitude: null,
-  is_verified: false,
-  verification_status: 'pending',
-  photo_url: '',
-  worship_times: [
-    { type: '주일 1부 예배', time: '09:00', day: '일요일' },
-    { type: '주일 2부 예배', time: '11:00', day: '일요일' },
-    { type: '수요 예배',     time: '19:30', day: '수요일' },
-  ],
-};
+function profileToForm(): ChurchData {
+  const p = getChurchBasicProfile();
+  return {
+    id: '',
+    name: p.name,
+    denomination: p.denomination.includes('순복음') ? '순복음' : p.denomination,
+    description: p.description,
+    pastor_name: p.pastorName,
+    address: p.address,
+    phone: p.phone,
+    fax: p.fax,
+    motto: p.motto,
+    website_url: p.website,
+    youtube_url: '',
+    latitude: null,
+    longitude: null,
+    is_verified: false,
+    verification_status: 'pending',
+    photo_url: p.photoUrl || p.heroImageUrl,
+    worship_times: p.worshipTimes.map(w => ({
+      type: w.type,
+      time: w.time,
+      day: w.day || '일요일',
+      location: w.location,
+    })),
+  };
+}
+
+const EMPTY_CHURCH: ChurchData = profileToForm();
 
 type Section = 'basic' | 'contact' | 'worship' | 'media';
 
@@ -76,22 +92,34 @@ export default function ChurchManagementPage() {
 
   useEffect(() => {
     (async () => {
-      const { data: church } = await supabase.from('churches').select('*').limit(1).maybeSingle();
-      if (church) {
-        setData({
-          ...EMPTY_CHURCH,
-          ...church,
-          worship_times: Array.isArray(church.worship_times) ? church.worship_times : EMPTY_CHURCH.worship_times,
-        });
-        setIsNew(false);
-        if (typeof church.name === 'string' && church.name.trim()) {
-          writeStoredChurchName(church.name);
+      const local = profileToForm();
+      try {
+        const { data: church } = await supabase.from('churches').select('*').limit(1).maybeSingle();
+        if (church) {
+          setData({
+            ...local,
+            ...church,
+            phone: local.phone,
+            fax: local.fax,
+            motto: local.motto,
+            pastor_name: (church.pastor_name as string) || local.pastor_name,
+            description: (church.description as string) || local.description,
+            address: (church.address as string) || local.address,
+            website_url: (church.website_url as string) || local.website_url,
+            worship_times: Array.isArray(church.worship_times) && church.worship_times.length > 0
+              ? church.worship_times
+              : local.worship_times,
+            photo_url: (church.photo_url as string) || local.photo_url,
+          });
+          setIsNew(false);
+          if (typeof church.name === 'string' && church.name.trim()) {
+            writeStoredChurchName(church.name);
+          }
+        } else {
+          setData(local);
         }
-      } else {
-        const stored = readStoredChurchName();
-        if (stored) {
-          setData(prev => ({ ...prev, name: stored }));
-        }
+      } catch {
+        setData(local);
       }
       setLoading(false);
     })();
@@ -99,9 +127,27 @@ export default function ChurchManagementPage() {
 
   const f = <K extends keyof ChurchData>(k: K, v: ChurchData[K]) => setData(p => ({ ...p, [k]: v }));
 
+  const persistLocalProfile = () => {
+    applyChurchManagementToProfile({
+      name: data.name,
+      denomination: data.denomination,
+      description: data.description,
+      pastor_name: data.pastor_name,
+      address: data.address,
+      phone: data.phone,
+      fax: data.fax,
+      motto: data.motto,
+      website_url: data.website_url,
+      photo_url: data.photo_url,
+      worship_times: data.worship_times,
+    });
+  };
+
   const handleSave = async () => {
     if (!data.name.trim()) { setError('교회명을 입력해주세요'); return; }
     setSaving(true); setError(''); setSaved(false);
+    // 교회정보 페이지에 즉시 반영 (데모·오프라인 포함)
+    persistLocalProfile();
     try {
       const payload = {
         name: data.name,
@@ -123,13 +169,12 @@ export default function ChurchManagementPage() {
       } else {
         await supabase.from('churches').update(payload).eq('id', data.id);
       }
-      writeStoredChurchName(data.name);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch {
-      // 백엔드 실패 시에도 앱 표시용 교회명은 즉시 반영
-      writeStoredChurchName(data.name);
-      setError('클라우드 저장에 실패했습니다. 이 기기에는 교회명이 반영되었습니다.');
+      setError('클라우드 저장에 실패했습니다. 이 기기 교회정보에는 즉시 반영되었습니다.');
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
     }
     setSaving(false);
   };
@@ -269,10 +314,18 @@ export default function ChurchManagementPage() {
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                <Quote className="w-3.5 h-3.5 inline mr-1 text-gray-400" /> 교회 표어
+              </label>
+              <input type="text" value={data.motto} onChange={e => f('motto', e.target.value)}
+                placeholder="예: 열방을 복되게 하는 교회가 되자"
+                className="w-full px-3.5 py-3 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:border-primary-400 focus:ring-0" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5">
                 <MapPin className="w-3.5 h-3.5 inline mr-1 text-gray-400" /> 주소
               </label>
               <input type="text" value={data.address} onChange={e => f('address', e.target.value)}
-                placeholder="서울시 성북구 동소문동"
+                placeholder="서울특별시 성북구 오패산로 89"
                 className="w-full px-3.5 py-3 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:border-primary-400 focus:ring-0" />
             </div>
             <div className="grid sm:grid-cols-2 gap-4">
@@ -301,16 +354,25 @@ export default function ChurchManagementPage() {
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1.5">담임목사 성함</label>
               <input type="text" value={data.pastor_name} onChange={e => f('pastor_name', e.target.value)}
-                placeholder="홍길동 목사"
+                placeholder="정재명 담임목사"
                 className="w-full px-3.5 py-3 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:border-primary-400 focus:ring-0" />
             </div>
-            <div className="pt-3 border-t border-gray-100">
-              <p className="text-xs font-semibold text-gray-600 mb-3 flex items-center gap-1.5">
+            <div className="pt-3 border-t border-gray-100 space-y-3">
+              <p className="text-xs font-semibold text-gray-600 mb-1 flex items-center gap-1.5">
                 <Phone className="w-3.5 h-3.5 text-gray-400" /> 교회 연락처
               </p>
-              <p className="text-xs text-gray-400 bg-gray-50 rounded-xl p-3">
-                교회 전화번호와 이메일은 교회 프로필 화면에서 직접 표시됩니다. 현재 DB 스키마에는 저장 필드가 추가될 예정입니다.
-              </p>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5">대표전화</label>
+                <input type="text" value={data.phone} onChange={e => f('phone', e.target.value)}
+                  placeholder="02-940-0000~4"
+                  className="w-full px-3.5 py-3 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:border-primary-400 focus:ring-0" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5">팩스</label>
+                <input type="text" value={data.fax} onChange={e => f('fax', e.target.value)}
+                  placeholder="02-912-4893"
+                  className="w-full px-3.5 py-3 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:border-primary-400 focus:ring-0" />
+              </div>
             </div>
             <div className="pt-3 border-t border-gray-100">
               <p className="text-xs font-semibold text-gray-600 mb-3 flex items-center gap-1.5">
