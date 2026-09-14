@@ -1,6 +1,7 @@
 const POSTS_KEY    = 'churchieum_sharing_posts';
 const REQUESTS_KEY = 'churchieum_sharing_requests';
 const MESSAGES_KEY = 'churchieum_sharing_messages';
+const IMAGES_MIGRATION_KEY = 'churchieum_sharing_seed_images_v1';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -69,6 +70,29 @@ export const STATUS_LABELS: Record<SharingPost['status'], string> = {
   completed: '완료',
 };
 
+/** 교회나눔 카드용 4:3 대표사진 (Pexels) */
+const px = (id: number) =>
+  `https://images.pexels.com/photos/${id}/pexels-photo-${id}.jpeg?auto=compress&cs=tinysrgb&w=800&h=600&fit=crop`;
+
+/**
+ * 테스트 게시글 제목 → 대표 이미지
+ * (제목/내용은 변경하지 않고 이미지만 연결)
+ */
+export const SEED_IMAGES_BY_TITLE: Record<string, string[]> = {
+  '의자 50개 무료 나눔합니다': [px(1166644)],           // 예배당/회의용 의자
+  '전자피아노가 필요합니다': [px(164743)],              // 전자키보드·피아노
+  '여름성경학교 PPT 자료 공유합니다': [px(4144923)],    // 교육·발표 화면
+  '금요기도회 찬양팀 도움 드릴 수 있습니다': [px(7524996)], // 예배 찬양
+  '방송장비 세트 나눔합니다': [px(3379944)],            // 방송·카메라 장비
+  '유초등부 주일학교 교사 도움 요청합니다': [px(8613089)], // 어린이·교사
+  '연합 청년집회에 초대합니다': [px(8468221)],          // 청년 예배·집회
+  '주보 템플릿 공유합니다': [px(261662)],               // 문서·인쇄물
+  '냉난방기가 필요합니다': [px(3964736)],               // 에어컨
+  '헌금봉투 1,000장 나눔합니다': [px(3943716)],         // 봉투
+  '수련회 포스터 자료를 공유합니다': [px(196644)],      // 디자인·포스터
+  '빔프로젝터 나눔 완료되었습니다': [px(799443)],       // 프로젝터
+};
+
 // ─── Seed data ────────────────────────────────────────────────────────────────
 
 function makeSeed(): SharingPost[] {
@@ -82,12 +106,16 @@ function makeSeed(): SharingPost[] {
     writerId: 'demo-pastor01',
     writerName: '정재명',
     writerRole: '목사',
-    images: [],
+    images: SEED_IMAGES_BY_TITLE[overrides.title] ?? [],
     files: [],
     status: 'active',
     createdAt: days(Math.floor(Math.random() * 30)),
     updatedAt: days(Math.floor(Math.random() * 5)),
     ...overrides,
+    // overrides에 images가 비어 있으면 제목 매핑 유지
+    images: (overrides.images && overrides.images.length > 0)
+      ? overrides.images
+      : (SEED_IMAGES_BY_TITLE[overrides.title] ?? []),
   });
   return [
     seed({ type: 'give',     category: '의자',       title: '의자 50개 무료 나눔합니다',              content: '예배당 의자 50개를 무료로 나눔합니다. 상태 양호하며 직접 가져가실 분만 연락주세요. 트럭 지참 부탁드립니다.',             churchName: '순복음성북교회', location: '서울 성북구' }),
@@ -105,6 +133,25 @@ function makeSeed(): SharingPost[] {
   ];
 }
 
+/** 기존 localStorage에 이미지가 비어 있는 테스트 글에 제목별 이미지 채움 (제목/내용 유지) */
+function migrateSeedImages(posts: SharingPost[]): SharingPost[] {
+  let changed = false;
+  const next = posts.map(p => {
+    if (Array.isArray(p.images) && p.images.length > 0) return p;
+    const mapped = SEED_IMAGES_BY_TITLE[p.title];
+    if (!mapped?.length) return p;
+    changed = true;
+    return { ...p, images: [...mapped] };
+  });
+  if (changed) {
+    try {
+      localStorage.setItem(POSTS_KEY, JSON.stringify(next));
+      localStorage.setItem(IMAGES_MIGRATION_KEY, '1');
+    } catch { /* ignore quota */ }
+  }
+  return next;
+}
+
 // ─── Storage helpers ──────────────────────────────────────────────────────────
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
@@ -113,9 +160,13 @@ function uid() { return Date.now().toString(36) + Math.random().toString(36).sli
 export function getAllPosts(): SharingPost[] {
   try {
     const raw = localStorage.getItem(POSTS_KEY);
-    if (raw) return JSON.parse(raw) as SharingPost[];
+    if (raw) {
+      const posts = JSON.parse(raw) as SharingPost[];
+      return migrateSeedImages(posts);
+    }
     const seed = makeSeed();
     localStorage.setItem(POSTS_KEY, JSON.stringify(seed));
+    localStorage.setItem(IMAGES_MIGRATION_KEY, '1');
     return seed;
   } catch { return []; }
 }

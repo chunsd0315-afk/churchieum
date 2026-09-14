@@ -182,11 +182,16 @@ function DetailView({
       saveButton={actions}
     >
       <div className="space-y-5 max-w-[900px] mx-auto pb-8">
-        <div className={`w-full aspect-video rounded-[24px] overflow-hidden bg-gradient-to-br ${TYPE_GRADIENT[post.type]} flex items-center justify-center`}>
+        <div className="w-full aspect-[4/3] rounded-[24px] overflow-hidden flex items-center justify-center" style={{ background: '#FFF9F2' }}>
           {post.images[0] ? (
             <img src={post.images[0]} alt={post.title} className="w-full h-full object-cover" />
           ) : (
-            <HeartHandshake className="w-16 h-16 text-white opacity-40" />
+            <img
+              src="/icons/3d/sharing.webp"
+              alt=""
+              className="w-16 h-16 object-contain opacity-90"
+              draggable={false}
+            />
           )}
         </div>
 

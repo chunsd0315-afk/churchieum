@@ -3,7 +3,7 @@
  */
 
 import {
-  Calendar, HeartHandshake, MapPin, MessageSquare, Tag, Users,
+  MessageSquare, Users,
 } from 'lucide-react';
 import { ChurchDropdownMenu, type ChurchDropdownItem } from '../common/ui/ChurchDropdownMenu';
 import { CONTENT_CARD_CLASS } from '../common/ui/ContentListToolbar';
@@ -11,7 +11,6 @@ import type { SharingPost } from '../../services/sharingStorage';
 import { TYPE_LABELS, STATUS_LABELS } from '../../services/sharingStorage';
 import {
   TYPE_COLORS,
-  TYPE_GRADIENT,
   STATUS_COLORS,
   formatSharingDate,
 } from '../../services/sharingHelpers';
@@ -43,13 +42,35 @@ function PostMenu({ canManage, onEdit, onDelete }: {
   );
 }
 
+function SharingImagePlaceholder({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
+  const iconClass = size === 'lg' ? 'w-16 h-16' : size === 'sm' ? 'w-8 h-8' : 'w-10 h-10';
+  return (
+    <div
+      className="w-full h-full flex items-center justify-center"
+      style={{ background: '#FFF9F2' }}
+    >
+      <img
+        src="/icons/3d/sharing.webp"
+        alt=""
+        className={`${iconClass} object-contain opacity-90`}
+        draggable={false}
+      />
+    </div>
+  );
+}
+
 function Thumbnail({ post, className = 'w-full h-full' }: { post: SharingPost; className?: string }) {
   return (
-    <div className={`relative bg-gradient-to-br ${TYPE_GRADIENT[post.type]} flex items-center justify-center overflow-hidden ${className}`}>
+    <div className={`relative overflow-hidden ${className}`} style={{ background: '#FFF9F2' }}>
       {post.images[0] ? (
-        <img src={post.images[0]} alt={post.title} className="w-full h-full object-cover" />
+        <img
+          src={post.images[0]}
+          alt={post.title}
+          className="w-full h-full object-cover"
+          loading="lazy"
+        />
       ) : (
-        <HeartHandshake className="w-8 h-8 text-white opacity-60" />
+        <SharingImagePlaceholder size="md" />
       )}
       <span className={`absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold ${STATUS_COLORS[post.status]}`}>
         {STATUS_LABELS[post.status]}
