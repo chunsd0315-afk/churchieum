@@ -29,7 +29,7 @@ import {
 import TranslationSelector from '../../components/member/TranslationSelector';
 
 type Props = { onNavigate?: (page: Page) => void; onGoToBible?: (book: string, chapter: number) => void };
-type View = 'main' | 'detail' | 'saved' | 'stats' | 'grace-form' | 'grace-list' | 'grace-detail';
+type View = 'main' | 'plans' | 'detail' | 'saved' | 'stats' | 'grace-form' | 'grace-list' | 'grace-detail';
 
 /** Bible reading center palette — Ivory / Gold / Brown only */
 const BR = {
@@ -48,11 +48,13 @@ const BR = {
   secondaryBorder: '#DCC9B5',
 } as const;
 
-const brCard = 'bg-white rounded-[20px] border border-[#EADFD5] shadow-[0_6px_20px_rgba(80,50,30,0.05)]';
+const brCard = 'bg-white rounded-[24px] border border-[#EADFD5] shadow-[0_8px_24px_rgba(80,50,30,0.06)]';
 const brPrimaryBtn =
   'inline-flex items-center justify-center gap-1.5 min-h-[48px] px-4 py-2.5 bg-[#E7B447] text-[#2A211C] text-sm font-bold rounded-[18px] hover:bg-[#D7A63A] transition-colors disabled:opacity-50';
 const brSecondaryBtn =
   'inline-flex items-center justify-center gap-1.5 min-h-[48px] px-4 py-2.5 bg-[#FFF9F2] text-[#2A211C] text-sm font-semibold rounded-[18px] border border-[#DCC9B5] hover:bg-[#F2E8DC] transition-colors';
+const brGhostBtn =
+  'inline-flex items-center justify-center gap-1 min-h-[44px] px-3 py-2 text-sm font-semibold text-[#6E4429] hover:bg-[#FFF6E5] rounded-[14px] transition-colors';
 
 function ProgressBar({ pct, className = '' }: { pct: number; className?: string }) {
   return (
@@ -441,11 +443,10 @@ function ActivePlanCard({ progress, plan, onDetail, onComplete, onRefresh, onGoT
 // ─── Available Plan Card ──────────────────────────────────────────────────────
 
 function AvailablePlanCard({ plan, onStart }: { plan: ReadingPlan; onStart: () => void }) {
-  const [expanded, setExpanded] = useState(false);
   const meta = PLAN_META[plan.id];
   return (
-    <div className={`${brCard} overflow-hidden`}>
-      <div className="px-4 py-3.5">
+    <div className={`${brCard} overflow-hidden hover:border-[#E7B447] transition-colors`}>
+      <div className="px-4 py-4">
         <div className="flex items-start gap-3">
           <div
             className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0"
@@ -463,45 +464,148 @@ function AvailablePlanCard({ plan, onStart }: { plan: ReadingPlan; onStart: () =
                 {plan.badge}
               </span>
             </div>
-            <p className="text-xs mt-0.5" style={{ color: BR.muted }}>{plan.description}</p>
-            {meta && (
-              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: BR.bg, color: BR.muted }}>{meta.scope}</span>
-                <span className="text-[11px] px-2 py-0.5 rounded-full font-medium" style={{ background: BR.softGoldBg, color: BR.brown }}>{meta.dailyAmount}</span>
-              </div>
-            )}
+            <p className="text-xs mt-1 leading-relaxed" style={{ color: BR.muted }}>{plan.description}</p>
+            <p className="text-xs mt-2 font-medium" style={{ color: BR.brown }}>
+              {plan.durationDays}일{meta ? ` · ${meta.dailyAmount}` : ''}
+            </p>
           </div>
-          <button onClick={() => setExpanded(v => !v)} className="p-1 shrink-0" style={{ color: BR.muted }} aria-label="자세히">
-            <ChevronDown className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
-          </button>
         </div>
+      </div>
+      <div className="px-4 pb-4">
+        <button onClick={onStart} className={`w-full ${brPrimaryBtn} !min-h-[44px] !py-2.5`}>
+          선택
+        </button>
+      </div>
+    </div>
+  );
+}
 
-        {expanded && meta && (
-          <div className="mt-3 pt-3 border-t border-[#EADFD5]">
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="rounded-xl p-2.5" style={{ background: BR.bg }}>
-                <p className="mb-0.5" style={{ color: BR.muted }}>기간</p>
-                <p className="font-semibold" style={{ color: BR.text }}>{plan.durationDays}일</p>
+/** 다른 통독 계획 전용 화면 */
+function OtherPlansView({
+  primaryProgress,
+  primaryPlan,
+  otherActive,
+  availablePlans,
+  onBack,
+  onSelectPlan,
+  onOpenDetail,
+}: {
+  primaryProgress: ReadingProgress | null;
+  primaryPlan: ReadingPlan | null;
+  otherActive: ReadingProgress[];
+  availablePlans: ReadingPlan[];
+  onBack: () => void;
+  onSelectPlan: (plan: ReadingPlan) => void;
+  onOpenDetail: (progressId: string) => void;
+}) {
+  return (
+    <div className="flex flex-col" style={{ minHeight: 'calc(100vh - 120px)', background: BR.bg }}>
+      <div className="bg-white px-4 py-3 flex items-center gap-3 sticky top-0 z-10" style={{ borderBottom: `1px solid ${BR.border}` }}>
+        <button onClick={onBack} className="p-1.5 rounded-lg hover:bg-[#F2E8DC]" aria-label="뒤로">
+          <ArrowLeft className="w-5 h-5" style={{ color: BR.brown }} />
+        </button>
+        <div className="min-w-0">
+          <h2 className="font-bold text-sm" style={{ color: BR.text }}>다른 통독 계획</h2>
+          <p className="text-xs truncate" style={{ color: BR.muted }}>나에게 맞는 성경통독 계획을 선택해보세요.</p>
+        </div>
+      </div>
+
+      <div className="flex-1 max-w-[900px] w-full mx-auto px-4 py-4 space-y-4 pb-8">
+        {primaryProgress && primaryPlan && (
+          <div className={`${brCard} p-4`} style={{ background: BR.softGoldBg, borderColor: BR.gold }}>
+            <p className="text-[10px] font-bold mb-1" style={{ color: BR.brown }}>현재 진행 중</p>
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="font-bold text-sm truncate" style={{ color: BR.text }}>{primaryPlan.name}</p>
+                <p className="text-xs mt-0.5" style={{ color: BR.muted }}>
+                  {primaryProgress.completedDays.length} / {primaryPlan.durationDays}일 · {getProgressPercent(primaryProgress)}%
+                </p>
               </div>
-              <div className="rounded-xl p-2.5" style={{ background: BR.bg }}>
-                <p className="mb-0.5" style={{ color: BR.muted }}>하루 분량</p>
-                <p className="font-semibold" style={{ color: BR.text }}>{meta.dailyAmount}</p>
-              </div>
-              <div className="rounded-xl p-2.5 col-span-2" style={{ background: BR.bg }}>
-                <p className="mb-0.5" style={{ color: BR.muted }}>특징</p>
-                <p className="font-semibold" style={{ color: BR.text }}>{meta.feature}</p>
-              </div>
+              <button type="button" onClick={() => onOpenDetail(primaryProgress.id)} className={brGhostBtn}>
+                상세 <ChevronRight className="w-3.5 h-3.5" />
+              </button>
             </div>
           </div>
         )}
+
+        {otherActive.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs font-bold" style={{ color: BR.muted }}>다른 진행 중 통독</p>
+            {otherActive.map(prog => {
+              const plan = READING_PLANS.find(p => p.id === prog.planId);
+              if (!plan) return null;
+              return (
+                <button
+                  key={prog.id}
+                  type="button"
+                  onClick={() => onOpenDetail(prog.id)}
+                  className={`${brCard} w-full p-4 text-left hover:border-[#E7B447] transition-colors`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="font-semibold text-sm" style={{ color: BR.text }}>{plan.name}</p>
+                      <p className="text-xs mt-0.5" style={{ color: BR.muted }}>
+                        {STATUS_LABEL[prog.status]} · {getProgressPercent(prog)}%
+                      </p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 shrink-0" style={{ color: BR.muted }} />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="space-y-3">
+          <p className="text-sm font-bold" style={{ color: BR.text }}>시작 가능한 계획</p>
+          {availablePlans.length === 0 ? (
+            <div className={`${brCard} p-6 text-center`}>
+              <Award className="w-10 h-10 mx-auto mb-2" style={{ color: BR.gold }} />
+              <p className="font-semibold text-sm" style={{ color: BR.text }}>모든 플랜에 참여 중입니다</p>
+              <p className="text-xs mt-1" style={{ color: BR.muted }}>진행 중인 플랜에 집중해보세요.</p>
+            </div>
+          ) : (
+            availablePlans.map(plan => (
+              <AvailablePlanCard key={plan.id} plan={plan} onStart={() => onSelectPlan(plan)} />
+            ))
+          )}
+        </div>
+
+        <div className={`${brCard} border-dashed p-5 text-center`} style={{ borderStyle: 'dashed' }}>
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-2" style={{ background: BR.track }}>
+            <Settings className="w-6 h-6" style={{ color: BR.muted }} />
+          </div>
+          <p className="font-bold text-sm" style={{ color: BR.text }}>맞춤형 통독</p>
+          <p className="text-xs mt-1" style={{ color: BR.muted }}>직접 일정과 범위를 설정하는 맞춤 플랜</p>
+          <span className="inline-block mt-2 text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: BR.softGoldBg, color: BR.brown }}>준비 중</span>
+        </div>
       </div>
-      <div className="px-4 pb-4 flex gap-2">
-        <button onClick={onStart} className={`flex-1 ${brPrimaryBtn} !min-h-[44px] !py-2.5`}>
-          시작하기
-        </button>
-        <button onClick={() => setExpanded(v => !v)} className={`${brSecondaryBtn} !min-h-[44px] !py-2.5`}>
-          {expanded ? '접기' : '자세히'}
-        </button>
+    </div>
+  );
+}
+
+function SwitchPlanConfirm({
+  currentPlanName,
+  onCancel,
+  onConfirm,
+}: {
+  currentPlanName: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className={`${brCard} w-full max-w-sm p-5`}>
+        <h3 className="font-bold text-base mb-2" style={{ color: BR.text }}>새 통독 계획 시작</h3>
+        <p className="text-sm leading-relaxed mb-5" style={{ color: BR.muted }}>
+          현재 &apos;{currentPlanName}&apos;을(를) 진행 중입니다.<br />
+          새로운 통독 계획을 시작하시겠습니까?<br />
+          <span className="text-xs">기존 진행 기록은 삭제되지 않습니다.</span>
+        </p>
+        <div className="flex gap-2">
+          <button type="button" onClick={onCancel} className={`flex-1 ${brSecondaryBtn}`}>취소</button>
+          <button type="button" onClick={onConfirm} className={`flex-1 ${brPrimaryBtn}`}>새 계획 시작</button>
+        </div>
       </div>
     </div>
   );
@@ -973,6 +1077,7 @@ export default function BibleReadingCenterPage({ onNavigate: _onNavigate, onGoTo
   const [view, setView] = useState<View>('main');
   const [detailId, setDetailId] = useState<string | null>(null);
   const [modalPlan, setModalPlan] = useState<ReadingPlan | null>(null);
+  const [pendingPlan, setPendingPlan] = useState<ReadingPlan | null>(null);
   const [progresses, setProgresses] = useState<ReadingProgress[]>(() => getAllProgresses());
   const [methodFor, setMethodFor] = useState<string | null>(null);
   // Grace note state
@@ -1075,13 +1180,26 @@ export default function BibleReadingCenterPage({ onNavigate: _onNavigate, onGoTo
   }, []);
 
   const activeProgresses = progresses.filter(p => p.status === 'active' || p.status === 'paused');
+  const completedProgresses = progresses.filter(p => p.status === 'completed' || p.isCompleted);
   const activePlanIds = new Set(activeProgresses.map(p => p.planId));
   const availablePlans = READING_PLANS.filter(p => !activePlanIds.has(p.id));
 
-  const primaryProgress = activeProgresses[0] ?? null;
+  // 대표 진행 통독: 활성 우선, 없으면 일시중지
+  const primaryProgress =
+    activeProgresses.find(p => p.status === 'active') ??
+    activeProgresses[0] ??
+    null;
   const primaryPlan = primaryProgress
     ? READING_PLANS.find(p => p.id === primaryProgress.planId) ?? null
     : null;
+  const otherActive = activeProgresses.filter(p => p.id !== primaryProgress?.id);
+  const latestCompleted = completedProgresses[0]
+    ? completedProgresses.slice().sort((a, b) => (b.startedAt || '').localeCompare(a.startedAt || ''))[0]
+    : null;
+  const latestCompletedPlan = latestCompleted
+    ? READING_PLANS.find(p => p.id === latestCompleted.planId) ?? null
+    : null;
+
   const primaryToday = primaryPlan && primaryProgress
     ? getTodayReading(primaryPlan.id, primaryProgress.currentDay)
     : null;
@@ -1089,6 +1207,9 @@ export default function BibleReadingCenterPage({ onNavigate: _onNavigate, onGoTo
   const primaryDone = primaryProgress
     ? primaryProgress.completedDays.includes(primaryProgress.currentDay)
     : false;
+  const remainingDays = primaryPlan && primaryProgress
+    ? Math.max(0, primaryPlan.durationDays - primaryProgress.completedDays.length)
+    : 0;
   const todayDateLabel = new Date().toLocaleDateString('ko-KR', {
     year: 'numeric', month: 'long', day: 'numeric',
   });
@@ -1097,7 +1218,7 @@ export default function BibleReadingCenterPage({ onNavigate: _onNavigate, onGoTo
     if (!primaryProgress || !primaryPlan) return [];
     const current = primaryProgress.currentDay;
     const rows: { day: number; label: string; status: 'today' | 'done' | 'incomplete' }[] = [];
-    for (let d = current; d >= Math.max(1, current - 6); d -= 1) {
+    for (let d = current; d >= Math.max(1, current - 4); d -= 1) {
       const reading = getTodayReading(primaryPlan.id, d);
       const done = primaryProgress.completedDays.includes(d);
       rows.push({
@@ -1109,10 +1230,20 @@ export default function BibleReadingCenterPage({ onNavigate: _onNavigate, onGoTo
     return rows;
   })();
 
+  const requestStartPlan = (plan: ReadingPlan) => {
+    if (primaryProgress && primaryPlan) {
+      setPendingPlan(plan);
+      return;
+    }
+    setModalPlan(plan);
+  };
+
   const handleStartPlan = (startDay: number, status: PreviousDaysStatus) => {
     if (!modalPlan) return;
     addProgress(modalPlan.id, startDay, status);
     setModalPlan(null);
+    setPendingPlan(null);
+    setView('main');
     refresh();
   };
 
@@ -1209,6 +1340,33 @@ export default function BibleReadingCenterPage({ onNavigate: _onNavigate, onGoTo
   if (view === 'saved') return <SavedView onBack={() => setView('main')} onNavigate={_onNavigate} />;
   if (view === 'stats') return <StatsView onBack={() => setView('main')} progresses={progresses} />;
 
+  if (view === 'plans') {
+    return (
+      <>
+        {modalPlan && <StartModal plan={modalPlan} onConfirm={handleStartPlan} onClose={() => setModalPlan(null)} />}
+        {pendingPlan && primaryPlan && (
+          <SwitchPlanConfirm
+            currentPlanName={primaryPlan.name}
+            onCancel={() => setPendingPlan(null)}
+            onConfirm={() => {
+              setModalPlan(pendingPlan);
+              setPendingPlan(null);
+            }}
+          />
+        )}
+        <OtherPlansView
+          primaryProgress={primaryProgress}
+          primaryPlan={primaryPlan}
+          otherActive={otherActive}
+          availablePlans={availablePlans}
+          onBack={() => setView('main')}
+          onSelectPlan={requestStartPlan}
+          onOpenDetail={(id) => { setDetailId(id); setView('detail'); }}
+        />
+      </>
+    );
+  }
+
   return (
     <>
       {modalPlan && <StartModal plan={modalPlan} onConfirm={handleStartPlan} onClose={() => setModalPlan(null)} />}
@@ -1244,114 +1402,163 @@ export default function BibleReadingCenterPage({ onNavigate: _onNavigate, onGoTo
           }
         />
 
-        <div className="flex-1 max-w-[1100px] w-full mx-auto">
-          {/* Summary: Today + Progress */}
+        <div className="flex-1 max-w-[720px] w-full mx-auto px-4 pt-4 pb-8 space-y-4">
           {primaryProgress && primaryPlan && primaryToday && (
-            <div className="px-4 pt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div
-                className={`${brCard} p-4 md:p-5`}
-                style={{ borderColor: BR.gold, borderWidth: 1.5, background: BR.softGoldBg }}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-[15px] font-bold" style={{ color: BR.text }}>오늘의 통독</p>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full font-bold" style={{ background: BR.gold, color: BR.text }}>오늘</span>
-                </div>
-                <p className="text-xs mb-2" style={{ color: BR.muted }}>{todayDateLabel} · {primaryProgress.currentDay}일차</p>
-                <div className="space-y-1 mb-4">
-                  {primaryToday.assignments.map(a => (
-                    <p key={a.label} className="text-[15px] font-semibold" style={{ color: BR.text }}>{a.label}</p>
-                  ))}
-                  {primaryToday.assignments.length === 0 && (
-                    <p className="text-[15px] font-semibold" style={{ color: BR.text }}>{primaryToday.fullLabel}</p>
-                  )}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {onGoToBible && primaryToday.assignments.length > 0 && (
-                    <button
-                      onClick={() => {
-                        const a = primaryToday.assignments[0];
-                        onGoToBible(a.book, a.chapters[0] ?? 1);
-                      }}
-                      className={`${brPrimaryBtn} flex-1 !min-h-[48px]`}
-                    >
-                      <BookOpen className="w-4 h-4" /> 읽기 시작
-                    </button>
-                  )}
-                  {!primaryDone && (
-                    <button onClick={() => setMethodFor(primaryProgress.id)} className={`${brSecondaryBtn} !min-h-[48px]`}>
-                      <Circle className="w-4 h-4" /> 완료 체크
-                    </button>
-                  )}
-                  {primaryDone && (
-                    <span className={`${brSecondaryBtn} !min-h-[48px] cursor-default`} style={{ color: BR.softGreen, borderColor: '#C5D9C4' }}>
-                      <CheckCircle className="w-4 h-4" /> 완료
-                    </span>
-                  )}
+            <div className={`${brCard} p-5 md:p-6`}>
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <span
+                  className="text-[10px] px-2.5 py-1 rounded-full font-bold"
+                  style={{ background: BR.softGoldBg, color: BR.brown, border: `1px solid ${BR.gold}` }}
+                >
+                  진행 중
+                </span>
+                <button
+                  type="button"
+                  onClick={() => { setDetailId(primaryProgress.id); setView('detail'); }}
+                  className={brGhostBtn}
+                >
+                  상세 <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <h2 className="text-[20px] md:text-[22px] font-bold mb-1" style={{ color: BR.text }}>
+                {primaryPlan.name}
+              </h2>
+              <p className="text-xs mb-5" style={{ color: BR.muted }}>
+                {todayDateLabel} · {primaryProgress.currentDay}일차
+                {primaryProgress.streakDays > 0 && (
+                  <span className="ml-2 inline-flex items-center gap-0.5" style={{ color: BR.brown }}>
+                    <Flame className="w-3 h-3" />{primaryProgress.streakDays}일 연속
+                  </span>
+                )}
+              </p>
+
+              <div className="mb-5">
+                <p className="text-[13px] font-bold mb-2" style={{ color: BR.brown }}>오늘의 통독</p>
+                <div className="space-y-1">
+                  {primaryToday.assignments.length > 0
+                    ? primaryToday.assignments.map(a => (
+                        <p key={a.label} className="text-[16px] font-semibold leading-snug" style={{ color: BR.text }}>
+                          {a.label}
+                        </p>
+                      ))
+                    : (
+                      <p className="text-[16px] font-semibold leading-snug" style={{ color: BR.text }}>
+                        {primaryToday.fullLabel}
+                      </p>
+                    )}
                 </div>
               </div>
 
-              <div className={`${brCard} p-4 md:p-5`}>
-                <p className="text-[15px] font-bold mb-2" style={{ color: BR.text }}>나의 진행률</p>
-                <p className="text-xs mb-1" style={{ color: BR.muted }}>
-                  전체 {primaryPlan.durationDays}일 중
-                </p>
-                <p className="text-[22px] font-bold mb-1" style={{ color: BR.brown }}>{primaryPct}%</p>
-                <p className="text-sm mb-3" style={{ color: BR.text }}>
-                  {primaryProgress.completedDays.length} / {primaryPlan.durationDays}일 완료
-                </p>
+              <div className="mb-5">
+                <div className="flex items-end justify-between gap-3 mb-2">
+                  <div>
+                    <p className="text-[13px] font-bold mb-0.5" style={{ color: BR.brown }}>진행률</p>
+                    <p className="text-sm" style={{ color: BR.text }}>
+                      {primaryProgress.completedDays.length} / {primaryPlan.durationDays}일 완료
+                      <span className="ml-2" style={{ color: BR.muted }}>남은 {remainingDays}일</span>
+                    </p>
+                  </div>
+                  <p className="text-[28px] font-bold leading-none" style={{ color: BR.brown }}>{primaryPct}%</p>
+                </div>
                 <ProgressBar pct={primaryPct} className="h-2.5" />
-                {primaryProgress.streakDays > 0 && (
-                  <p className="text-xs mt-3 flex items-center gap-1" style={{ color: BR.muted }}>
-                    <Flame className="w-3.5 h-3.5" style={{ color: BR.gold }} />
-                    {primaryProgress.streakDays}일 연속 읽기
-                  </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                {onGoToBible && primaryToday.assignments.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const a = primaryToday.assignments[0];
+                      onGoToBible(a.book, a.chapters[0] ?? 1);
+                    }}
+                    className={`${brPrimaryBtn} flex-1`}
+                  >
+                    <BookOpen className="w-4 h-4" /> 읽기 시작
+                  </button>
+                )}
+                {!primaryDone ? (
+                  <button type="button" onClick={() => setMethodFor(primaryProgress.id)} className={`${brSecondaryBtn} sm:w-auto`}>
+                    <Circle className="w-4 h-4" /> 완료 체크
+                  </button>
+                ) : (
+                  <span className={`${brSecondaryBtn} sm:w-auto cursor-default`} style={{ color: BR.softGreen, borderColor: '#C5D9C4' }}>
+                    <CheckCircle className="w-4 h-4" /> 오늘 완료
+                  </span>
                 )}
               </div>
             </div>
           )}
 
-          {/* Active plans */}
-          {activeProgresses.length > 0 && (
-            <div className="px-4 pt-5">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-sm font-bold" style={{ color: BR.text }}>통독 계획</p>
-                <span className="text-xs" style={{ color: BR.muted }}>{activeProgresses.length}개 진행중</span>
+          {!primaryProgress && !latestCompleted && (
+            <div className={`${brCard} p-8 text-center`}>
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: BR.softGoldBg }}>
+                <BookOpen className="w-7 h-7" style={{ color: BR.brown }} />
               </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                {activeProgresses.map((prog, idx) => {
-                  const plan = READING_PLANS.find(p => p.id === prog.planId)!;
-                  return (
-                    <ActivePlanCard
-                      key={prog.id}
-                      progress={prog}
-                      plan={plan}
-                      selected={idx === 0}
-                      onDetail={() => { setDetailId(prog.id); setView('detail'); }}
-                      onComplete={() => setMethodFor(prog.id)}
-                      onRefresh={refresh}
-                      onGoToBible={onGoToBible}
-                    />
-                  );
-                })}
+              <p className="font-bold text-base mb-1" style={{ color: BR.text }}>아직 진행 중인 통독 계획이 없습니다</p>
+              <p className="text-sm mb-5" style={{ color: BR.muted }}>말씀과 함께 새로운 통독을 시작해보세요.</p>
+              <button type="button" onClick={() => setView('plans')} className={`${brPrimaryBtn} w-full sm:w-auto px-8`}>
+                통독 계획 선택
+              </button>
+            </div>
+          )}
+
+          {!primaryProgress && latestCompleted && latestCompletedPlan && (
+            <div className={`${brCard} p-6 text-center`}>
+              <Award className="w-12 h-12 mx-auto mb-3" style={{ color: BR.gold }} />
+              <p className="font-bold text-lg mb-1" style={{ color: BR.text }}>축하합니다</p>
+              <p className="text-sm mb-1" style={{ color: BR.text }}>
+                {latestCompletedPlan.name}을(를) 완료했습니다.
+              </p>
+              <p className="text-sm font-semibold mb-5" style={{ color: BR.brown }}>
+                {latestCompletedPlan.durationDays} / {latestCompletedPlan.durationDays}일
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                <button
+                  type="button"
+                  onClick={() => { setDetailId(latestCompleted.id); setView('detail'); }}
+                  className={brSecondaryBtn}
+                >
+                  완료 기록 보기
+                </button>
+                <button type="button" onClick={() => setView('plans')} className={brPrimaryBtn}>
+                  새 통독 계획 선택
+                </button>
               </div>
             </div>
           )}
 
-          {/* Recent records */}
+          {(primaryProgress || latestCompleted) && (
+            <button
+              type="button"
+              onClick={() => setView('plans')}
+              className={`${brSecondaryBtn} w-full`}
+            >
+              다른 통독 계획 <ChevronRight className="w-4 h-4" />
+            </button>
+          )}
+
           {recentRecords.length > 0 && (
-            <div className="px-4 pt-5">
-              <p className="text-sm font-bold mb-3" style={{ color: BR.text }}>최근 기록</p>
+            <div>
+              <div className="flex items-center justify-between mb-2 px-0.5">
+                <p className="text-sm font-bold" style={{ color: BR.text }}>최근 통독 기록</p>
+                <button
+                  type="button"
+                  onClick={() => { if (primaryProgress) { setDetailId(primaryProgress.id); setView('detail'); } }}
+                  className={brGhostBtn}
+                >
+                  전체 기록 보기
+                </button>
+              </div>
               <div className={`${brCard} overflow-hidden`}>
-                {recentRecords.map((row, i) => (
+                {recentRecords.slice(0, 4).map((row, i, arr) => (
                   <div
                     key={row.day}
-                    className="flex items-center gap-3 px-4 py-3 min-h-[52px]"
-                    style={i < recentRecords.length - 1 ? { borderBottom: `1px solid ${BR.border}` } : undefined}
+                    className="flex items-center gap-3 px-4 py-3 min-h-[48px]"
+                    style={i < arr.length - 1 ? { borderBottom: `1px solid ${BR.border}` } : undefined}
                   >
-                    <div className="w-16 shrink-0">
-                      <p className="text-xs font-semibold" style={{ color: BR.text }}>{row.day}일차</p>
-                    </div>
-                    <p className="flex-1 text-sm min-w-0 truncate" style={{ color: BR.text }}>{row.label}</p>
+                    <p className="w-14 shrink-0 text-xs font-semibold" style={{ color: BR.text }}>{row.day}일차</p>
+                    <p className="flex-1 text-sm min-w-0 truncate" style={{ color: BR.muted }}>{row.label}</p>
                     {row.status === 'today' && (
                       <span className="text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0" style={{ background: BR.softGoldBg, color: BR.brown, border: `1px solid ${BR.gold}` }}>오늘</span>
                     )}
@@ -1371,58 +1578,25 @@ export default function BibleReadingCenterPage({ onNavigate: _onNavigate, onGoTo
 
           {isPastor && <PastorMemberProgressSection />}
 
-          {/* Available plans */}
-          <div className="px-4 pt-5 pb-8 space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-bold" style={{ color: BR.text }}>
-                {activeProgresses.length > 0 ? '다른 통독 계획' : '통독 계획'}
-              </p>
-              <span className="text-xs" style={{ color: BR.muted }}>{availablePlans.length}개</span>
+          {primaryProgress && (
+            <div className="grid grid-cols-3 gap-2 pt-1">
+              <button onClick={() => navToGraceList(undefined, 'main', null)}
+                className={`${brCard} flex flex-col items-center justify-center gap-1.5 p-3 text-xs font-medium hover:border-[#E7B447] transition-all`}
+                style={{ color: BR.text }}>
+                <Heart className="w-4 h-4" style={{ color: BR.gold }} /> 은혜 기록
+              </button>
+              <button onClick={() => setView('saved')}
+                className={`${brCard} flex flex-col items-center justify-center gap-1.5 p-3 text-xs font-medium hover:border-[#E7B447] transition-all`}
+                style={{ color: BR.text }}>
+                <Bookmark className="w-4 h-4" style={{ color: BR.gold }} /> 저장 말씀
+              </button>
+              <button onClick={() => setView('stats')}
+                className={`${brCard} flex flex-col items-center justify-center gap-1.5 p-3 text-xs font-medium hover:border-[#E7B447] transition-all`}
+                style={{ color: BR.text }}>
+                <BarChart2 className="w-4 h-4" style={{ color: BR.gold }} /> 내 분석
+              </button>
             </div>
-
-            {availablePlans.length === 0 ? (
-              <div className={`${brCard} p-6 text-center`}>
-                <Award className="w-10 h-10 mx-auto mb-2" style={{ color: BR.gold }} />
-                <p className="font-semibold text-sm" style={{ color: BR.text }}>모든 플랜에 참여 중입니다</p>
-                <p className="text-xs mt-1" style={{ color: BR.muted }}>진행 중인 플랜에 집중해보세요.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {availablePlans.map(plan => (
-                  <AvailablePlanCard key={plan.id} plan={plan} onStart={() => setModalPlan(plan)} />
-                ))}
-              </div>
-            )}
-
-            <div className={`${brCard} border-dashed p-5 text-center`} style={{ borderStyle: 'dashed' }}>
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-2" style={{ background: BR.track }}>
-                <Settings className="w-6 h-6" style={{ color: BR.muted }} />
-              </div>
-              <p className="font-bold text-sm" style={{ color: BR.text }}>맞춤형 통독</p>
-              <p className="text-xs mt-1" style={{ color: BR.muted }}>직접 일정과 범위를 설정하는 맞춤 플랜</p>
-              <span className="inline-block mt-2 text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: BR.softGoldBg, color: BR.brown }}>준비 중</span>
-            </div>
-
-            {activeProgresses.length > 0 && (
-              <div className="grid grid-cols-3 gap-2 pt-1">
-                <button onClick={() => navToGraceList(undefined, 'main', null)}
-                  className={`${brCard} flex flex-col items-center justify-center gap-1.5 p-3 text-xs font-medium hover:border-[#E7B447] transition-all`}
-                  style={{ color: BR.text }}>
-                  <Heart className="w-4 h-4" style={{ color: BR.gold }} /> 은혜 기록
-                </button>
-                <button onClick={() => setView('saved')}
-                  className={`${brCard} flex flex-col items-center justify-center gap-1.5 p-3 text-xs font-medium hover:border-[#E7B447] transition-all`}
-                  style={{ color: BR.text }}>
-                  <Bookmark className="w-4 h-4" style={{ color: BR.gold }} /> 저장 말씀
-                </button>
-                <button onClick={() => setView('stats')}
-                  className={`${brCard} flex flex-col items-center justify-center gap-1.5 p-3 text-xs font-medium hover:border-[#E7B447] transition-all`}
-                  style={{ color: BR.text }}>
-                  <BarChart2 className="w-4 h-4" style={{ color: BR.gold }} /> 내 분석
-                </button>
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </div>
     </>
