@@ -45,6 +45,8 @@ import InviteSignupPage from '../pages/member/InviteSignupPage';
 import ChurchSharingPage from '../pages/shared/ChurchSharingPage';
 import type { BibleRef } from '../utils/bibleParser';
 import { runTestDataSeed, formatTestDataSeedReport } from '../services/testDataSeed';
+import { isDemoPreviewExpired } from '../config/demoPreviewGate';
+import { DemoPreviewExpiredScreen } from '../components/common/DemoPreviewExpiredScreen';
 
 // ─── Error Boundary ───────────────────────────────────────────────────────────
 
@@ -312,6 +314,10 @@ function LoadingScreen() {
 }
 
 function App() {
+  if (isDemoPreviewExpired()) {
+    return <DemoPreviewExpiredScreen />;
+  }
+
   return (
     <AuthProvider>
       <OrgSettingsProvider>
