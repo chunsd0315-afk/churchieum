@@ -23,6 +23,9 @@ export const CHURCH_NAME_CHANGED_EVENT = 'churchieum-church-name-changed';
 
 const DEFAULT_CHURCH_NAME = '순복음성북교회';
 
+/** 교회 전체 담당 표시 — 교구/구역 경로 대신 사용 */
+export const CHURCH_WIDE_SCOPE_LABEL = '전체';
+
 export type CurrentUserDisplayMeta = {
   churchName: string;
   userDisplayName: string;
@@ -90,9 +93,27 @@ function resolveRoleLabel(user: AppUser): string {
 }
 
 /**
+ * 최고관리자이면서 담임목사(또는 교역자 isChief + 담임목사)인 경우
+ * — 특정 교구/구역 소속 대신 교회 전체 담당으로 표시
+ */
+export function isChurchWideSeniorPastor(user: AppUser | null | undefined): boolean {
+  if (!user || !isSuperAdmin(user)) return false;
+  const position = resolvePosition(user);
+  if (position === '담임목사') return true;
+  try {
+    const clergy = getClergyByEmail(user.email);
+    if (clergy?.isChief && positionLabel(clergy) === '담임목사') return true;
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
+/**
  * 대표 조직 경로 라벨
- * 계층: A > B > C · 부서
- * 교역자: 경로 · 담당교역자 (부서 있으면 부서 포함)
+ * - 담임목사 + 최고관리자: 전체 · 담임목사
+ * - 일반 교역자: 조직경로 · 담당 교역자
+ * - 성도: 조직경로 · 소속부서
  */
 export function buildUserOrganizationPathLabel(user: AppUser | null | undefined): {
   pathNames: string[];
@@ -103,12 +124,23 @@ export function buildUserOrganizationPathLabel(user: AppUser | null | undefined)
     return { pathNames: [], departmentNames: [], label: '' };
   }
 
+  const position = resolvePosition(user);
+
+  // 교회 전체 담당 담임목사(최고관리자) — 하위 조직 경로 표시 안 함
+  if (isChurchWideSeniorPastor(user)) {
+    return {
+      pathNames: [],
+      departmentNames: [],
+      label: `${CHURCH_WIDE_SCOPE_LABEL} · ${position || '담임목사'}`,
+    };
+  }
+
   const orgs = getAllOrganizations();
   const pathNames = getUserPrimaryOrganizationPath(user.id, orgs);
   const dept = getUserDepartmentLabelOutsidePath(user.id, pathNames);
   const departmentNames = dept ? [dept] : [];
 
-  const isPastoral = isSuperAdmin(user) || user.role === 'pastor';
+  const isPastoral = user.role === 'pastor' || isSuperAdmin(user);
   const hasOrgs = getOrganizationIdsForUserId(user.id).length > 0;
   const assigneeTag = getPastorTerminologyPhrases(readOrgSettings()).assigneeTag;
 
@@ -128,6 +160,7 @@ export function buildUserOrganizationPathLabel(user: AppUser | null | undefined)
     dateLabel: '',
   });
 
+  // 일반 교역자: 조직경로 · 담당 교역자
   if (isPastoral && label && !label.includes(assigneeTag)) {
     label = `${label} · ${assigneeTag}`;
   }
@@ -136,7 +169,8 @@ export function buildUserOrganizationPathLabel(user: AppUser | null | undefined)
 }
 
 /**
- * PC 상단 한 줄용 조직 경로 — 역할만 있는 라벨(예: 최고관리자)은 제외
+ * PC 상단 한 줄용 조직 경로
+ * — 「전체 · 담임목사」는 표시, 역할만 있는 「최고관리자」는 제외
  */
 export function getPcTopOrganizationPathLabel(
   user: AppUser | null | undefined,
@@ -144,6 +178,11 @@ export function getPcTopOrganizationPathLabel(
 ): string {
   const label = meta.organizationPathLabel.trim();
   if (!label || !user) return label;
+
+  // 교회 전체 담당 담임목사 — 항상 표시
+  if (label.startsWith(`${CHURCH_WIDE_SCOPE_LABEL} ·`) || isChurchWideSeniorPastor(user)) {
+    return label;
+  }
 
   const hasRealOrg =
     meta.primaryOrganizationPath.length > 0 || meta.departmentNames.length > 0;
