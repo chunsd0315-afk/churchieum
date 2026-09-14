@@ -1,14 +1,13 @@
 /**
- * 성경 본문 단어 터치 기능 컴포넌트
- *
- * 절 텍스트를 토큰으로 분리하여 렌더링.
- * 원어 데이터가 있는 단어는 클릭 시 팝업 표시.
- * 원어 데이터가 없는 단어는 일반 텍스트로 표시.
+ * 성경 본문 단어 터치 기능
+ * - 원어 매핑이 있는 단어만 클릭 가능
+ * - 팝업은 단어 바로 위에 표시 (BibleWordPopup)
  */
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { tokenizeVerseText, type VerseToken } from '../../data/bibleLexicon';
 import { BibleWordPopup } from './BibleWordPopup';
+import { BibleWordToken } from './BibleWordToken';
 
 type Props = {
   bookId: string;
@@ -25,16 +24,19 @@ type ActiveWord = {
 
 export function BibleWordText({ bookId, chapter, verse, text, className = '' }: Props) {
   const [active, setActive] = useState<ActiveWord | null>(null);
-  const containerRef = useRef<HTMLSpanElement>(null);
 
   const segments = tokenizeVerseText(bookId, chapter, verse, text);
 
-  const handleWordClick = useCallback((token: VerseToken, el: HTMLElement) => {
+  const handleWordSelect = useCallback((token: VerseToken, el: HTMLElement) => {
     const rect = el.getBoundingClientRect();
     setActive(prev => {
-      // 같은 단어 다시 클릭 → 닫기
-      if (prev?.token.tokenIndex === token.tokenIndex &&
-          prev.token.strongNumber === token.strongNumber) {
+      if (
+        prev?.token.tokenIndex === token.tokenIndex &&
+        prev.token.strongNumber === token.strongNumber &&
+        prev.token.bookId === token.bookId &&
+        prev.token.chapter === token.chapter &&
+        prev.token.verse === token.verse
+      ) {
         return null;
       }
       return { token, rect };
@@ -44,39 +46,26 @@ export function BibleWordText({ bookId, chapter, verse, text, className = '' }: 
   const handleClose = useCallback(() => setActive(null), []);
 
   return (
-    <span ref={containerRef} className={`relative ${className}`}>
+    <span className={className}>
       {segments.map((seg, idx) => {
         if (!seg.token) {
           return <span key={idx}>{seg.text}</span>;
         }
 
-        const isActive = active?.token.tokenIndex === seg.token.tokenIndex &&
-                         active.token.strongNumber === seg.token.strongNumber;
+        const isActive =
+          active?.token.tokenIndex === seg.token.tokenIndex &&
+          active.token.strongNumber === seg.token.strongNumber &&
+          active.token.verse === seg.token.verse &&
+          active.token.chapter === seg.token.chapter;
 
         return (
-          <span
+          <BibleWordToken
             key={idx}
-            role="button"
-            tabIndex={0}
-            aria-label={`${seg.text} 원어 보기`}
-            onClick={e => {
-              e.stopPropagation();
-              handleWordClick(seg.token!, e.currentTarget as HTMLElement);
-            }}
-            onKeyDown={e => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                handleWordClick(seg.token!, e.currentTarget as HTMLElement);
-              }
-            }}
-            className={`cursor-pointer rounded px-0.5 -mx-0.5 transition-colors duration-150 select-text ${
-              isActive
-                ? 'bg-[#FFF3B0] text-gray-900'
-                : 'hover:bg-amber-50 active:bg-[#FFF3B0]'
-            }`}
-          >
-            {seg.text}
-          </span>
+            token={seg.token}
+            text={seg.text}
+            selected={Boolean(isActive)}
+            onSelect={handleWordSelect}
+          />
         );
       })}
 

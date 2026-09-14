@@ -59,15 +59,17 @@ export function BibleWordDetailSheet({ entry, token, onClose }: Props) {
           <div>
             <div className="flex items-center gap-2 flex-wrap mb-1">
               <span className="text-lg font-bold text-gray-900">{token.koreanText}</span>
-              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${
-                entry.language === 'hebrew'
-                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                  : 'bg-blue-50 text-blue-700 border border-blue-200'
-              }`}>
+              <span
+                className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold border"
+                style={{ background: '#FFF6E5', color: '#6E4429', borderColor: '#EADFD5' }}
+              >
                 {entry.language === 'hebrew' ? '히브리어' : '헬라어'}
               </span>
-              <span className="text-[11px] text-gray-400 font-mono bg-gray-50 px-2 py-0.5 rounded-full">
-                {entry.strongNumber}
+              <span
+                className="text-[11px] font-mono px-2 py-0.5 rounded-full"
+                style={{ background: '#F2E8DC', color: '#8A7E75' }}
+              >
+                Strong&apos;s {entry.strongNumber}
               </span>
             </div>
             <p className="text-[12px] text-gray-400">
@@ -85,9 +87,9 @@ export function BibleWordDetailSheet({ entry, token, onClose }: Props) {
         </div>
 
         {/* 원어 섹션 */}
-        <div className="bg-gray-50 rounded-[18px] p-4 space-y-2.5">
+        <div className="rounded-[18px] p-4 space-y-2.5" style={{ background: '#FFF9F2', border: '1px solid #EADFD5' }}>
           <p
-            className="text-3xl font-bold text-gray-900 leading-tight"
+            className="text-3xl font-bold leading-tight text-[#2A211C]"
             lang={entry.language === 'greek' ? 'el' : 'he'}
             dir={entry.language === 'hebrew' ? 'rtl' : 'ltr'}
           >
@@ -120,7 +122,11 @@ export function BibleWordDetailSheet({ entry, token, onClose }: Props) {
           <h3 className="text-sm font-bold text-gray-700">한글 뜻</h3>
           <div className="flex flex-wrap gap-2">
             {entry.koreanGlosses.map((g, i) => (
-              <span key={i} className="px-3 py-1.5 rounded-full bg-primary-50 text-primary-800 text-sm font-semibold border border-primary-100">
+              <span
+                key={i}
+                className="px-3 py-1.5 rounded-full text-sm font-semibold border"
+                style={{ background: '#FFF6E5', color: '#6E4429', borderColor: '#EADFD5' }}
+              >
                 {i + 1}. {g}
               </span>
             ))}
@@ -140,11 +146,11 @@ export function BibleWordDetailSheet({ entry, token, onClose }: Props) {
 
         {/* 문맥 해설 */}
         {entry.contextualNote && (
-          <div className="rounded-[14px] border border-primary-100 bg-primary-50 p-4 space-y-1">
-            <h3 className="text-xs font-bold text-primary-700 uppercase tracking-wide">
+          <div className="rounded-[14px] p-4 space-y-1" style={{ border: '1px solid #EADFD5', background: '#FFF6E5' }}>
+            <h3 className="text-xs font-bold uppercase tracking-wide text-[#6E4429]">
               {token.bookId} {token.chapter}:{token.verse}에서의 의미
             </h3>
-            <p className="text-sm text-primary-900 leading-relaxed">{entry.contextualNote}</p>
+            <p className="text-sm leading-relaxed text-[#2A211C]">{entry.contextualNote}</p>
           </div>
         )}
 
