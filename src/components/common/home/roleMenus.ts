@@ -1,4 +1,9 @@
 import type { MenuIconKey } from '../../../config/menuIconMap';
+import {
+  PC_SIDEBAR_ADMIN_EXTRA_ORDER,
+  PC_SIDEBAR_BASE_ORDER,
+  type PcSidebarCatalogKey,
+} from '../../../config/pcSidebarMenuOrder';
 import { HOME_MENU_CATALOG, resolveCatalogItem } from './homeMenuCatalog';
 import type { OrgTerminologySettings } from '../../../services/orgTerminology';
 import type { HomeMenuItem } from './HomeDashboard';
@@ -16,7 +21,11 @@ export type RoleMenuEntry = {
 
 const TOGGLEABLE = new Set<string>(TOGGLEABLE_MEMBER_MENU_KEYS);
 
-/** 앱 설정(메뉴 ON/OFF·순서) 반영 — 관리/설정 메뉴는 숨기지 않음 */
+const PC_SIDEBAR_ORDER_INDEX = new Map<string, number>(
+  [...PC_SIDEBAR_BASE_ORDER, ...PC_SIDEBAR_ADMIN_EXTRA_ORDER].map((key, i) => [key, i]),
+);
+
+/** 앱 설정(메뉴 ON/OFF·순서) 반영 — 홈/모바일 메뉴용 */
 export function applyAppMenuPreferences(entries: RoleMenuEntry[]): RoleMenuEntry[] {
   const { menus } = getChurchAppSettings();
   const enabled = new Map(menus.map(m => [m.catalogKey, m.enabled !== false]));
@@ -37,61 +46,109 @@ export function applyAppMenuPreferences(entries: RoleMenuEntry[]): RoleMenuEntry
   });
 }
 
-/** 역할별 메뉴 구성 — 권한 정책 유지 */
-export const ADMIN_ROLE_MENUS: RoleMenuEntry[] = [
-  { catalogKey: 'sermon', page: 'sermons' },
-  { catalogKey: 'grace', page: 'qt' },
-  { catalogKey: 'announcement', page: 'announcements' },
-  { catalogKey: 'bulletin', page: 'bulletins' },
-  { catalogKey: 'schedule', page: 'events' },
-  { catalogKey: 'album', page: 'albums' },
-  { catalogKey: 'bible', page: 'bible' },
-  { catalogKey: 'biblePlan', page: 'bible-plans' },
-  { catalogKey: 'sharing', page: 'sharing' },
-  { catalogKey: 'profile', page: 'profile' },
-  { catalogKey: 'churchInfo', page: 'church-info' },
-  { catalogKey: 'statistics', page: 'statistics' },
-  { catalogKey: 'org', page: 'org' },
-  { catalogKey: 'clergy', page: 'clergy' },
-  { catalogKey: 'members', page: 'members' },
-  { catalogKey: 'invitations', page: 'invitations' },
-  { catalogKey: 'settings', page: 'settings' },
-];
+/** PC 사이드바 전용: 공통 기본 순서 + 권한(enabled)만 반영 */
+function applyPcSidebarOrder(entries: RoleMenuEntry[]): RoleMenuEntry[] {
+  const { menus } = getChurchAppSettings();
+  const enabled = new Map(menus.map(m => [m.catalogKey, m.enabled !== false]));
 
-export const PASTOR_ROLE_MENUS: RoleMenuEntry[] = [
-  { catalogKey: 'sermon', page: 'sermons' },
-  { catalogKey: 'grace', page: 'grace-notes' },
-  { catalogKey: 'announcement', page: 'announcements' },
-  { catalogKey: 'bulletin', page: 'bulletin' },
-  { catalogKey: 'schedule', page: 'events' },
-  { catalogKey: 'album', page: 'album' },
-  { catalogKey: 'bible', page: 'bible' },
-  { catalogKey: 'biblePlan', page: 'bible-reading-center' },
-  { catalogKey: 'sharing', page: 'sharing' },
-  { catalogKey: 'profile', page: 'profile' },
-  { catalogKey: 'churchInfo', page: 'church-info' },
-  { catalogKey: 'settings', page: 'settings' },
-];
+  const kept = entries.filter(e => {
+    if (!TOGGLEABLE.has(e.catalogKey as string)) return true;
+    return enabled.get(e.catalogKey as string) !== false;
+  });
 
-export const MEMBER_ROLE_MENUS: RoleMenuEntry[] = [
-  { catalogKey: 'sermon', page: 'sermon' },
-  { catalogKey: 'grace', page: 'grace-notes' },
-  { catalogKey: 'announcement', page: 'announcement' },
-  { catalogKey: 'bulletin', page: 'bulletin' },
-  { catalogKey: 'schedule', page: 'schedule' },
-  { catalogKey: 'album', page: 'album' },
-  { catalogKey: 'bible', page: 'bible' },
-  { catalogKey: 'biblePlan', page: 'bible-reading-center' },
-  { catalogKey: 'sharing', page: 'sharing' },
-  { catalogKey: 'profile', page: 'profile' },
-  { catalogKey: 'churchInfo', page: 'church-info' },
-];
+  return [...kept].sort((a, b) => {
+    const ai = PC_SIDEBAR_ORDER_INDEX.get(a.catalogKey as string) ?? 999;
+    const bi = PC_SIDEBAR_ORDER_INDEX.get(b.catalogKey as string) ?? 999;
+    return ai - bi;
+  });
+}
+
+type RolePageMap = Partial<Record<PcSidebarCatalogKey, string>>;
+
+function buildRoleMenus(pageMap: RolePageMap, withAdminExtra: boolean): RoleMenuEntry[] {
+  const base = PC_SIDEBAR_BASE_ORDER
+    .filter((key): key is (typeof PC_SIDEBAR_BASE_ORDER)[number] => pageMap[key] != null)
+    .map(catalogKey => ({
+      catalogKey: catalogKey as MenuCatalogKey,
+      page: pageMap[catalogKey] as string,
+    }));
+
+  if (!withAdminExtra) return base;
+
+  const extras = PC_SIDEBAR_ADMIN_EXTRA_ORDER
+    .filter((key): key is (typeof PC_SIDEBAR_ADMIN_EXTRA_ORDER)[number] => pageMap[key] != null)
+    .map(catalogKey => ({
+      catalogKey: catalogKey as MenuCatalogKey,
+      page: pageMap[catalogKey] as string,
+    }));
+
+  return [...base, ...extras];
+}
+
+/** 역할별 메뉴 구성 — 권한 정책 유지, 순서는 pcSidebarMenuOrder */
+export const ADMIN_ROLE_MENUS: RoleMenuEntry[] = buildRoleMenus(
+  {
+    sharing: 'sharing',
+    sermon: 'sermons',
+    grace: 'qt',
+    announcement: 'announcements',
+    bulletin: 'bulletins',
+    schedule: 'events',
+    album: 'albums',
+    bible: 'bible',
+    biblePlan: 'bible-plans',
+    profile: 'profile',
+    churchInfo: 'church-info',
+    settings: 'settings',
+    statistics: 'statistics',
+    org: 'org',
+    clergy: 'clergy',
+    members: 'members',
+    invitations: 'invitations',
+  },
+  true,
+);
+
+export const PASTOR_ROLE_MENUS: RoleMenuEntry[] = buildRoleMenus(
+  {
+    sharing: 'sharing',
+    sermon: 'sermons',
+    grace: 'grace-notes',
+    announcement: 'announcements',
+    bulletin: 'bulletin',
+    schedule: 'events',
+    album: 'album',
+    bible: 'bible',
+    biblePlan: 'bible-reading-center',
+    profile: 'profile',
+    churchInfo: 'church-info',
+    settings: 'settings',
+  },
+  false,
+);
+
+export const MEMBER_ROLE_MENUS: RoleMenuEntry[] = buildRoleMenus(
+  {
+    sharing: 'sharing',
+    sermon: 'sermon',
+    grace: 'grace-notes',
+    announcement: 'announcement',
+    bulletin: 'bulletin',
+    schedule: 'schedule',
+    album: 'album',
+    bible: 'bible',
+    biblePlan: 'bible-reading-center',
+    profile: 'profile',
+    churchInfo: 'church-info',
+  },
+  false,
+);
 
 export function buildSidebarNavItems<T extends string>(
   entries: RoleMenuEntry[],
   settings?: OrgTerminologySettings | null,
 ): { page: T; label: string; iconKey: MenuIconKey }[] {
-  return applyAppMenuPreferences(entries).map(({ catalogKey, page }) => {
+  return applyPcSidebarOrder(entries).map(({ catalogKey, page }) => {
     const meta = resolveCatalogItem(catalogKey, settings);
     return { page: page as T, label: meta.label, iconKey: meta.iconKey };
   });
