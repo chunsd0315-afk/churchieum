@@ -15,7 +15,7 @@ type Dept = {
 };
 
 const DEMO: Dept[] = [
-  { id: 'd1', name: '청년부', description: '20-30대 청년 모임', leader_name: '김성기 목사', is_active: true, sort_order: 1, member_count: 45 },
+  { id: 'd1', name: '청년부', description: '20-30대 청년 모임', leader_name: '정재명 담임목사', is_active: true, sort_order: 1, member_count: 45 },
   { id: 'd2', name: '주일학교', description: '어린이 주일학교', leader_name: '이미래 전도사', is_active: true, sort_order: 2, member_count: 32 },
   { id: 'd3', name: '여성부', description: '여성도 모임', leader_name: '박성실 권사', is_active: true, sort_order: 3, member_count: 28 },
   { id: 'd4', name: '남성부', description: '남성도 모임', leader_name: '최진호 장로', is_active: true, sort_order: 4, member_count: 21 },
@@ -219,7 +219,7 @@ export default function DepartmentManagementPage() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1.5">담당 교역자</label>
-                <input value={form.leader_name} onChange={e => f('leader_name', e.target.value)} placeholder="예: 김성기 목사"
+                <input value={form.leader_name} onChange={e => f('leader_name', e.target.value)} placeholder="예: 정재명 담임목사"
                   className="w-full px-3.5 py-3 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:border-primary-400 focus:ring-0" />
               </div>
               <div>

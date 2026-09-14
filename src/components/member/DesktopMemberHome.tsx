@@ -21,7 +21,7 @@ const BANNERS = [
     id: '2',
     label: '담임목사 설교',
     title: '믿음의 출발',
-    sub: '히브리서 11:1 · 김성기 목사',
+    sub: '히브리서 11:1 · 정재명 담임목사',
     bg: 'from-secondary-500 via-secondary-600 to-primary-600',
     icon: Play,
   },

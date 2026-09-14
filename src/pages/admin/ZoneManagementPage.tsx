@@ -24,9 +24,9 @@ const DEMO_DISTRICTS: District[] = [
   { id: 'd4', name: '4교구', sort_order: 4 },
 ];
 const DEMO_ZONES: Zone[] = [
-  { id: 'z1', district_id: 'd1', name: '1구역', leader_name: '홍길동', clergy_name: '김성기 목사', is_active: true, sort_order: 1 },
-  { id: 'z2', district_id: 'd1', name: '2구역', leader_name: '이순신', clergy_name: '김성기 목사', is_active: true, sort_order: 2 },
-  { id: 'z3', district_id: 'd1', name: '3구역', leader_name: '박세종', clergy_name: '김성기 목사', is_active: true, sort_order: 3 },
+  { id: 'z1', district_id: 'd1', name: '1구역', leader_name: '홍길동', clergy_name: '정재명 담임목사', is_active: true, sort_order: 1 },
+  { id: 'z2', district_id: 'd1', name: '2구역', leader_name: '이순신', clergy_name: '정재명 담임목사', is_active: true, sort_order: 2 },
+  { id: 'z3', district_id: 'd1', name: '3구역', leader_name: '박세종', clergy_name: '정재명 담임목사', is_active: true, sort_order: 3 },
   { id: 'z4', district_id: 'd2', name: '1구역', leader_name: '최민준', clergy_name: '이준혁 목사', is_active: true, sort_order: 1 },
   { id: 'z5', district_id: 'd2', name: '2구역', leader_name: '정하은', clergy_name: '이준혁 목사', is_active: true, sort_order: 2 },
   { id: 'z6', district_id: 'd3', name: '1구역', leader_name: '김다은', clergy_name: '박성실 전도사', is_active: true, sort_order: 1 },

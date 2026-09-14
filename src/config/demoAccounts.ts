@@ -27,7 +27,7 @@ export const PRIMARY_DEMO_ACCOUNTS: DemoAccountDefinition[] = [
     key: 'admin',
     label: '👑 최고관리자',
     name: '정재명',
-    position: '목사',
+    position: '담임목사',
     roleLabel: '최고관리자',
     email: 'pastor01@churchieum.com',
     password: 'Church@2026',

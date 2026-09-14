@@ -21,7 +21,7 @@ export const CHURCH_NAME_STORAGE_KEY = 'churchieum_church_name_v1';
 export { PROFILE_IMAGE_CHANGED_EVENT };
 export const CHURCH_NAME_CHANGED_EVENT = 'churchieum-church-name-changed';
 
-const DEFAULT_CHURCH_NAME = '교회이음';
+const DEFAULT_CHURCH_NAME = '순복음성북교회';
 
 export type CurrentUserDisplayMeta = {
   churchName: string;

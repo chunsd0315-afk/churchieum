@@ -128,7 +128,7 @@ function makeComments(
   const pool = authors.length > 0
     ? authors
     : [
-        { id: 'demo-pastor01', name: '정재명', role: '목사', gender: '남' as const, districtId: 'd1', zoneId: 'z1', departmentIds: ['dep1'] },
+        { id: 'demo-pastor01', name: '정재명', role: '담임목사', gender: '남' as const, districtId: 'd1', zoneId: 'z1', departmentIds: ['dep1'] },
         { id: 'demo-pastor02', name: '이변우', role: '목사', gender: '남' as const, districtId: 'd2', zoneId: 'z3', departmentIds: ['dep1'] },
         { id: 'demo-member60', name: '천성대', role: '장로', gender: '남' as const, districtId: 'd1', zoneId: 'z1', departmentIds: ['dep3', 'dep5'] },
       ];
@@ -428,7 +428,7 @@ function generateSermonNotes(count: number, authors: SeedAuthor[]): GraceNote[] 
       graceContent: copy.graceContent,
       sourceId: sermon?.id,
       sermonTitle: sermon?.title ?? copy.graceTitle,
-      sermonPreacher: preacher ? `${preacher.name} ${positionLabel(preacher)}` : '정재명 목사',
+      sermonPreacher: preacher ? `${preacher.name} ${positionLabel(preacher)}` : '정재명 담임목사',
       sermonDate: sermon?.sermonDate ?? createdAt.slice(0, 10),
       bibleReference: sermon?.scripture ?? `${pick(['요한복음', '로마서', '시편'])} ${randInt(1, 12)}:${randInt(1, 28)}`,
       ...EMPTY_GRACE_LEGACY_FIELDS,
@@ -622,7 +622,7 @@ export function generateGraceNoteDemoData(): GraceNote[] {
         type === 'reading'
           ? { sourceId: 'demo-progress-1year', planId: '1year', planName: '1년 성경통독', bibleReference: READING_PASSAGES[i % READING_PASSAGES.length] }
           : type === 'sermon'
-            ? { sourceId: getAllSermons()[0]?.id, sermonTitle: '순종으로 시작하는 믿음', sermonPreacher: '정재명 목사' }
+            ? { sourceId: getAllSermons()[0]?.id, sermonTitle: '순종으로 시작하는 믿음', sermonPreacher: '정재명 담임목사' }
             : {},
         i + 500,
       );

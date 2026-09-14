@@ -30,6 +30,8 @@ import { removeAssigneesForOrganizations } from './orgAssigneeStorage';
 import { CHURCH_ID_LS_KEY, DEFAULT_CHURCH_ID } from './orgSettingsRemote';
 import { canAccessAdmin, type AppUser } from './permissions';
 import { supabase, supabaseConfigured } from './supabase';
+import { CHURCH_PROFILE_SEED } from '../data/churchProfileSeed';
+import { DEMO_ACCOUNT_IDS } from '../config/demoAccounts';
 
 // ─── New localStorage keys (do not rename casually) ───────────────────────────
 const LS_ORGS = 'org_nodes_v1';
@@ -159,7 +161,7 @@ function seedFromLegacy(): Organization[] {
 
   const rootChurch: Organization = {
     id: 'org-church-root',
-    name: '교회',
+    name: CHURCH_PROFILE_SEED.name,
     code: 'CHURCH',
     type: '기타',
     parentId: null,
@@ -257,6 +259,15 @@ function seedLeadersFromLegacy(orgs: Organization[]): OrganizationLeader[] {
       createdAt: ts,
     });
   };
+
+  leaders.push({
+    id: 'lead-church-root-senior',
+    organizationId: 'org-church-root',
+    memberId: DEMO_ACCOUNT_IDS.admin,
+    memberName: CHURCH_PROFILE_SEED.pastor.displayName,
+    leaderType: '담임목사',
+    createdAt: ts,
+  });
 
   districts.forEach(d => add(d.id, d.leader_name, '담당목사'));
   zones.forEach(z => add(z.id, z.leader_name, '리더'));

@@ -3,6 +3,7 @@ import {
   Check, Eye, EyeOff, Lock, ArrowRight, ChevronLeft,
   Shield, Building, User, CheckCircle, ChevronRight,
 } from 'lucide-react';
+import { CHURCH_PROFILE_SEED } from '../../data/churchProfileSeed';
 
 type Step = 'confirm' | 'password' | 'terms' | 'complete';
 
@@ -13,11 +14,11 @@ type Props = {
 };
 
 const DEMO_CHURCH = {
-  name: '순복음성북교회',
-  denomination: '기독교대한하나님의성회',
-  pastor: '김성기 목사',
-  address: '서울시 성북구 보문로 100',
-  imageUrl: 'https://images.pexels.com/photos/208216/pexels-photo-208216.jpeg?auto=compress&cs=tinysrgb&w=400',
+  name: CHURCH_PROFILE_SEED.name,
+  denomination: CHURCH_PROFILE_SEED.denomination,
+  pastor: CHURCH_PROFILE_SEED.pastor.displayName,
+  address: CHURCH_PROFILE_SEED.address,
+  imageUrl: CHURCH_PROFILE_SEED.heroImageUrl,
 };
 
 const ROLE_COLORS: Record<string, string> = {

@@ -94,12 +94,12 @@ const DEMO_CHURCHES: Church[] = [
   },
   {
     id: '8', name: '순복음성북교회', denomination: '기독교대한하나님의성회', district: '성북구',
-    address: '서울시 성북구 보문로 100', distance: 0.3, verified: true,
-    rating: 4.9, pastor: '김선도 목사',
-    worship_times: [{ type: '주일 1부', time: '09:00' }, { type: '주일 2부', time: '11:00' }, { type: '주일 3부', time: '14:00' }, { type: '수요', time: '19:30' }, { type: '금요철야', time: '21:00' }],
-    member_count: 1200, phone: '02-7890-1234',
-    website: 'https://sfbc.example.com', youtube: 'https://youtube.com/@sfbc',
-    description: '1965년 설립, 지역사회와 선교에 헌신하는 교회입니다. 매주 특별 집회와 다양한 부서 프로그램을 운영합니다.',
+    address: '서울특별시 성북구 오패산로 89', distance: 0.3, verified: true,
+    rating: 4.9, pastor: '정재명 담임목사',
+    worship_times: [{ type: '주일 1부', time: '07:30' }, { type: '주일 2부', time: '09:30' }, { type: '주일 3부', time: '11:30' }, { type: '수요', time: '11:00' }, { type: '금요철야', time: '22:00' }],
+    member_count: 1200, phone: '02-940-0000~4',
+    website: 'https://seongbukch.org/',
+    description: '복음과 말씀, 성령의 능력 안에서 성도들이 믿음으로 살아가며 세상 가운데 소망의 빛을 비추는 교회입니다.',
     mapX: 48, mapY: 20,
   },
 ];

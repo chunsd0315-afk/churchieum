@@ -6,6 +6,8 @@ import type {
 import { getSelectableFolders, getYouTubeId } from '../../../services/sermonStorage';
 import { useBreakpoint } from '../../../hooks/useBreakpoint';
 import { useToast } from '../ui';
+import { useAuth } from '../../../contexts/AuthContext';
+import { combineNameAndPosition } from '../../../services/graceNoteAuthorDisplay';
 import {
   sermonInputClass, sermonLabelClass,
   sermonPrimaryBtnClass, sermonSecondaryBtnClass,
@@ -26,10 +28,10 @@ export type SermonFormData = {
   status: SermonStatus;
 };
 
-function emptyForm(folders: SermonFolder[]): SermonFormData {
+function emptyForm(folders: SermonFolder[], defaultPreacher = ''): SermonFormData {
   const f = folders[0];
   return {
-    title: '', scripture: '', preacher: '',
+    title: '', scripture: '', preacher: defaultPreacher,
     sermonDate: new Date().toISOString().split('T')[0],
     worshipType: f?.worshipType ?? 'sunday',
     folderId: f?.id ?? '', folderName: f?.name ?? '',
@@ -65,9 +67,13 @@ type Props = {
 export default function SermonForm({ editing, onSave, onCancel }: Props) {
   const { isMobile } = useBreakpoint();
   const toast = useToast();
+  const { user } = useAuth();
   const folders = getSelectableFolders();
+  const defaultPreacher = user
+    ? combineNameAndPosition(user.name ?? '', user.position ?? '')
+    : '';
   const [form, setForm] = useState<SermonFormData>(() =>
-    editing ? sermonToFormData(editing) : emptyForm(folders),
+    editing ? sermonToFormData(editing) : emptyForm(folders, defaultPreacher),
   );
   const thumbRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLInputElement>(null);
@@ -163,7 +169,7 @@ export default function SermonForm({ editing, onSave, onCancel }: Props) {
           <input
             value={form.preacher}
             onChange={e => setField('preacher', e.target.value)}
-            placeholder="예: 김성기 목사"
+            placeholder="예: 정재명 담임목사"
             className={sermonInputClass}
           />
         </div>

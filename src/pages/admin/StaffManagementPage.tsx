@@ -33,7 +33,7 @@ const DB_STAFF_ROLES = ['담임목사', '목사', '전도사', '부목사', '사
 const DEPARTMENTS = ['교역부', '행정부', '교육부', '찬양팀', '청소년부', '어린이부', '선교부', '기타'];
 
 const DEMO_STAFF: Staff[] = [
-  { id: '1', name: '김성기', role: '담임목사', phone: '010-1000-0001', email: 'pastor@sfbc.kr',  department: '교역부',  join_date: '2000-03-01', is_active: true },
+  { id: '1', name: '정재명', role: '담임목사', phone: '010-1000-0001', email: 'pastor01@churchieum.com',  department: '교역부',  join_date: '2011-06-05', is_active: true },
   { id: '2', name: '이재훈', role: '부목사',   phone: '010-1000-0002', email: 'pastor2@sfbc.kr', department: '교육부',  join_date: '2015-01-01', is_active: true },
   { id: '3', name: '박지영', role: '전도사',   phone: '010-1000-0003', email: 'jy@sfbc.kr',      department: '청소년부', join_date: '2020-03-01', is_active: true },
   { id: '4', name: '최민수', role: '전도사',   phone: '010-1000-0004', email: 'ms@sfbc.kr',      department: '어린이부', join_date: '2021-09-01', is_active: true },

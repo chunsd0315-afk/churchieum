@@ -161,7 +161,7 @@ export type DemoData = {
 function generate(): DemoData {
   // Use the same org IDs that orgData.ts defaults use, so all pages stay in sync.
   const districts: OrgDistrict[] = [
-    { id: 'd1', name: '1교구', leader_name: '김성기 목사',   description: '서울 북부', is_active: true, sort_order: 1 },
+    { id: 'd1', name: '1교구', leader_name: '정재명 담임목사',   description: '서울 북부', is_active: true, sort_order: 1 },
     { id: 'd2', name: '2교구', leader_name: '이준혁 목사',   description: '서울 중부', is_active: true, sort_order: 2 },
     { id: 'd3', name: '3교구', leader_name: '박성실 전도사', description: '서울 남부', is_active: true, sort_order: 3 },
   ];

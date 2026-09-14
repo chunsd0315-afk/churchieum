@@ -18,7 +18,7 @@ type District = {
 };
 
 const DEMO: District[] = [
-  { id: '1', name: '1교구', description: '서울 북부 지역', leader_name: '김성기 목사', is_active: true, sort_order: 1, member_count: 42 },
+  { id: '1', name: '1교구', description: '서울 북부 지역', leader_name: '정재명 담임목사', is_active: true, sort_order: 1, member_count: 42 },
   { id: '2', name: '2교구', description: '서울 중부 지역', leader_name: '이준혁 목사', is_active: true, sort_order: 2, member_count: 35 },
   { id: '3', name: '3교구', description: '서울 남부 지역', leader_name: '박성실 전도사', is_active: true, sort_order: 3, member_count: 28 },
   { id: '4', name: '4교구', description: '경기 북부 지역', leader_name: '최은혜 전도사', is_active: false, sort_order: 4, member_count: 0 },
@@ -189,7 +189,7 @@ export default function DistrictManagementPage() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1.5">담당 교역자</label>
-                <input value={form.leader_name} onChange={e => f('leader_name', e.target.value)} placeholder="예: 김성기 목사"
+                <input value={form.leader_name} onChange={e => f('leader_name', e.target.value)} placeholder="예: 정재명 담임목사"
                   className="w-full px-3.5 py-3 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:border-primary-400 focus:ring-0" />
               </div>
               <div>
