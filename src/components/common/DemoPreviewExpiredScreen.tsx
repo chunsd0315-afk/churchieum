@@ -1,4 +1,4 @@
-import { DEMO_PREVIEW_EXPIRES_ISO } from '../config/demoPreviewGate';
+import { DEMO_PREVIEW_EXPIRES_ISO } from '../../config/demoPreviewGate';
 
 /** Preview 시연 기간 종료 후 표시 — Production 앱과 무관 */
 export function DemoPreviewExpiredScreen() {
