@@ -14,6 +14,8 @@ import {
   Home,
   Bell,
   ChevronDown,
+  PanelLeftClose,
+  PanelLeft,
 } from 'lucide-react';
 import OrganizationManagementPage from './OrganizationManagementPage';
 import ClergyManagementPage from './ClergyManagementPage';
@@ -159,7 +161,7 @@ function SubPageContent({
       return <SuperAdminManagementPanel />;
     case 'org':
       return (
-        <div className="p-3 md:p-4">
+        <div className="p-3 md:p-4 min-w-0 overflow-x-hidden">
           <OrganizationManagementPage onNavigate={bridgeNavigate as (p: AdminPage) => void} />
         </div>
       );
@@ -211,7 +213,7 @@ function SettingsNavButton({
     <button
       type="button"
       onClick={onClick}
-      className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-[12px] mb-0.5 text-left transition-colors min-h-[44px] touch-target ${
+      className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-[12px] mb-0.5 text-left transition-colors min-h-[44px] touch-target ${
         active
           ? 'bg-[#FFF7D6] text-[#1A1A1A] border border-primary-200'
           : 'text-gray-600 hover:bg-gray-50 border border-transparent'
@@ -220,7 +222,7 @@ function SettingsNavButton({
       <item.icon
         className={`w-4 h-4 shrink-0 ${active ? 'text-primary-700' : 'text-gray-400'}`}
       />
-      <span className={`text-[13px] truncate ${active ? 'font-bold' : 'font-medium'}`}>
+      <span className={`text-[12px] truncate ${active ? 'font-bold' : 'font-medium'}`}>
         {item.title}
       </span>
     </button>
@@ -231,10 +233,12 @@ function DesktopSidebar({
   items,
   subPage,
   setSubPage,
+  collapsed,
 }: {
   items: SettingsItem[];
   subPage: SettingsSubPage;
   setSubPage: (p: SettingsSubPage) => void;
+  collapsed?: boolean;
 }) {
   const [openGroups, setOpenGroups] = useState<Record<SettingsItem['group'], boolean>>({
     members: true,
@@ -244,27 +248,57 @@ function DesktopSidebar({
 
   const groups: SettingsItem['group'][] = ['members', 'church', 'app'];
 
+  if (collapsed) {
+    return (
+      <aside className="w-[56px] bg-white border-r border-[#ECECEC] flex flex-col shrink-0 overflow-y-auto">
+        <div className="px-2 pt-4 pb-3 flex justify-center border-b border-[#ECECEC]">
+          <div className="w-8 h-8 rounded-xl bg-[#FFF7D6] flex items-center justify-center">
+            <Settings className="w-4 h-4 text-primary-700" />
+          </div>
+        </div>
+        <div className="p-1.5 flex-1 space-y-1">
+          {items.map(item => (
+            <button
+              key={item.id}
+              type="button"
+              title={item.title}
+              aria-label={item.title}
+              onClick={() => setSubPage(item.id)}
+              className={`w-full flex items-center justify-center h-11 rounded-[12px] transition-colors touch-target ${
+                subPage === item.id
+                  ? 'bg-[#FFF7D6] text-primary-700 border border-primary-200'
+                  : 'text-gray-400 hover:bg-gray-50'
+              }`}
+            >
+              <item.icon className="w-4 h-4" />
+            </button>
+          ))}
+        </div>
+      </aside>
+    );
+  }
+
   return (
-    <aside className="w-[260px] bg-white border-r border-[#ECECEC] flex flex-col shrink-0 overflow-y-auto">
-      <div className="px-4 pt-5 pb-3 flex items-center gap-2 border-b border-[#ECECEC]">
-        <div className="w-8 h-8 rounded-xl bg-[#FFF7D6] flex items-center justify-center">
+    <aside className="w-[210px] xl:w-[220px] bg-white border-r border-[#ECECEC] flex flex-col shrink-0 overflow-y-auto">
+      <div className="px-3 pt-4 pb-3 flex items-center gap-2 border-b border-[#ECECEC]">
+        <div className="w-8 h-8 rounded-xl bg-[#FFF7D6] flex items-center justify-center shrink-0">
           <Settings className="w-4 h-4 text-primary-700" />
         </div>
-        <div>
-          <p className="text-[14px] font-bold text-[#1A1A1A]">교회이음 설정</p>
-          <p className="text-[11px] text-gray-400">통합 관리센터</p>
+        <div className="min-w-0">
+          <p className="text-[13px] font-bold text-[#1A1A1A] truncate">교회이음 설정</p>
+          <p className="text-[10px] text-gray-400 truncate">통합 관리센터</p>
         </div>
       </div>
-      <div className="p-3 flex-1">
+      <div className="p-2 flex-1">
         {groups.map(group => {
           const groupItems = items.filter(i => i.group === group);
           const open = openGroups[group];
           return (
-            <div key={group} className="mb-3">
+            <div key={group} className="mb-2">
               <button
                 type="button"
                 onClick={() => setOpenGroups(g => ({ ...g, [group]: !g[group] }))}
-                className="w-full flex items-center justify-between px-2 py-1.5 text-[11px] font-bold text-gray-400 uppercase tracking-wide"
+                className="w-full flex items-center justify-between px-2 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wide"
               >
                 <span>{GROUP_LABELS[group]}</span>
                 <ChevronDown
@@ -358,13 +392,18 @@ function MobileChurchSettings({ onClose }: Props) {
 
 function DesktopChurchSettings({ onClose }: Props) {
   const [subPage, setSubPage] = useState<SettingsSubPage>('superAdmins');
+  const { width } = useBreakpoint();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const items = useSettingsItems();
   const current = items.find(s => s.id === subPage)!;
   const groupLabel = GROUP_LABELS[current.group];
+  const autoCollapse = width < 1100;
+  const collapsed = autoCollapse || sidebarCollapsed;
+  const isOrgPage = subPage === 'org';
 
   return (
-    <div className="fixed inset-0 z-[300] bg-[#F5F5F5] flex flex-col">
-      <header className="h-14 bg-white border-b border-[#ECECEC] flex items-center px-5 gap-3 shrink-0">
+    <div className="fixed inset-0 z-[300] bg-[#F5F5F5] flex flex-col overflow-x-hidden">
+      <header className="h-14 bg-white border-b border-[#ECECEC] flex items-center px-4 gap-2 shrink-0">
         <button
           type="button"
           onClick={onClose}
@@ -373,23 +412,39 @@ function DesktopChurchSettings({ onClose }: Props) {
         >
           <X className="w-5 h-5" />
         </button>
+        {!autoCollapse && (
+          <button
+            type="button"
+            onClick={() => setSidebarCollapsed(v => !v)}
+            className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-gray-100 text-gray-500 touch-target"
+            aria-label={collapsed ? '설정 메뉴 펼치기' : '설정 메뉴 접기'}
+            title={collapsed ? '설정 메뉴 펼치기' : '설정 메뉴 접기'}
+          >
+            {collapsed ? <PanelLeft className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+          </button>
+        )}
         <div className="flex items-center gap-2 min-w-0">
           <Settings className="w-4 h-4 text-primary-600 shrink-0" />
           <h1 className="text-[15px] font-bold text-[#1A1A1A] truncate">교회이음 설정</h1>
         </div>
       </header>
 
-      <div className="flex flex-1 min-h-0">
-        <DesktopSidebar items={items} subPage={subPage} setSubPage={setSubPage} />
-        <main className="flex-1 overflow-y-auto min-w-0 bg-[#FFFDF7]">
-          <div className="sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-[#ECECEC] px-6 h-11 flex items-center gap-2">
+      <div className="flex flex-1 min-h-0 min-w-0 overflow-x-hidden">
+        <DesktopSidebar
+          items={items}
+          subPage={subPage}
+          setSubPage={setSubPage}
+          collapsed={collapsed}
+        />
+        <main className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 bg-[#FFFDF7]">
+          <div className="sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-[#ECECEC] px-4 md:px-6 h-11 flex items-center gap-2">
             <span className="text-xs text-gray-400">교회이음 설정</span>
             <ChevronRight className="w-3 h-3 text-gray-300" />
             <span className="text-xs text-gray-400">{groupLabel}</span>
             <ChevronRight className="w-3 h-3 text-gray-300" />
             <span className="text-xs font-bold text-[#1A1A1A]">{current.title}</span>
           </div>
-          <div className="mx-auto w-full max-w-[1360px]">
+          <div className={`mx-auto w-full min-w-0 ${isOrgPage ? 'max-w-none' : 'max-w-[1360px]'}`}>
             <SubPageContent subPage={subPage} onSubNavigate={setSubPage} />
           </div>
         </main>

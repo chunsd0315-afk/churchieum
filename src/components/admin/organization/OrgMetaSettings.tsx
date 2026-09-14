@@ -328,6 +328,7 @@ function AddInlineForm({
 export function OrgMetaSettings({ embedded = false }: Props) {
   const toast = useToast();
   const { isAdmin } = useAuth();
+  const { isMobile } = useBreakpoint();
   const canEdit = isAdmin && canMutateOrgMeta();
   const [tab, setTab] = useState<MetaTab>('types');
   const [tick, setTick] = useState(0);
@@ -338,6 +339,7 @@ export function OrgMetaSettings({ embedded = false }: Props) {
   const roles = useChurchRoles(false);
   const [addTypeOpen, setAddTypeOpen] = useState(false);
   const [addRoleOpen, setAddRoleOpen] = useState(false);
+  const showSideBySide = !isMobile && embedded;
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -392,104 +394,120 @@ export function OrgMetaSettings({ embedded = false }: Props) {
     ? 'space-y-4'
     : 'bg-white rounded-[24px] border border-gray-200 shadow-sm p-4 space-y-4';
 
+  const typesPanel = (
+    <div className="space-y-3 min-w-0">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-bold text-gray-900">조직 종류</p>
+      </div>
+      <p className="text-[13px] text-gray-500">조직 생성·수정 화면의 종류 목록과 동일한 순서로 표시됩니다.</p>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onTypeDragEnd}>
+        <SortableContext items={types.map(t => t.id)} strategy={verticalListSortingStrategy}>
+          <ul className={listShellClass}>
+            {types.map((t, i) => (
+              <SortableTypeRow key={t.id} item={t} index={i} total={types.length} canEdit={canEdit} onRefresh={refresh} onMove={moveType} />
+            ))}
+          </ul>
+        </SortableContext>
+      </DndContext>
+      {canEdit && (
+        <>
+          <AddInlineForm
+            open={addTypeOpen}
+            label="조직 종류 추가"
+            placeholder="조직 종류 이름"
+            onClose={() => setAddTypeOpen(false)}
+            onSubmit={name => {
+              upsertOrgType({
+                id: `t-${Date.now().toString(36)}`,
+                name,
+                sortOrder: types.length + 1,
+                isActive: true,
+                isSystem: false,
+              });
+              toast.success('조직 종류가 추가되었습니다.');
+              refresh();
+            }}
+          />
+          {!addTypeOpen && (
+            <ChurchButton icon={<Plus size={18} />} size="sm" onClick={() => setAddTypeOpen(true)} className="w-full sm:w-auto">
+              조직 종류 추가
+            </ChurchButton>
+          )}
+        </>
+      )}
+    </div>
+  );
+
+  const rolesPanel = (
+    <div className="space-y-3 min-w-0">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-bold text-gray-900">직분</p>
+      </div>
+      <p className="text-[13px] text-gray-500">교역자·성도 등록과 직분 선택 목록에 동일하게 반영됩니다.</p>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onRoleDragEnd}>
+        <SortableContext items={roles.map(r => r.id)} strategy={verticalListSortingStrategy}>
+          <ul className={listShellClass}>
+            {roles.map((r, i) => (
+              <SortableRoleRow key={r.id} item={r} index={i} total={roles.length} canEdit={canEdit} onRefresh={refresh} onMove={moveRole} />
+            ))}
+          </ul>
+        </SortableContext>
+      </DndContext>
+      {canEdit && (
+        <>
+          <AddInlineForm
+            open={addRoleOpen}
+            label="직분 추가"
+            placeholder="직분 이름"
+            onClose={() => setAddRoleOpen(false)}
+            onSubmit={name => {
+              upsertChurchRole({
+                id: `r-${Date.now().toString(36)}`,
+                name,
+                sortOrder: roles.length + 1,
+                isActive: true,
+                isSystem: false,
+              });
+              toast.success('직분이 추가되었습니다.');
+              refresh();
+            }}
+          />
+          {!addRoleOpen && (
+            <ChurchButton icon={<Plus size={18} />} size="sm" onClick={() => setAddRoleOpen(true)} className="w-full sm:w-auto">
+              직분 추가
+            </ChurchButton>
+          )}
+        </>
+      )}
+    </div>
+  );
+
   return (
     <div className={shellClass}>
-      <TabBar
-        tabs={[
-          { id: 'types', label: '조직 종류' },
-          { id: 'roles', label: '직분' },
-        ]}
-        activeTab={tab}
-        onChange={id => setTab(id as MetaTab)}
-        variant="segment"
-      />
-
       {!canEdit && (
         <p className="text-[13px] text-amber-800 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
           조회만 가능합니다. 종류·직분 변경은 최고관리자만 할 수 있습니다.
         </p>
       )}
 
-      {tab === 'types' && (
-        <div className="space-y-3">
-          <p className="text-[13px] text-gray-500">조직 생성·수정 화면의 종류 목록과 동일한 순서로 표시됩니다.</p>
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onTypeDragEnd}>
-            <SortableContext items={types.map(t => t.id)} strategy={verticalListSortingStrategy}>
-              <ul className={listShellClass}>
-                {types.map((t, i) => (
-                  <SortableTypeRow key={t.id} item={t} index={i} total={types.length} canEdit={canEdit} onRefresh={refresh} onMove={moveType} />
-                ))}
-              </ul>
-            </SortableContext>
-          </DndContext>
-          {canEdit && (
-            <>
-              <AddInlineForm
-                open={addTypeOpen}
-                label="조직 종류 추가"
-                placeholder="조직 종류 이름"
-                onClose={() => setAddTypeOpen(false)}
-                onSubmit={name => {
-                  upsertOrgType({
-                    id: `t-${Date.now().toString(36)}`,
-                    name,
-                    sortOrder: types.length + 1,
-                    isActive: true,
-                    isSystem: false,
-                  });
-                  toast.success('조직 종류가 추가되었습니다.');
-                  refresh();
-                }}
-              />
-              {!addTypeOpen && (
-                <ChurchButton icon={<Plus size={18} />} size="sm" onClick={() => setAddTypeOpen(true)} className="w-full sm:w-auto">
-                  조직 종류 추가
-                </ChurchButton>
-              )}
-            </>
-          )}
+      {showSideBySide ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {typesPanel}
+          {rolesPanel}
         </div>
-      )}
-
-      {tab === 'roles' && (
-        <div className="space-y-3">
-          <p className="text-[13px] text-gray-500">교역자·성도 등록과 직분 선택 목록에 동일하게 반영됩니다.</p>
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onRoleDragEnd}>
-            <SortableContext items={roles.map(r => r.id)} strategy={verticalListSortingStrategy}>
-              <ul className={listShellClass}>
-                {roles.map((r, i) => (
-                  <SortableRoleRow key={r.id} item={r} index={i} total={roles.length} canEdit={canEdit} onRefresh={refresh} onMove={moveRole} />
-                ))}
-              </ul>
-            </SortableContext>
-          </DndContext>
-          {canEdit && (
-            <>
-              <AddInlineForm
-                open={addRoleOpen}
-                label="직분 추가"
-                placeholder="직분 이름"
-                onClose={() => setAddRoleOpen(false)}
-                onSubmit={name => {
-                  upsertChurchRole({
-                    id: `r-${Date.now().toString(36)}`,
-                    name,
-                    sortOrder: roles.length + 1,
-                    isActive: true,
-                    isSystem: false,
-                  });
-                  toast.success('직분이 추가되었습니다.');
-                  refresh();
-                }}
-              />
-              {!addRoleOpen && (
-                <ChurchButton icon={<Plus size={18} />} size="sm" onClick={() => setAddRoleOpen(true)} className="w-full sm:w-auto">
-                  직분 추가
-                </ChurchButton>
-              )}
-            </>
-          )}
-        </div>
+      ) : (
+        <>
+          <TabBar
+            tabs={[
+              { id: 'types', label: '조직 종류' },
+              { id: 'roles', label: '직분' },
+            ]}
+            activeTab={tab}
+            onChange={id => setTab(id as MetaTab)}
+            variant="segment"
+          />
+          {tab === 'types' ? typesPanel : rolesPanel}
+        </>
       )}
     </div>
   );

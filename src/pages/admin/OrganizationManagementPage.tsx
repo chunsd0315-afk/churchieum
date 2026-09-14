@@ -13,7 +13,6 @@ import {
 import { getAssigneesForOrg } from '../../services/orgAssigneeStorage';
 import { OrgTreePanel } from '../../components/admin/organization/OrgTreePanel';
 import { OrgDetailPanel } from '../../components/admin/organization/OrgDetailPanel';
-import { OrgSummaryPanel } from '../../components/admin/organization/OrgSummaryPanel';
 import type { AdminPage } from '../../components/admin/Layout';
 import DistrictManagementPage from './DistrictManagementPage';
 import ZoneManagementPage from './ZoneManagementPage';
@@ -160,6 +159,9 @@ export default function OrganizationManagementPage({ onNavigate }: Props) {
       orgId={creating ? null : selectedId}
       draftParentId={draftParentId}
       creating={creating}
+      summaryTick={treeTick}
+      onGoMembers={onNavigate ? goMembers : undefined}
+      onGoClergy={onNavigate ? goClergy : undefined}
       onCancelCreate={() => {
         setCreating(false);
         if (isMobile) setMobileDetailOpen(false);
@@ -192,7 +194,7 @@ export default function OrganizationManagementPage({ onNavigate }: Props) {
   );
 
   return (
-    <div className="space-y-4 pb-8 max-w-[1400px]">
+    <div className="space-y-4 pb-8 w-full max-w-none min-w-0 overflow-x-hidden">
       <PageHeaderBar
         title="조직관리"
         description="교회의 모든 조직과 담당자, 소속 인원을 관리합니다."
@@ -235,34 +237,26 @@ export default function OrganizationManagementPage({ onNavigate }: Props) {
         </p>
       )}
 
-      {/* PC 3단 */}
+      {/* PC·태블릿: 조직트리 | 상세 (2단) */}
       <div
-        className="hidden lg:grid gap-4"
-        style={{ gridTemplateColumns: 'minmax(260px, 30%) minmax(0, 1fr) minmax(220px, 24%)', minHeight: 560 }}
+        className="hidden md:flex gap-4 min-w-0 overflow-x-hidden items-stretch"
+        style={{ minHeight: 'calc(100vh - 240px)' }}
       >
-        <div className="min-h-0 h-[min(70vh,720px)]">{treePanel}</div>
-        <div className="min-h-0 h-[min(70vh,720px)] overflow-hidden flex flex-col">{detail}</div>
-        <div className="min-h-0 h-[min(70vh,720px)]">
-          <OrgSummaryPanel
-            orgId={creating ? null : selectedId}
-            tick={treeTick}
-            onGoMembers={onNavigate ? goMembers : undefined}
-            onGoClergy={onNavigate ? goClergy : undefined}
-          />
+        <div
+          className={[
+            'shrink-0 min-w-0 flex flex-col overflow-hidden',
+            'w-[min(340px,36%)] min-w-[280px] max-w-[380px]',
+            'xl:min-w-[300px]',
+          ].join(' ')}
+          style={{ height: 'calc(100vh - 240px)', maxHeight: 'calc(100vh - 200px)' }}
+        >
+          {treePanel}
         </div>
-      </div>
-
-      {/* 태블릿: 트리 + 상세 */}
-      <div className="hidden md:grid lg:hidden md:grid-cols-[300px_1fr] gap-4" style={{ minHeight: 520 }}>
-        {treePanel}
-        <div className="space-y-4 min-h-0 overflow-hidden flex flex-col">
+        <div
+          className="flex-1 min-w-0 flex flex-col overflow-hidden"
+          style={{ height: 'calc(100vh - 240px)', maxHeight: 'calc(100vh - 200px)' }}
+        >
           {detail}
-          <OrgSummaryPanel
-            orgId={creating ? null : selectedId}
-            tick={treeTick}
-            onGoMembers={onNavigate ? goMembers : undefined}
-            onGoClergy={onNavigate ? goClergy : undefined}
-          />
         </div>
       </div>
 
@@ -280,14 +274,6 @@ export default function OrganizationManagementPage({ onNavigate }: Props) {
           >
             <div className="space-y-4">
               {detail}
-              {!creating && (
-                <OrgSummaryPanel
-                  orgId={selectedId}
-                  tick={treeTick}
-                  onGoMembers={onNavigate ? goMembers : undefined}
-                  onGoClergy={onNavigate ? goClergy : undefined}
-                />
-              )}
             </div>
           </MobileFullScreenPage>
         )}

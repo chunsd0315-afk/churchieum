@@ -31,6 +31,7 @@ import { useToast } from '../../common/ui';
 import { OrgAssigneePicker } from './OrgAssigneePicker';
 import { OrgAssigneeEditor } from './OrgAssigneeEditor';
 import { OrgMetaSettings } from './OrgMetaSettings';
+import { OrgSummaryCards } from './OrgSummaryCards';
 import { useAuth } from '../../../contexts/AuthContext';
 
 type DetailTab = 'info' | 'assignees' | 'members' | 'meta';
@@ -43,10 +44,16 @@ type Props = {
   onCancelCreate: () => void;
   onSaved: (id: string) => void;
   onDeleted: () => void;
+  summaryTick?: number;
+  onGoMembers?: () => void;
+  onGoClergy?: () => void;
 };
 
 export function OrgDetailPanel({
   orgId, draftParentId, creating, onCancelCreate, onSaved, onDeleted,
+  summaryTick = 0,
+  onGoMembers,
+  onGoClergy,
 }: Props) {
   const toast = useToast();
   const { isAdmin } = useAuth();
@@ -203,19 +210,29 @@ export function OrgDetailPanel({
 
   return (
     <div className="h-full flex flex-col min-h-0 bg-white rounded-[20px] border border-[#ECECEC] shadow-[0_8px_30px_rgba(0,0,0,0.06)] overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-100 flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <h3 className="text-[17px] font-bold text-gray-900 truncate">
-            {creating ? '새 조직 추가' : org?.name}
-          </h3>
-          <p className="text-[13px] text-gray-500 mt-0.5">
-            {creating ? '조직 정보를 입력한 뒤 저장하세요.' : org?.type}
-          </p>
+      <div className="px-4 py-3 border-b border-gray-100 space-y-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h3 className="text-[17px] font-bold text-gray-900 truncate">
+              {creating ? '새 조직 추가' : org?.name}
+            </h3>
+            <p className="text-[13px] text-gray-500 mt-0.5">
+              {creating ? '조직 정보를 입력한 뒤 저장하세요.' : org?.type}
+            </p>
+          </div>
+          {creating && (
+            <button type="button" onClick={onCancelCreate} className="p-2 rounded-xl hover:bg-gray-100" aria-label="취소">
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+          )}
         </div>
-        {creating && (
-          <button type="button" onClick={onCancelCreate} className="p-2 rounded-xl hover:bg-gray-100" aria-label="취소">
-            <X className="w-5 h-5 text-gray-500" />
-          </button>
+        {!creating && orgId && (
+          <OrgSummaryCards
+            orgId={orgId}
+            tick={summaryTick}
+            onGoMembers={onGoMembers}
+            onGoClergy={onGoClergy}
+          />
         )}
       </div>
 
@@ -235,38 +252,30 @@ export function OrgDetailPanel({
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 min-w-0">
         {(creating || tab === 'info') && (
           <div className="space-y-3">
-            <Field label="조직명">
-              <input className={inputClass} value={name} onChange={e => setName(e.target.value)} placeholder="예: 1교구" />
-            </Field>
-            <Field label="조직종류">
-              <select className={inputClass} value={type} onChange={e => setType(e.target.value)}>
-                {types.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
-              </select>
-            </Field>
-            <Field label="상위조직">
-              <select
-                className={inputClass}
-                value={parentId ?? ''}
-                onChange={e => setParentId(e.target.value || null)}
-              >
-                <option value="">(없음 — 최상위)</option>
-                {parentOptions.map(o => (
-                  <option key={o.id} value={o.id}>{o.name}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="설명">
-              <textarea
-                className={`${inputClass} min-h-[80px] resize-y`}
-                value={description}
-                onChange={e => setDescription(e.target.value)}
-                placeholder="조직 소개"
-              />
-            </Field>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <Field label="조직명">
+                <input className={inputClass} value={name} onChange={e => setName(e.target.value)} placeholder="예: 1교구" />
+              </Field>
+              <Field label="조직종류">
+                <select className={inputClass} value={type} onChange={e => setType(e.target.value)}>
+                  {types.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
+                </select>
+              </Field>
+              <Field label="상위조직">
+                <select
+                  className={inputClass}
+                  value={parentId ?? ''}
+                  onChange={e => setParentId(e.target.value || null)}
+                >
+                  <option value="">(없음 — 최상위)</option>
+                  {parentOptions.map(o => (
+                    <option key={o.id} value={o.id}>{o.name}</option>
+                  ))}
+                </select>
+              </Field>
               <Field label="활성 여부">
                 <button
                   type="button"
@@ -278,17 +287,25 @@ export function OrgDetailPanel({
                   {isActive ? '활성' : '비활성'}
                 </button>
               </Field>
-              <Field label="정렬 (내부)">
-                <input
-                  type="number"
-                  className={inputClass}
-                  value={sortOrder}
-                  onChange={e => setSortOrder(Number(e.target.value))}
-                  aria-label="정렬 순서"
-                />
-              </Field>
             </div>
-            <ChurchButton icon={<Save size={18} />} onClick={handleSaveInfo} className="w-full">
+            <Field label="설명">
+              <textarea
+                className={`${inputClass} min-h-[80px] resize-y`}
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+                placeholder="조직 소개"
+              />
+            </Field>
+            <Field label="정렬 (내부)">
+              <input
+                type="number"
+                className={`${inputClass} max-w-[160px]`}
+                value={sortOrder}
+                onChange={e => setSortOrder(Number(e.target.value))}
+                aria-label="정렬 순서"
+              />
+            </Field>
+            <ChurchButton icon={<Save size={18} />} onClick={handleSaveInfo} className="w-full md:w-auto md:min-w-[200px]">
               {creating ? '조직 추가' : '정보 저장'}
             </ChurchButton>
 
@@ -301,7 +318,7 @@ export function OrgDetailPanel({
                     <p className="mt-2">레거시 연동: <strong>{org.legacyKind}</strong></p>
                   )}
                 </div>
-                <ChurchButton variant="danger" icon={<Trash2 size={18} />} onClick={handleDelete} className="w-full">
+                <ChurchButton variant="danger" icon={<Trash2 size={18} />} onClick={handleDelete} className="w-full md:w-auto">
                   조직 삭제
                 </ChurchButton>
               </div>
@@ -339,13 +356,13 @@ export function OrgDetailPanel({
               variant="segment"
             />
 
-            <ul className={CHURCH_LIST_CLASS}>
+            <ul className="grid grid-cols-1 xl:grid-cols-2 gap-2">
               {filteredAssignees.map(a => {
                 const isPastor = a.assigneeType === 'pastor';
                 return (
                   <li
                     key={a.id}
-                    className={`${CHURCH_LIST_ROW_CLASS} flex items-start justify-between gap-2`}
+                    className={`${CHURCH_LIST_ROW_CLASS} flex items-start justify-between gap-2 rounded-[16px] border border-[#ECECEC] bg-white`}
                   >
                     <button
                       type="button"
@@ -405,7 +422,7 @@ export function OrgDetailPanel({
                 );
               })}
               {filteredAssignees.length === 0 && (
-                <p className="text-sm text-gray-400 text-center py-6">등록된 담당자가 없습니다.</p>
+                <p className="text-sm text-gray-400 text-center py-6 col-span-full">등록된 담당자가 없습니다.</p>
               )}
             </ul>
           </div>
@@ -423,17 +440,24 @@ export function OrgDetailPanel({
               </select>
               <ChurchButton icon={<Users size={18} />} size="sm" onClick={addMemberRow}>소속 추가</ChurchButton>
             </div>
+            <div className="hidden md:grid grid-cols-[1fr_120px_100px_56px] gap-2 px-3 text-[11px] font-bold text-gray-400 uppercase tracking-wide">
+              <span>이름</span>
+              <span>직분</span>
+              <span>상태</span>
+              <span className="text-right">관리</span>
+            </div>
             <ul className={CHURCH_LIST_CLASS}>
               {members.map(m => (
-                <li key={m.id} className={`${CHURCH_LIST_ROW_CLASS} flex items-center justify-between gap-2`}>
-                  <div>
-                    <p className="text-sm font-bold text-gray-900">{m.memberName}</p>
-                    <p className="text-xs text-gray-500">{m.roleLabel}</p>
+                <li key={m.id} className={`${CHURCH_LIST_ROW_CLASS} grid grid-cols-1 md:grid-cols-[1fr_120px_100px_56px] gap-1 md:gap-2 md:items-center`}>
+                  <p className="text-sm font-bold text-gray-900 truncate">{m.memberName}</p>
+                  <p className="text-xs text-gray-500 truncate">{m.roleLabel}</p>
+                  <p className="text-xs font-semibold text-emerald-700">소속</p>
+                  <div className="flex justify-end">
+                    <button type="button" aria-label="삭제" onClick={() => { removeMembership(m.id); refresh(); }}
+                      className="p-2 rounded-lg text-red-500 hover:bg-red-50">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
-                  <button type="button" aria-label="삭제" onClick={() => { removeMembership(m.id); refresh(); }}
-                    className="p-2 rounded-lg text-red-500 hover:bg-red-50">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
                 </li>
               ))}
               {members.length === 0 && <p className="text-sm text-gray-400 text-center py-6">소속 인원이 없습니다.</p>}
