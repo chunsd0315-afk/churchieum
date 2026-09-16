@@ -10,6 +10,7 @@ import type { OrgTreeNode } from '../../../types/organization';
 import { useBreakpoint } from '../../../hooks/useBreakpoint';
 import { useOrganizationTree } from '../../../hooks/useOrganizationTree';
 import { useAuth } from '../../../contexts/AuthContext';
+import { getAncestorIds } from '../../../services/organizationStorage';
 import {
   computeOrganizationSearch,
   getSelectableOrganizationIds,
@@ -171,19 +172,28 @@ export function OrganizationPicker({
     [allowedOrganizationIds, user, version],
   );
 
-  // 열릴 때마다 현재 저장값으로 초기화하고 선택 경로를 펼친다
+  // 열릴 때마다 현재 저장값으로 초기화한다
   useEffect(() => {
     if (!open) return;
     setSelected(value);
     setQuery('');
-    const next = new Set<string>();
-    tree.forEach(root => {
-      next.add(root.id);
-      root.children.forEach(child => next.add(child.id));
-    });
-    setExpanded(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // 조직트리는 저장소 동기화 이후에 채워질 수 있으므로 트리가 바뀔 때마다 상위 단계와 선택 경로를 펼친다
+  useEffect(() => {
+    if (!open) return;
+    setExpanded(prev => {
+      const next = new Set(prev);
+      tree.forEach(root => {
+        next.add(root.id);
+        root.children.forEach(child => next.add(child.id));
+      });
+      value.forEach(id => getAncestorIds(id).forEach(ancestorId => next.add(ancestorId)));
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, version, tree]);
 
   const { matched, expand: searchExpand } = useMemo(
     () => computeOrganizationSearch(query, organizations),
