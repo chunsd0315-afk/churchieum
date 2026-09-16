@@ -4,22 +4,25 @@
  * - 오른쪽: 연락처 입력
  * - 하단: 초대장 보내기
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Copy, Check, Trash2, RefreshCw, X,
   MessageSquare, Share2, Clock, CheckCircle,
   Send, QrCode, Link,
-  Users, Building, UserCog, MapPin, Layers, Plus,
+  Users, UserCog, MapPin, Plus,
   AlertTriangle, Mail, ShieldCheck,
 } from 'lucide-react';
 import { useBreakpoint } from '../../hooks/useBreakpoint';
-import {
-  getDistricts, getZones, getDepartments, hasAnyOrg,
-  type OrgDistrict, type OrgZone, type OrgDepartment,
-} from '../../services/orgData';
+import { useOrganizationTree } from '../../hooks/useOrganizationTree';
 import { PageHeaderBar, ChurchList } from '../../components/common/ui';
+import { OrganizationPickerField } from '../../components/common/organization';
 import TabSection from '../../components/layout/TabSection';
-import { useOrgSettings } from '../../contexts/OrgSettingsContext';
+import { useAuth } from '../../contexts/AuthContext';
+import {
+  filterOrganizationIdsByPermission,
+  formatOrganizationSummary,
+  resolveOrganizationChips,
+} from '../../services/organizationSelection';
 
 /* ── Types ── */
 type MainTab = 'member' | 'clergy' | 'admin' | 'list';
@@ -33,21 +36,17 @@ type InviteRow = {
   name: string;
   phone: string;
   email: string;
-  // member
-  districtId?: string;
-  districtName?: string;
-  zoneId?: string;
-  zoneName?: string;
-  departmentId?: string;
-  departmentName?: string;
+  /** 성도 소속 조직 (조직관리 조직트리 기준 ID) */
+  organizationIds?: string[];
+  /** 교역자 담당 조직 (조직관리 조직트리 기준 ID) */
+  assignedOrganizationIds?: string[];
   jikbun?: string;
-  // clergy
   position?: string;
-  assignedDistrictIds?: string[];
+  // 레거시 초대 데이터 표시용 (신규 저장에는 사용하지 않음)
+  districtName?: string;
+  zoneName?: string;
+  departmentName?: string;
   assignedDistrictNames?: string[];
-  assignedZoneIds?: string[];
-  assignedZoneNames?: string[];
-  assignedDepartmentIds?: string[];
   assignedDepartmentNames?: string[];
   code: string;
   status: InviteStatus;
@@ -64,12 +63,26 @@ const STATUS_STYLES: Record<InviteStatus, string> = {
   '만료':     'bg-gray-50 text-gray-400 border border-gray-200',
 };
 const DEMO_INVITES: InviteRow[] = [
-  { id: '1', type: 'member', name: '김민준', phone: '010-1234-5678', email: 'minjun@email.com', districtId: 'd1', districtName: '1교구', zoneId: 'z1', zoneName: '1구역', departmentId: 'dep1', departmentName: '청년부', jikbun: '성도', code: 'CHI-A7X3K', status: '가입완료', created_at: '2026-06-20' },
-  { id: '2', type: 'member', name: '박서연', phone: '010-9876-5432', email: 'seoyeon@email.com', districtId: 'd2', districtName: '2교구', zoneId: 'z3', zoneName: '3구역', departmentId: 'dep3', departmentName: '여성부', jikbun: '권사', code: 'CHI-B9M2P', status: '발송완료', created_at: '2026-06-21' },
+  { id: '1', type: 'member', name: '김민준', phone: '010-1234-5678', email: 'minjun@email.com', districtName: '1교구', zoneName: '1구역', departmentName: '청년부', jikbun: '성도', code: 'CHI-A7X3K', status: '가입완료', created_at: '2026-06-20' },
+  { id: '2', type: 'member', name: '박서연', phone: '010-9876-5432', email: 'seoyeon@email.com', districtName: '2교구', zoneName: '3구역', departmentName: '여성부', jikbun: '권사', code: 'CHI-B9M2P', status: '발송완료', created_at: '2026-06-21' },
   { id: '3', type: 'clergy', name: '이준혁', phone: '010-5555-1111', email: 'pastor.lee@sfbc.kr', position: '목사', assignedDistrictNames: ['1교구', '2교구'], code: 'CHI-C4R7T', status: '대기중', created_at: '2026-06-22' },
-  { id: '4', type: 'member', name: '최수빈', phone: '010-3333-2222', email: 'subin@email.com', districtId: 'd1', districtName: '1교구', jikbun: '장로', code: 'CHI-D1N6W', status: '만료', created_at: '2026-06-10' },
+  { id: '4', type: 'member', name: '최수빈', phone: '010-3333-2222', email: 'subin@email.com', districtName: '1교구', jikbun: '장로', code: 'CHI-D1N6W', status: '만료', created_at: '2026-06-10' },
   { id: '5', type: 'clergy', name: '정다은', phone: '010-7777-4444', email: 'daeeun@sfbc.kr', position: '전도사', assignedDepartmentNames: ['청년부'], code: 'CHI-E8S5Q', status: '발송완료', created_at: '2026-06-23' },
 ];
+
+/** 초대 1건의 소속/담당 표시 — 저장된 organizationId를 현재 조직트리로 조회해 경로를 만든다 */
+function useInviteOrgLabel() {
+  const { organizations } = useOrganizationTree();
+  return useCallback((inv: InviteRow): string => {
+    const ids = inv.type === 'clergy' ? inv.assignedOrganizationIds : inv.organizationIds;
+    const fromTree = formatOrganizationSummary(ids, organizations);
+    if (fromTree) return fromTree;
+    const legacy = inv.type === 'clergy'
+      ? [...(inv.assignedDistrictNames ?? []), ...(inv.assignedDepartmentNames ?? [])].join(', ')
+      : [inv.districtName, inv.zoneName, inv.departmentName].filter(Boolean).join(' · ');
+    return legacy || (inv.type === 'clergy' ? '전체' : '-');
+  }, [organizations]);
+}
 
 function generateCode() {
   const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -101,22 +114,22 @@ function ShareModal({ invite, onClose }: { invite: InviteRow; onClose: () => voi
   const [copied, setCopied] = useState<string|null>(null);
   const [showQr, setShowQr] = useState(false);
 
+  const orgChips = resolveOrganizationChips(
+    invite.type === 'clergy' ? invite.assignedOrganizationIds : invite.organizationIds,
+  );
+  const orgPathLabel = orgChips.filter(c => !c.missing).map(c => c.pathLabel).join(', ');
+
   const params = new URLSearchParams({
     code: invite.code, name: invite.name,
     inviteType: invite.type,
     ...(invite.type === 'member' ? {
-      districtId: invite.districtId ?? '',
-      districtName: invite.districtName ?? '',
-      zoneId: invite.zoneId ?? '',
-      zoneName: invite.zoneName ?? '',
-      departmentId: invite.departmentId ?? '',
-      departmentName: invite.departmentName ?? '',
+      organizationIds: (invite.organizationIds ?? []).join(','),
+      organizationPath: orgPathLabel,
       role: invite.jikbun ?? '성도',
     } : {
       position: invite.position ?? '',
-      assignedDistricts: (invite.assignedDistrictNames ?? []).join(','),
-      assignedZones: (invite.assignedZoneNames ?? []).join(','),
-      assignedDepartments: (invite.assignedDepartmentNames ?? []).join(','),
+      assignedOrganizationIds: (invite.assignedOrganizationIds ?? []).join(','),
+      assignedOrganizationPath: orgPathLabel,
     }),
   });
   const url = `https://churchieum.app/invite?${params.toString()}`;
@@ -206,167 +219,14 @@ function OrgEmptyBanner({ onNavigate }: { onNavigate?: (p: string) => void }) {
   );
 }
 
-// ─── Org Selector Panel ───────────────────────────────────────────────────────
-type OrgSel = { districtId: string; districtName: string; zoneId: string; zoneName: string; departmentId: string; departmentName: string };
-type ClergyOrgSel = { districtIds: string[]; districtNames: string[]; zoneIds: string[]; zoneNames: string[]; deptIds: string[]; deptNames: string[] };
-
-const EMPTY_SEL: OrgSel = { districtId:'', districtName:'', zoneId:'', zoneName:'', departmentId:'', departmentName:'' };
-const EMPTY_CLERGY_SEL: ClergyOrgSel = { districtIds:[], districtNames:[], zoneIds:[], zoneNames:[], deptIds:[], deptNames:[] };
-
-function MemberOrgPanel({ sel, onChange, l1, l2, dept }: { sel: OrgSel; onChange: (s: OrgSel) => void; l1: string; l2: string; dept: string }) {
-  const [districts] = useState(getDistricts);
-  const [departments] = useState(getDepartments);
-  const zones = getZones(sel.districtId || undefined);
-
-  const selDistrict = (d: OrgDistrict | null) => onChange({ ...sel, districtId: d?.id ?? '', districtName: d?.name ?? '', zoneId: '', zoneName: '' });
-  const selZone = (z: OrgZone | null) => onChange({ ...sel, zoneId: z?.id ?? '', zoneName: z?.name ?? '' });
-  const selDept = (d: OrgDepartment | null) => onChange({ ...sel, departmentId: d?.id ?? '', departmentName: d?.name ?? '' });
-
-  return (
-    <div className="space-y-4">
-      {/* Districts */}
-      <div>
-        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> {l1} 선택</p>
-        <div className="flex flex-col gap-1.5">
-          {districts.map(d => (
-            <button key={d.id} onClick={() => selDistrict(sel.districtId === d.id ? null : d)}
-              className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border-2 text-sm font-medium transition-all text-left
-                ${sel.districtId === d.id ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-100 bg-white text-gray-700 hover:border-primary-200'}`}>
-              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${sel.districtId === d.id ? 'border-primary-500 bg-primary-500' : 'border-gray-300'}`}>
-                {sel.districtId === d.id && <div className="w-2 h-2 rounded-full bg-white" />}
-              </div>
-              {d.name}
-              {d.leader_name && <span className="text-xs text-gray-400 ml-auto">{d.leader_name}</span>}
-            </button>
-          ))}
-        </div>
-      </div>
-      {/* Zones — only shown after district selected */}
-      {sel.districtId && (
-        <div>
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5"><Layers className="w-3.5 h-3.5" /> {l2} 선택 <span className="font-normal normal-case text-gray-400">(선택사항)</span></p>
-          <div className="flex flex-col gap-1.5">
-            {zones.map(z => (
-              <button key={z.id} onClick={() => selZone(sel.zoneId === z.id ? null : z)}
-                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border-2 text-sm font-medium transition-all text-left
-                  ${sel.zoneId === z.id ? 'border-secondary-500 bg-secondary-50 text-secondary-700' : 'border-gray-100 bg-white text-gray-700 hover:border-secondary-200'}`}>
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${sel.zoneId === z.id ? 'border-secondary-500 bg-secondary-500' : 'border-gray-300'}`}>
-                  {sel.zoneId === z.id && <div className="w-2 h-2 rounded-full bg-white" />}
-                </div>
-                {z.name}
-              </button>
-            ))}
-            {zones.length === 0 && <p className="text-xs text-gray-400 px-2">이 {l1}에 등록된 {l2}이 없습니다.</p>}
-          </div>
-        </div>
-      )}
-      {/* Departments */}
-      <div>
-        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5"><Building className="w-3.5 h-3.5" /> {dept} 선택 <span className="font-normal normal-case text-gray-400">(선택사항)</span></p>
-        <div className="flex flex-wrap gap-1.5">
-          {departments.map(d => (
-            <button key={d.id} onClick={() => selDept(sel.departmentId === d.id ? null : d)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold border-2 transition-all
-                ${sel.departmentId === d.id ? 'border-accent-500 bg-accent-50 text-accent-700' : 'border-gray-200 bg-white text-gray-600 hover:border-accent-200'}`}>
-              {d.name}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ClergyOrgPanel({ sel, onChange, l1, l2, dept }: { sel: ClergyOrgSel; onChange: (s: ClergyOrgSel) => void; l1: string; l2: string; dept: string }) {
-  const [districts] = useState(getDistricts);
-  const [departments] = useState(getDepartments);
-  const allZones = getZones();
-
-  const toggleDistrict = (d: OrgDistrict) => {
-    const has = sel.districtIds.includes(d.id);
-    onChange({
-      ...sel,
-      districtIds: has ? sel.districtIds.filter(id => id !== d.id) : [...sel.districtIds, d.id],
-      districtNames: has ? sel.districtNames.filter(n => n !== d.name) : [...sel.districtNames, d.name],
-    });
-  };
-  const toggleZone = (z: OrgZone) => {
-    const has = sel.zoneIds.includes(z.id);
-    onChange({
-      ...sel,
-      zoneIds: has ? sel.zoneIds.filter(id => id !== z.id) : [...sel.zoneIds, z.id],
-      zoneNames: has ? sel.zoneNames.filter(n => n !== z.name) : [...sel.zoneNames, z.name],
-    });
-  };
-  const toggleDept = (d: OrgDepartment) => {
-    const has = sel.deptIds.includes(d.id);
-    onChange({
-      ...sel,
-      deptIds: has ? sel.deptIds.filter(id => id !== d.id) : [...sel.deptIds, d.id],
-      deptNames: has ? sel.deptNames.filter(n => n !== d.name) : [...sel.deptNames, d.name],
-    });
-  };
-
-  return (
-    <div className="space-y-4">
-      <div>
-        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> 담당 {l1} <span className="font-normal normal-case text-gray-400">(복수 선택 가능)</span></p>
-        <div className="flex flex-col gap-1.5">
-          {districts.map(d => {
-            const active = sel.districtIds.includes(d.id);
-            return (
-              <button key={d.id} onClick={() => toggleDistrict(d)}
-                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border-2 text-sm font-medium transition-all text-left
-                  ${active ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-100 bg-white text-gray-700 hover:border-primary-200'}`}>
-                <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 border-2 ${active ? 'border-primary-500 bg-primary-500' : 'border-gray-300'}`}>
-                  {active && <Check className="w-3 h-3 text-white" />}
-                </div>
-                {d.name}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-      {sel.districtIds.length > 0 && (
-        <div>
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5"><Layers className="w-3.5 h-3.5" /> 담당 {l2}</p>
-          <div className="flex flex-wrap gap-1.5">
-            {allZones.filter(z => sel.districtIds.includes(z.district_id)).map(z => {
-              const active = sel.zoneIds.includes(z.id);
-              return (
-                <button key={z.id} onClick={() => toggleZone(z)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border-2 transition-all
-                    ${active ? 'border-secondary-500 bg-secondary-50 text-secondary-700' : 'border-gray-200 bg-white text-gray-600 hover:border-secondary-200'}`}>
-                  {z.name}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-      <div>
-        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5"><Building className="w-3.5 h-3.5" /> 담당 {dept}</p>
-        <div className="flex flex-wrap gap-1.5">
-          {departments.map(d => {
-            const active = sel.deptIds.includes(d.id);
-            return (
-              <button key={d.id} onClick={() => toggleDept(d)}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold border-2 transition-all
-                  ${active ? 'border-accent-500 bg-accent-50 text-accent-700' : 'border-gray-200 bg-white text-gray-600 hover:border-accent-200'}`}>
-                {d.name}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
+// ─── Org Selector ─────────────────────────────────────────────────────────────
+// 소속 데이터는 설정 > 조직관리 > 조직트리를 단일 원본으로 사용한다.
+// 초대관리에서는 organizationId만 저장하고, 표시 경로는 조직트리에서 조회한다.
 
 // ─── Member Invite Panel ──────────────────────────────────────────────────────
 function MemberInvitePanel({ onCreated }: { onCreated: (inv: InviteRow) => void }) {
-  const { l1, l2, dept } = useOrgSettings();
-  const [orgSel, setOrgSel] = useState<OrgSel>(EMPTY_SEL);
+  const { user } = useAuth();
+  const [organizationIds, setOrganizationIds] = useState<string[]>([]);
   const [entries, setEntries] = useState([{ name: '', phone: '', email: '', jikbun: '성도' as string, jikbun_custom: '' }]);
   const [errors, setErrors] = useState<{ [key: number]: string }>({});
   const [sent, setSent] = useState<InviteRow | null>(null);
@@ -391,7 +251,8 @@ function MemberInvitePanel({ onCreated }: { onCreated: (inv: InviteRow) => void 
     const inv: InviteRow = {
       id: Date.now().toString(), type: 'member',
       name: entries[0].name, phone: entries[0].phone, email: entries[0].email,
-      ...orgSel,
+      // 저장 시에도 권한 범위를 다시 확인한다
+      organizationIds: filterOrganizationIdsByPermission(user, organizationIds),
       jikbun: entries[0].jikbun === '기타' ? (entries[0].jikbun_custom || '기타') : entries[0].jikbun,
       code: generateCode(), status: '대기중',
       created_at: new Date().toISOString().split('T')[0],
@@ -457,10 +318,10 @@ function MemberInvitePanel({ onCreated }: { onCreated: (inv: InviteRow) => void 
         </button>
       </div>
       {/* Selected org summary */}
-      {(orgSel.districtId || orgSel.departmentId) && (
-        <div className="bg-primary-50 rounded-xl p-3 text-xs text-primary-700 flex items-start gap-2">
+      {organizationIds.length > 0 && (
+        <div className="bg-[#FFF7D6] rounded-xl p-3 text-xs text-[#1A1A1A] flex items-start gap-2">
           <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-          <p>선택된 소속: {[orgSel.districtName, orgSel.zoneName, orgSel.departmentName].filter(Boolean).join(' · ')}</p>
+          <p>선택된 소속: {formatOrganizationSummary(organizationIds)}</p>
         </div>
       )}
       {/* Send button */}
@@ -471,16 +332,29 @@ function MemberInvitePanel({ onCreated }: { onCreated: (inv: InviteRow) => void 
     </div>
   );
 
+  const orgCard = (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+      <h3 className="font-bold text-gray-900 text-sm mb-1 flex items-center gap-2">
+        <MapPin className="w-4 h-4 text-primary-500" /> 소속 선택
+      </h3>
+      <p className="text-xs text-gray-400 mb-3">조직관리에 등록된 조직트리에서 선택합니다. 여러 조직을 함께 선택할 수 있습니다.</p>
+      <OrganizationPickerField
+        label="소속"
+        value={organizationIds}
+        onChange={setOrganizationIds}
+        mode="multiple"
+        pickerTitle="소속 선택"
+        pickerDescription="설정 > 조직관리에 등록된 조직에서 선택합니다."
+        emptyText="아직 선택한 소속이 없습니다."
+      />
+    </div>
+  );
+
   if (isDesktop) {
     return (
-      <div className="grid grid-cols-[280px_1fr] gap-6 items-start">
+      <div className="grid grid-cols-[320px_1fr] gap-6 items-start">
         {/* Left: org selection */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sticky top-4">
-          <h3 className="font-bold text-gray-900 text-sm mb-3 flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-primary-500" /> 소속 선택
-          </h3>
-          <MemberOrgPanel sel={orgSel} onChange={setOrgSel} l1={l1} l2={l2} dept={dept} />
-        </div>
+        <div className="sticky top-4">{orgCard}</div>
         {/* Right: form */}
         <div>{form}</div>
       </div>
@@ -489,12 +363,7 @@ function MemberInvitePanel({ onCreated }: { onCreated: (inv: InviteRow) => void 
 
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-        <h3 className="font-bold text-gray-900 text-sm mb-3 flex items-center gap-2">
-          <MapPin className="w-4 h-4 text-primary-500" /> 소속 선택
-        </h3>
-        <MemberOrgPanel sel={orgSel} onChange={setOrgSel} l1={l1} l2={l2} dept={dept} />
-      </div>
+      {orgCard}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
         <h3 className="font-bold text-gray-900 text-sm mb-3 flex items-center gap-2">
           <Users className="w-4 h-4 text-primary-500" /> 초대 정보 입력
@@ -507,8 +376,8 @@ function MemberInvitePanel({ onCreated }: { onCreated: (inv: InviteRow) => void 
 
 // ─── Clergy Invite Panel ──────────────────────────────────────────────────────
 function ClergyInvitePanel({ onCreated }: { onCreated: (inv: InviteRow) => void }) {
-  const { l1, l2, dept } = useOrgSettings();
-  const [orgSel, setOrgSel] = useState<ClergyOrgSel>(EMPTY_CLERGY_SEL);
+  const { user } = useAuth();
+  const [assignedOrganizationIds, setAssignedOrganizationIds] = useState<string[]>([]);
   const [form, setForm] = useState({ name: '', phone: '', email: '', position: '전도사' as string, position_custom: '' });
   const [errors, setErrors] = useState<{ name?: string; phone?: string }>({});
   const [sent, setSent] = useState<InviteRow | null>(null);
@@ -528,9 +397,8 @@ function ClergyInvitePanel({ onCreated }: { onCreated: (inv: InviteRow) => void 
       id: Date.now().toString(), type: 'clergy',
       name: form.name, phone: form.phone, email: form.email,
       position: pos,
-      assignedDistrictIds: orgSel.districtIds, assignedDistrictNames: orgSel.districtNames,
-      assignedZoneIds: orgSel.zoneIds, assignedZoneNames: orgSel.zoneNames,
-      assignedDepartmentIds: orgSel.deptIds, assignedDepartmentNames: orgSel.deptNames,
+      // 교역자는 "담당 조직" 의미를 그대로 유지한다
+      assignedOrganizationIds: filterOrganizationIdsByPermission(user, assignedOrganizationIds),
       code: generateCode(), status: '대기중',
       created_at: new Date().toISOString().split('T')[0],
     };
@@ -578,14 +446,12 @@ function ClergyInvitePanel({ onCreated }: { onCreated: (inv: InviteRow) => void 
         </div>
       </div>
       {/* Assigned scope summary */}
-      {(orgSel.districtIds.length > 0 || orgSel.deptIds.length > 0) && (
+      {assignedOrganizationIds.length > 0 && (
         <div className="bg-amber-50 rounded-xl p-3 text-xs text-amber-700 flex items-start gap-2">
           <UserCog className="w-3.5 h-3.5 mt-0.5 shrink-0" />
           <div>
-            <p className="font-semibold mb-0.5">담당 범위:</p>
-            {orgSel.districtNames.length > 0 && <p>교구: {orgSel.districtNames.join(', ')}</p>}
-            {orgSel.zoneNames.length > 0 && <p>구역: {orgSel.zoneNames.join(', ')}</p>}
-            {orgSel.deptNames.length > 0 && <p>부서: {orgSel.deptNames.join(', ')}</p>}
+            <p className="font-semibold mb-0.5">담당 조직:</p>
+            <p>{formatOrganizationSummary(assignedOrganizationIds)}</p>
           </div>
         </div>
       )}
@@ -596,15 +462,28 @@ function ClergyInvitePanel({ onCreated }: { onCreated: (inv: InviteRow) => void 
     </div>
   );
 
+  const orgCard = (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+      <h3 className="font-bold text-gray-900 text-sm mb-1 flex items-center gap-2">
+        <UserCog className="w-4 h-4 text-amber-500" /> 담당 조직 선택
+      </h3>
+      <p className="text-xs text-gray-400 mb-3">조직관리에 등록된 조직트리에서 담당할 조직을 선택합니다.</p>
+      <OrganizationPickerField
+        label="담당 조직"
+        value={assignedOrganizationIds}
+        onChange={setAssignedOrganizationIds}
+        mode="multiple"
+        pickerTitle="담당 조직 선택"
+        pickerDescription="설정 > 조직관리에 등록된 조직에서 선택합니다."
+        emptyText="아직 선택한 담당 조직이 없습니다."
+      />
+    </div>
+  );
+
   if (isDesktop) {
     return (
-      <div className="grid grid-cols-[280px_1fr] gap-6 items-start">
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sticky top-4">
-          <h3 className="font-bold text-gray-900 text-sm mb-3 flex items-center gap-2">
-            <UserCog className="w-4 h-4 text-amber-500" /> 담당 범위 선택
-          </h3>
-          <ClergyOrgPanel sel={orgSel} onChange={setOrgSel} l1={l1} l2={l2} dept={dept} />
-        </div>
+      <div className="grid grid-cols-[320px_1fr] gap-6 items-start">
+        <div className="sticky top-4">{orgCard}</div>
         <div>{formEl}</div>
       </div>
     );
@@ -612,12 +491,7 @@ function ClergyInvitePanel({ onCreated }: { onCreated: (inv: InviteRow) => void 
 
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-        <h3 className="font-bold text-gray-900 text-sm mb-3 flex items-center gap-2">
-          <UserCog className="w-4 h-4 text-amber-500" /> 담당 범위 선택
-        </h3>
-        <ClergyOrgPanel sel={orgSel} onChange={setOrgSel} l1={l1} l2={l2} dept={dept} />
-      </div>
+      {orgCard}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
         <h3 className="font-bold text-gray-900 text-sm mb-3 flex items-center gap-2">
           <UserCog className="w-4 h-4 text-amber-500" /> 초대 정보 입력
@@ -691,10 +565,7 @@ function PendingInviteList({ invites, onShare, onResend, onDelete }: {
     }
   };
 
-  const getOrgLabel = (inv: InviteRow) =>
-    inv.type === 'member'
-      ? [inv.districtName, inv.zoneName, inv.departmentName].filter(Boolean).join(' · ') || '-'
-      : [...(inv.assignedDistrictNames ?? []), ...(inv.assignedDepartmentNames ?? [])].join(', ') || '전체';
+  const getOrgLabel = useInviteOrgLabel();
 
   return (
     <div className="space-y-4">
@@ -930,7 +801,12 @@ export default function InvitationPage({ onNavigate }: Props) {
   const [tab, setTab] = useState<MainTab>('member');
   const [invites, setInvites] = useState<InviteRow[]>(DEMO_INVITES);
   const [sharingInvite, setSharingInvite] = useState<InviteRow | null>(null);
-  const [hasOrg] = useState(() => hasAnyOrg());
+  // 조직관리 조직트리를 그대로 사용 — 조직 추가·수정·삭제가 새로고침 없이 반영된다
+  const { tree } = useOrganizationTree();
+  const hasOrg = useMemo(
+    () => tree.some(root => root.children.length > 0) || tree.length > 1,
+    [tree],
+  );
 
   const pendingCount = invites.filter(i => PENDING_STATUSES.includes(i.status)).length;
 

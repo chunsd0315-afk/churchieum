@@ -4,6 +4,7 @@ import {
   Shield, Building, User, CheckCircle, ChevronRight,
 } from 'lucide-react';
 import { CHURCH_PROFILE_SEED } from '../../data/churchProfileSeed';
+import { resolveOrganizationChips } from '../../services/organizationSelection';
 
 type Step = 'confirm' | 'password' | 'terms' | 'complete';
 
@@ -332,10 +333,18 @@ function CompleteStep({ name, role, dept, district, area, inviteCode, isClergy, 
 export default function InviteSignupPage({ inviteCode = 'CHI-DEMO1', onComplete, onBack }: Props) {
   const prefilledName     = getParam('name');
   const prefilledRole     = getParam('role') || getParam('position') || '성도';
-  const prefilledDept     = getParam('departmentName') || getParam('dept');
-  const prefilledDistrict = getParam('districtName')   || getParam('district');
-  const prefilledArea     = getParam('zoneName')       || getParam('area');
   const inviteType        = getParam('inviteType') || 'member';
+
+  // 초대 시 지정한 조직은 organizationId로 전달된다 — 표시 이름은 현재 조직트리에서 조회
+  const invitedOrgIds = (getParam('organizationIds') || getParam('assignedOrganizationIds'))
+    .split(',').map(s => s.trim()).filter(Boolean);
+  const invitedOrgLabel = invitedOrgIds.length > 0
+    ? resolveOrganizationChips(invitedOrgIds).map(c => c.pathLabel).join(', ')
+    : (getParam('organizationPath') || getParam('assignedOrganizationPath'));
+
+  const prefilledDept     = getParam('departmentName') || getParam('dept');
+  const prefilledDistrict = invitedOrgLabel || getParam('districtName') || getParam('district');
+  const prefilledArea     = invitedOrgLabel ? '' : (getParam('zoneName') || getParam('area'));
 
   const [step, setStep] = useState<Step>('confirm');
   const [, setPassword] = useState('');

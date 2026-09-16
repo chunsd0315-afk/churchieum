@@ -87,10 +87,14 @@ export function OrgDetailPanel({
     return () => window.removeEventListener(ORG_TREE_CHANGED_EVENT, sync);
   }, []);
 
+  // useOrgTypes는 매 렌더마다 새 배열을 돌려주므로 이름만 의존성으로 쓴다
+  // (배열을 그대로 쓰면 입력 중에도 폼이 저장값으로 되돌아간다)
+  const defaultTypeName = types[0]?.name ?? '기타';
+
   useEffect(() => {
     if (creating) {
       setName('');
-      setType(types[0]?.name ?? '기타');
+      setType(defaultTypeName);
       setParentId(draftParentId);
       setDescription('');
       setSortOrder(1);
@@ -107,7 +111,7 @@ export function OrgDetailPanel({
       setSortOrder(current.sortOrder);
       setIsActive(current.isActive);
     }
-  }, [orgId, creating, draftParentId, types, tick]);
+  }, [orgId, creating, draftParentId, defaultTypeName, tick]);
 
   const refresh = () => setTick(t => t + 1);
   void tick;

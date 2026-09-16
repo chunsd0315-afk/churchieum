@@ -238,30 +238,33 @@ export default function OrganizationManagementPage({ onNavigate }: Props) {
       )}
 
       {/* PC·태블릿: 조직트리 | 상세 (2단) */}
-      <div
-        className="hidden md:flex gap-4 min-w-0 overflow-x-hidden items-stretch"
-        style={{ minHeight: 'calc(100vh - 240px)' }}
-      >
+      {!isMobile && (
         <div
-          className={[
-            'shrink-0 min-w-0 flex flex-col overflow-hidden',
-            'w-[min(340px,36%)] min-w-[280px] max-w-[380px]',
-            'xl:min-w-[300px]',
-          ].join(' ')}
-          style={{ height: 'calc(100vh - 240px)', maxHeight: 'calc(100vh - 200px)' }}
+          className="flex gap-4 min-w-0 overflow-x-hidden items-stretch"
+          style={{ minHeight: 'calc(100vh - 240px)' }}
         >
-          {treePanel}
+          <div
+            className={[
+              'shrink-0 min-w-0 flex flex-col overflow-hidden',
+              'w-[min(340px,36%)] min-w-[280px] max-w-[380px]',
+              'xl:min-w-[300px]',
+            ].join(' ')}
+            style={{ height: 'calc(100vh - 240px)', maxHeight: 'calc(100vh - 200px)' }}
+          >
+            {treePanel}
+          </div>
+          <div
+            className="flex-1 min-w-0 flex flex-col overflow-hidden"
+            style={{ height: 'calc(100vh - 240px)', maxHeight: 'calc(100vh - 200px)' }}
+          >
+            {detail}
+          </div>
         </div>
-        <div
-          className="flex-1 min-w-0 flex flex-col overflow-hidden"
-          style={{ height: 'calc(100vh - 240px)', maxHeight: 'calc(100vh - 200px)' }}
-        >
-          {detail}
-        </div>
-      </div>
+      )}
 
       {/* 모바일: 트리 → Full Screen 상세 */}
-      <div className="md:hidden space-y-3" style={{ minHeight: 360 }}>
+      {isMobile && (
+      <div className="space-y-3" style={{ minHeight: 360 }}>
         <div className="h-[60vh]">{treePanel}</div>
         {mobileDetailOpen && (
           <MobileFullScreenPage
@@ -278,6 +281,7 @@ export default function OrganizationManagementPage({ onNavigate }: Props) {
           </MobileFullScreenPage>
         )}
       </div>
+      )}
 
       {/* 기본 용어 설정 — 접이식 유지 */}
       <div className="bg-white border border-[#ECECEC] rounded-[20px] shadow-[0_8px_30px_rgba(0,0,0,0.06)] overflow-hidden">
