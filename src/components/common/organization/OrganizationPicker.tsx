@@ -3,8 +3,13 @@
  *
  * 설정 > 조직관리 > 조직트리를 그대로 불러와 계층구조로 선택한다.
  * 선택 결과는 조직명이 아니라 organizationId 배열로 반환한다.
+ *
+ * 모달은 createPortal(document.body)로 렌더한다.
+ * sticky / transform 부모 stacking context 안에 fixed를 두면
+ * 형제 컬럼(초대 입력 폼 등)이 모달 위로 겹칠 수 있다.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Check, ChevronDown, ChevronRight, FolderTree, X } from 'lucide-react';
 import type { OrgTreeNode } from '../../../types/organization';
 import { useBreakpoint } from '../../../hooks/useBreakpoint';
@@ -194,6 +199,29 @@ export function OrganizationPicker({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  // 배경 스크롤 잠금 — 부모 초대 폼 등은 그대로 유지
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  // ESC는 이 선택기만 닫고, 부모 Dialog/화면은 닫지 않는다
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      onClose();
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, [open, onClose]);
+
   /** 저장된 선택값의 상위 경로 — 조직트리가 늦게 채워져도 항상 펼쳐 보인다 */
   const defaultOpenIds = useMemo(() => {
     const ids = new Set<string>();
@@ -339,51 +367,58 @@ export function OrganizationPicker({
     </div>
   );
 
-  if (isMobile) {
-    return (
-      <div className="fixed inset-0 z-[400] bg-[#FFFDF7] flex flex-col">
-        <header className="shrink-0 bg-white border-b border-[#ECECEC] px-3 py-3">
-          <div className="flex items-center gap-2 mb-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-gray-100 text-gray-600"
-              aria-label="닫기"
-            >
-              <ChevronRight className="w-5 h-5 rotate-180" />
-            </button>
-            <div className="min-w-0">
-              <h2 className="text-[17px] font-bold text-[#1A1A1A] truncate">{title}</h2>
-              <p className="text-[12px] text-gray-500 truncate">{description}</p>
-            </div>
-          </div>
-          {searchBar}
-        </header>
-
-        <div className="flex-1 min-h-0 overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
-          {treeBody}
-        </div>
-
-        <footer className="shrink-0 bg-white border-t border-[#ECECEC] px-4 py-3 space-y-3">
-          {selectedBar}
+  const overlay = isMobile ? (
+    <div
+      className="fixed inset-0 z-modal bg-[#FFFDF7] flex flex-col"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+    >
+      <header className="shrink-0 bg-white border-b border-[#ECECEC] px-3 py-3">
+        <div className="flex items-center gap-2 mb-3">
           <button
             type="button"
-            onClick={handleConfirm}
-            className="w-full min-h-[56px] rounded-[18px] bg-[#FFCD00] hover:bg-[#F5BE00] text-[#1A1A1A] font-bold text-[15px]"
+            onClick={onClose}
+            className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-gray-100 text-gray-600"
+            aria-label="닫기"
           >
-            선택 완료
+            <ChevronRight className="w-5 h-5 rotate-180" />
           </button>
-        </footer>
-      </div>
-    );
-  }
+          <div className="min-w-0">
+            <h2 className="text-[17px] font-bold text-[#1A1A1A] truncate">{title}</h2>
+            <p className="text-[12px] text-gray-500 truncate">{description}</p>
+          </div>
+        </div>
+        {searchBar}
+      </header>
 
-  return (
-    <div className="fixed inset-0 z-[400] flex items-center justify-center p-4">
+      <div className="flex-1 min-h-0 overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+        {treeBody}
+      </div>
+
+      <footer className="shrink-0 bg-white border-t border-[#ECECEC] px-4 py-3 space-y-3">
+        {selectedBar}
+        <button
+          type="button"
+          onClick={handleConfirm}
+          className="w-full min-h-[56px] rounded-[18px] bg-[#FFCD00] hover:bg-[#F5BE00] text-[#1A1A1A] font-bold text-[15px]"
+        >
+          선택 완료
+        </button>
+      </footer>
+    </div>
+  ) : (
+    <div
+      className="fixed inset-0 z-modal flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+    >
       <button type="button" className="absolute inset-0 bg-black/40" aria-label="닫기" onClick={onClose} />
       <div
         className="relative w-full max-w-[680px] bg-white rounded-[24px] border border-[#ECECEC] shadow-[0_20px_60px_rgba(0,0,0,0.18)] flex flex-col min-h-0"
         style={{ maxHeight: '82vh' }}
+        onClick={e => e.stopPropagation()}
       >
         <div className="shrink-0 px-5 pt-5 pb-3 space-y-3">
           <div className="flex items-start justify-between gap-3">
@@ -429,4 +464,7 @@ export function OrganizationPicker({
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') return overlay;
+  return createPortal(overlay, document.body);
 }
