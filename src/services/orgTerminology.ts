@@ -392,9 +392,14 @@ export function getOrganizationTypeDisplay(
   return org.type?.trim() || '조직';
 }
 
+type VisibilityLabelMap = Record<
+  'private' | 'pastor_share' | 'organization_share' | 'public',
+  string
+>;
+
 export function getVisibilityLabels(
   settings?: OrgTerminologySettings | null,
-): Record<'private' | 'pastor_share' | 'organization_share', string> {
+): VisibilityLabelMap {
   const s = resolveSettings(settings);
   const dd = getDistrictDepartmentLabel(s);
   const phrases = getPastorTerminologyPhrases(s);
@@ -402,12 +407,13 @@ export function getVisibilityLabels(
     private: '나만 보기',
     pastor_share: phrases.shareVisibility,
     organization_share: `${dd}와 공유`,
+    public: '전체 공개',
   };
 }
 
 export function getVisibilityLabelsPastor(
   settings?: OrgTerminologySettings | null,
-): Record<'private' | 'pastor_share' | 'organization_share', string> {
+): VisibilityLabelMap {
   const s = resolveSettings(settings);
   const dd = getDistrictDepartmentLabel(s);
   const phrases = getPastorTerminologyPhrases(s);
@@ -415,29 +421,32 @@ export function getVisibilityLabelsPastor(
     private: '나만 보기',
     pastor_share: phrases.shareVisibilityPastor,
     organization_share: `${dd}와 공유`,
+    public: '전체 공개',
   };
 }
 
 export function getVisibilityDescriptions(
   settings?: OrgTerminologySettings | null,
-): Record<'private' | 'pastor_share' | 'organization_share', string> {
+): VisibilityLabelMap {
   const phrases = getPastorTerminologyPhrases(settings);
   return {
     private: '나만 볼 수 있어요.',
     pastor_share: phrases.shareSelectDescription,
     organization_share: '선택한 공동체와 함께 나눠요.',
+    public: '교회 전체에 공개합니다.',
   };
 }
 
 export function getVisibilityDescriptionsPastor(
   settings?: OrgTerminologySettings | null,
-): Record<'private' | 'pastor_share' | 'organization_share', string> {
+): VisibilityLabelMap {
   const s = resolveSettings(settings);
   const p = getPastorLabel(s);
   return {
     private: '나만 볼 수 있어요.',
     pastor_share: `내 소속·담당 조직의 상위 담당 ${p}${withSubjectParticle(p) === '이' ? '를' : '을'} 선택해 공유합니다.`,
     organization_share: '선택한 공동체와 함께 나눠요.',
+    public: '교회 전체에 공개합니다.',
   };
 }
 

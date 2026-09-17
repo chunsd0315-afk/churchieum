@@ -1,9 +1,12 @@
 import type { ReceivedShareType, VisibilityFilter, VisibilityType } from '../../../types/sharedContent';
-import { getVisibilityLabels, getAuthorRoleFilterOptions } from '../../../services/orgTerminology';
+import { getAuthorRoleFilterOptions } from '../../../services/orgTerminology';
+import { getVisibilityFilterOptions } from '../../../services/visibilityRolePolicy';
+import { useAuth } from '../../../contexts/AuthContext';
 import { useOrgSettings } from '../../../contexts/OrgSettingsContext';
 import { SharedContentSegmentButtons } from './SharedContentSegmentButtons';
 import type { SharedContentShareTypeFilterOption } from '../../../services/sharedContentShareTypeFilterLabels';
 
+/** 내 기록 공개범위 필터 — 역할 정책과 같은 이름을 사용한다 */
 export function SharedContentVisibilityFilterSection({
   value,
   onChange,
@@ -11,15 +14,13 @@ export function SharedContentVisibilityFilterSection({
   value: VisibilityFilter;
   onChange: (next: VisibilityFilter) => void;
 }) {
+  const { user } = useAuth();
   const { settings, terminologyVersion } = useOrgSettings();
   void terminologyVersion;
-  const labels = getVisibilityLabels(settings);
-  const options: { id: VisibilityFilter; label: string }[] = [
-    { id: 'all', label: '전체' },
-    { id: 'private', label: labels.private },
-    { id: 'pastor_share', label: labels.pastor_share },
-    { id: 'organization_share', label: labels.organization_share },
-  ];
+  const options = getVisibilityFilterOptions(user, settings) as {
+    id: VisibilityFilter;
+    label: string;
+  }[];
 
   return (
     <SharedContentSegmentButtons

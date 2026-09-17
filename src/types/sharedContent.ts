@@ -3,7 +3,11 @@
  * VisibilityType 하나로 통일 — 기능별 별도 공개범위 로직 금지
  */
 
-export type VisibilityType = 'private' | 'pastor_share' | 'organization_share';
+/**
+ * 공개범위
+ * - public: 현재 교회(churchId) 전체 공개 — 다른 교회에는 노출되지 않는다
+ */
+export type VisibilityType = 'private' | 'pastor_share' | 'organization_share' | 'public';
 
 /**
  * 조직 공유 방식
@@ -58,6 +62,7 @@ export const VISIBILITY_LABELS: Record<VisibilityType, string> = {
   private: '나만 보기',
   pastor_share: '담당 교역자와 공유',
   organization_share: '교구·부서와 공유',
+  public: '전체 공개',
 };
 
 /** 교역자/관리자 화면용 라벨 */
@@ -65,18 +70,21 @@ export const VISIBILITY_LABELS_PASTOR: Record<VisibilityType, string> = {
   private: '나만 보기',
   pastor_share: '교역자와 공유',
   organization_share: '교구·부서와 공유',
+  public: '전체 공개',
 };
 
 export const VISIBILITY_DESCRIPTIONS: Record<VisibilityType, string> = {
   private: '나만 볼 수 있어요.',
   pastor_share: '내 소속 조직의 담당 교역자를 선택해 공유합니다.',
   organization_share: '선택한 공동체와 함께 나눠요.',
+  public: '교회 전체에 공개합니다.',
 };
 
 export const VISIBILITY_DESCRIPTIONS_PASTOR: Record<VisibilityType, string> = {
   private: '나만 볼 수 있어요.',
   pastor_share: '내 소속·담당 조직의 상위 담당 교역자를 선택해 공유합니다.',
   organization_share: '선택한 공동체와 함께 나눠요.',
+  public: '교회 전체에 공개합니다.',
 };
 
 /** 마이그레이션 버전 키 — 중복 마이그레이션 방지 */
@@ -98,6 +106,8 @@ export function migrateVisibility(raw: LegacyVisibilityRaw | undefined | null): 
     case 'group':
     case 'intercession':
     case 'organization_share':
+    // 전체 공개는 조회 시 조직 공유로 취급하고(목록·탭 호환)
+    // 실제 열람 허용은 isLegacyPublic()으로 판정한다.
     case 'public':
       return 'organization_share';
     default:

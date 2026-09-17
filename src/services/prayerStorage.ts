@@ -27,8 +27,14 @@ function actorFromPrayer(prayer: Prayer, actor?: PrayerActor): PrayerActor {
 }
 
 function isSharedVisibility(visibility: Prayer['visibility']): boolean {
+  if (isPublicVisibility(visibility)) return true;
   const v = migrateVisibility(visibility);
   return v === 'pastor_share' || v === 'organization_share';
+}
+
+/** 전체 공개(현재 교회 전체) — 조직 공유로 환산하지 않고 그대로 보존한다 */
+function isPublicVisibility(visibility: Prayer['visibility'] | string | undefined): boolean {
+  return String(visibility ?? '') === 'public';
 }
 
 /**
@@ -38,6 +44,16 @@ function isSharedVisibility(visibility: Prayer['visibility']): boolean {
  * - private: 공유 필드 모두 비움
  */
 function syncShareFields(prayer: Prayer): Prayer {
+  if (isPublicVisibility(prayer.visibility)) {
+    return {
+      ...prayer,
+      visibility: 'public',
+      sharedPastorIds: [],
+      sharedOrganizationIds: [],
+      organizationScope: CHURCH_WIDE_SCOPE,
+    };
+  }
+
   const visibility = migrateVisibility(prayer.visibility);
 
   if (visibility === 'organization_share') {
@@ -250,6 +266,16 @@ function normalizeAttachments(raw: unknown): PrayerAttachment[] {
  */
 function normalizePrayerRecord(p: Prayer): Prayer {
   const organizationScope = normalizeOrganizationScope(p.organizationScope);
+  if (isPublicVisibility(p.visibility)) {
+    return {
+      ...p,
+      visibility: 'public',
+      organizationScope,
+      sharedPastorIds: [],
+      sharedOrganizationIds: [],
+      attachments: normalizeAttachments(p.attachments),
+    };
+  }
   const visibility = migrateVisibility(p.visibility);
   const sharedPastorIds = uniqueIds(p.sharedPastorIds);
   let sharedOrganizationIds = uniqueIds(p.sharedOrganizationIds);

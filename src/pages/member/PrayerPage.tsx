@@ -12,6 +12,7 @@ import type { Prayer } from '../../types/prayer';
 import { CHURCH_WIDE_SCOPE } from '../../types/prayer';
 import type { ReceivedShareType, VisibilityFilter } from '../../types/sharedContent';
 import { migrateVisibility } from '../../types/sharedContent';
+import { normalizeVisibility } from '../../services/visibilityNormalize';
 import { getVisibilityLabels } from '../../services/orgTerminology';
 import { useOrgSettings } from '../../contexts/OrgSettingsContext';
 import {
@@ -334,7 +335,7 @@ export default function PrayerPage() {
         if (tab === 'mine') {
           if (
             applied.visibilityFilter !== 'all' &&
-            migrateVisibility(p.visibility) !== applied.visibilityFilter
+            normalizeVisibility(p.visibility) !== applied.visibilityFilter
           ) {
             return false;
           }

@@ -19,8 +19,10 @@ export type ContentVisibilityPreset = 'personal' | 'broadcast';
 
 /** personal: 은혜·기도 / broadcast: 공지·앨범·일정 등 */
 export const PRESET_OPTIONS: Record<ContentVisibilityPreset, ContentVisibilityMode[]> = {
-  personal: ['private', 'pastor_share', 'organization_share'],
-  broadcast: ['public', 'organization_share'],
+  // 전체 공개는 역할 정책(visibilityRolePolicy)에서만 노출되지만,
+  // 저장된 값을 편집할 때 유지되도록 허용 목록에는 포함한다.
+  personal: ['private', 'pastor_share', 'organization_share', 'public'],
+  broadcast: ['public', 'organization_share', 'pastor_share'],
 };
 
 export function uniqueVisibilityIds(ids: string[] | undefined | null): string[] {

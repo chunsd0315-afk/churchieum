@@ -18,6 +18,8 @@ export {
   formatOrgAssigneeLine,
 } from './OrganizationShareSelector';
 export { PastorShareSelector } from './PastorShareSelector';
+export { PastorSharePicker } from './PastorSharePicker';
+export type { PastorSharePickerProps, PastorShareScope } from './PastorSharePicker';
 export { DirectPastorOrgShareSelector } from './DirectPastorOrgShareSelector';
 export type { DirectPastorOrgShareSelectorProps } from './DirectPastorOrgShareSelector';
 export { OrganizationFilterSelector } from './OrganizationFilterSelector';

@@ -31,25 +31,33 @@ export type OrganizationPickerProps = {
   description?: string;
   /** 생략 시 로그인 사용자 권한으로 자동 결정 (최고관리자는 전체) */
   allowedOrganizationIds?: Set<string> | null;
+  /** 트리에 표시할 조직 범위 — 생략 시 전체 조직트리 */
+  visibleOrganizationIds?: Set<string> | null;
   includeInactive?: boolean;
 };
+
+/** 기본으로 펼쳐두는 단계 — 교구·부서 한 단계까지 보이게 한다 */
+const DEFAULT_OPEN_DEPTH = 2;
 
 type RowProps = {
   node: OrgTreeNode;
   depth: number;
-  expanded: Set<string>;
+  /** 사용자가 직접 접거나 펼친 노드 */
+  openOverrides: Map<string, boolean>;
+  /** 저장된 선택값 경로 — 기본으로 펼친다 */
+  defaultOpenIds: Set<string>;
   selected: string[];
   matched: Set<string>;
   searching: boolean;
   visibleIds: Set<string> | null;
   selectableIds: Set<string> | null;
   mode: OrganizationPickerMode;
-  onToggleExpand: (id: string) => void;
+  onToggleExpand: (id: string, isOpen: boolean) => void;
   onToggleSelect: (id: string) => void;
 };
 
 function OrganizationRow({
-  node, depth, expanded, selected, matched, searching,
+  node, depth, openOverrides, defaultOpenIds, selected, matched, searching,
   visibleIds, selectableIds, mode, onToggleExpand, onToggleSelect,
 }: RowProps) {
   if (visibleIds && !visibleIds.has(node.id)) return null;
@@ -58,7 +66,10 @@ function OrganizationRow({
   const isSelectable = !selectableIds || selectableIds.has(node.id);
   const children = node.children;
   const hasChildren = children.length > 0;
-  const isOpen = searching ? true : expanded.has(node.id);
+  const override = openOverrides.get(node.id);
+  const isOpen = searching
+    ? true
+    : override ?? (depth < DEFAULT_OPEN_DEPTH || defaultOpenIds.has(node.id));
   const isHit = searching && matched.has(node.id);
 
   return (
@@ -73,7 +84,7 @@ function OrganizationRow({
         {hasChildren ? (
           <button
             type="button"
-            onClick={() => onToggleExpand(node.id)}
+            onClick={() => onToggleExpand(node.id, isOpen)}
             className="w-8 h-8 flex items-center justify-center text-gray-400 rounded-lg hover:bg-gray-100 shrink-0"
             aria-label={isOpen ? `${node.name} 접기` : `${node.name} 펼치기`}
           >
@@ -127,7 +138,8 @@ function OrganizationRow({
               key={child.id}
               node={child}
               depth={depth + 1}
-              expanded={expanded}
+              openOverrides={openOverrides}
+              defaultOpenIds={defaultOpenIds}
               selected={selected}
               matched={matched}
               searching={searching}
@@ -153,6 +165,7 @@ export function OrganizationPicker({
   title = '소속 선택',
   description = '조직관리에 등록된 조직에서 선택합니다.',
   allowedOrganizationIds,
+  visibleOrganizationIds = null,
   includeInactive = false,
 }: OrganizationPickerProps) {
   const { isMobile } = useBreakpoint();
@@ -160,7 +173,7 @@ export function OrganizationPicker({
   const { tree, organizations, version } = useOrganizationTree(includeInactive);
 
   const [selected, setSelected] = useState<string[]>(value);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [openOverrides, setOpenOverrides] = useState<Map<string, boolean>>(new Map());
   const [query, setQuery] = useState('');
 
   const selectableIds = useMemo(
@@ -177,23 +190,17 @@ export function OrganizationPicker({
     if (!open) return;
     setSelected(value);
     setQuery('');
+    setOpenOverrides(new Map());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // 조직트리는 저장소 동기화 이후에 채워질 수 있으므로 트리가 바뀔 때마다 상위 단계와 선택 경로를 펼친다
-  useEffect(() => {
-    if (!open) return;
-    setExpanded(prev => {
-      const next = new Set(prev);
-      tree.forEach(root => {
-        next.add(root.id);
-        root.children.forEach(child => next.add(child.id));
-      });
-      value.forEach(id => getAncestorIds(id).forEach(ancestorId => next.add(ancestorId)));
-      return next;
-    });
+  /** 저장된 선택값의 상위 경로 — 조직트리가 늦게 채워져도 항상 펼쳐 보인다 */
+  const defaultOpenIds = useMemo(() => {
+    const ids = new Set<string>();
+    value.forEach(id => getAncestorIds(id).forEach(ancestorId => ids.add(ancestorId)));
+    return ids;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, version, tree]);
+  }, [value, version]);
 
   const { matched, expand: searchExpand } = useMemo(
     () => computeOrganizationSearch(query, organizations),
@@ -202,9 +209,21 @@ export function OrganizationPicker({
 
   const searching = query.trim().length > 0;
 
-  /** 검색 중에는 일치 조직과 그 상위 경로만 표시 */
+  /** 표시 범위가 제한된 경우에도 상위 경로는 남겨 트리 계층을 유지한다 */
+  const scopedVisibleIds = useMemo(() => {
+    if (!visibleOrganizationIds) return null;
+    const ids = new Set<string>();
+    visibleOrganizationIds.forEach(id => {
+      ids.add(id);
+      getAncestorIds(id).forEach(ancestorId => ids.add(ancestorId));
+    });
+    return ids;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleOrganizationIds, version]);
+
+  /** 검색 중에는 일치 조직과 그 상위 경로만 표시 · 권한 범위가 있으면 교집합 */
   const visibleIds = useMemo(() => {
-    if (!searching) return null;
+    if (!searching) return scopedVisibleIds;
     const ids = new Set<string>([...matched, ...searchExpand]);
     const addDescendants = (node: OrgTreeNode, inside: boolean) => {
       const on = inside || matched.has(node.id);
@@ -212,14 +231,14 @@ export function OrganizationPicker({
       node.children.forEach(child => addDescendants(child, on));
     };
     tree.forEach(root => addDescendants(root, false));
-    return ids;
-  }, [searching, matched, searchExpand, tree]);
+    if (!scopedVisibleIds) return ids;
+    return new Set([...ids].filter(id => scopedVisibleIds.has(id)));
+  }, [searching, matched, searchExpand, tree, scopedVisibleIds]);
 
-  const toggleExpand = useCallback((id: string) => {
-    setExpanded(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+  const toggleExpand = useCallback((id: string, isOpen: boolean) => {
+    setOpenOverrides(prev => {
+      const next = new Map(prev);
+      next.set(id, !isOpen);
       return next;
     });
   }, []);
@@ -270,7 +289,8 @@ export function OrganizationPicker({
               key={root.id}
               node={root}
               depth={0}
-              expanded={expanded}
+              openOverrides={openOverrides}
+              defaultOpenIds={defaultOpenIds}
               selected={selected}
               matched={matched}
               searching={searching}

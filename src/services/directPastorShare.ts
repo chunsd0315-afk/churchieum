@@ -5,9 +5,10 @@
 
 import type { AppUser } from './permissions';
 import { isSuperAdmin } from './permissions';
-import type { Organization, OrganizationAssignee } from '../types/organization';
+import type { Organization, OrganizationAssignee, OrgTreeNode } from '../types/organization';
 import { assigneeRoleLabel } from '../types/organization';
 import {
+  buildOrgTree,
   getAllOrganizations,
   getAncestorIds,
   getOrganizationById,
@@ -359,9 +360,13 @@ export function buildDirectPastorShareModel(
   };
 }
 
-/** 작성·검증용 flat 목록 (작성 UI는 직계만) */
+/**
+ * 작성·검증용 flat 목록
+ * - 성도·교역자: 소속·담당 조직 경로의 담당 교역자만
+ * - 최고관리자: 현재 교회 전체 교역자 (담임목사에게는 상위 담당 교역자가 없기 때문)
+ */
 export function getDirectShareablePastorsForWriter(user: AppUser | null): EligiblePastorRef[] {
-  return buildDirectPastorShareModel(user, { relatedOnly: true }).pastors;
+  return buildDirectPastorShareModel(user, { relatedOnly: !isSuperAdmin(user) }).pastors;
 }
 
 export type FlattenedPastorShareRow = {
@@ -389,6 +394,71 @@ export function flattenDirectPastorShareRows(tree: DirectPastorOrgNode[]): Flatt
   };
   walk(tree);
   return out;
+}
+
+/**
+ * 최고관리자용 — 교회 전체 조직트리 + 조직별 담당 교역자
+ * 조직 원본은 설정 > 조직관리 트리를 그대로 사용한다.
+ */
+export function buildChurchWidePastorShareTree(
+  excludePastorId?: string | null,
+): DirectPastorOrgNode[] {
+  const build = (nodes: OrgTreeNode[], depth: number): DirectPastorOrgNode[] => {
+    const out: DirectPastorOrgNode[] = [];
+    for (const node of nodes) {
+      if (!node.isActive) continue;
+      const children = build(node.children, HIDDEN_ROOT_IDS.has(node.id) ? depth : depth + 1);
+      if (HIDDEN_ROOT_IDS.has(node.id)) {
+        out.push(...children);
+        continue;
+      }
+      const pastors = getPastoralAssigneesForOrganization(node.id)
+        .filter(p => !excludePastorId || p.pastorId !== excludePastorId);
+      out.push({
+        organizationId: node.id,
+        organizationName: node.name,
+        depth,
+        distance: 0,
+        pastors,
+        children,
+      });
+    }
+    return out;
+  };
+
+  return build(buildOrgTree(false), 0);
+}
+
+/** 조직에 배정되지 않은 활성 교역자 (교회 전체 선택 목록 누락 방지) */
+export function getUnassignedChurchPastors(
+  excludePastorId?: string | null,
+): DirectPastorOnOrg[] {
+  const assigned = new Set<string>();
+  const walk = (nodes: DirectPastorOrgNode[]) => {
+    for (const n of nodes) {
+      n.pastors.forEach(p => assigned.add(p.pastorId));
+      walk(n.children);
+    }
+  };
+  walk(buildChurchWidePastorShareTree(excludePastorId));
+
+  return getAllClergy()
+    .filter(isPastoralClergy)
+    .filter(c => !assigned.has(c.id))
+    .filter(c => !excludePastorId || c.id !== excludePastorId)
+    .map(c => ({
+      pastorId: c.id,
+      name: c.name,
+      position: positionLabel(c),
+      organizationRole: '',
+      isPrimary: false,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+}
+
+/** 현재 교회에서 공유 대상으로 선택할 수 있는 교역자 ID */
+export function getChurchWidePastorIds(): Set<string> {
+  return new Set(getAllClergy().filter(isPastoralClergy).map(c => c.id));
 }
 
 /** 스냅샷·이전 공유 대상 표시용 */

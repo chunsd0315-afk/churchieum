@@ -62,6 +62,7 @@ export function VisibilityBadge({
     private: 'bg-gray-100 text-gray-600',
     pastor_share: 'bg-indigo-50 text-indigo-700',
     organization_share: 'bg-emerald-50 text-emerald-700',
+    public: 'bg-sky-50 text-sky-700',
   };
   return (
     <span

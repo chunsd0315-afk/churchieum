@@ -1,6 +1,7 @@
 import type { Announcement } from './announcementStorage';
 import { getDistrictNameById, getDepartmentNameById, getAllZones } from './orgData';
 import { getOrganizationPathLabel, getUserCoreOrganizationIds } from './userOrganizationTree';
+import { getClergyByEmail, getClergyById, positionLabel } from './clergyData';
 import type { AppUser } from './permissions';
 
 /** 역할별 열람 가능 여부. 상세설정의 “전체”도 이 범위를 넘지 않습니다. */
@@ -14,6 +15,15 @@ export function isAnnouncementVisible(ann: Announcement, user: AppUser | null): 
     if (shared.length === 0) return false;
     const core = getUserCoreOrganizationIds(user);
     return shared.some(id => core.includes(id));
+  }
+
+  // 교역자와 공유 — 선택된 교역자 본인만
+  if (ann.scope === 'pastors') {
+    const shared = ann.sharedPastorIds ?? [];
+    if (shared.length === 0) return false;
+    if (shared.includes(user.id)) return true;
+    const clergyId = getClergyByEmail(user.email)?.id;
+    return Boolean(clergyId && shared.includes(clergyId));
   }
 
   if (user.role === 'pastor') {
@@ -56,6 +66,22 @@ export function buildNoticeScopeBadges(ann: Announcement): ScopeBadge[] {
       return [{ type: 'district', label: `${short} 공유`, variant: 'green' }];
     }
     return [{ type: 'district', label: `조직 ${ids.length}곳 공유`, variant: 'green' }];
+  }
+
+  if (ann.scope === 'pastors') {
+    const ids = ann.sharedPastorIds ?? [];
+    if (ids.length === 1) {
+      const clergy = getClergyById(ids[0]);
+      const name = clergy ? `${clergy.name} ${positionLabel(clergy)}`.trim() : '교역자';
+      return [{ type: 'department', label: `${name} 공유`, variant: 'purple' }];
+    }
+    return [
+      {
+        type: 'department',
+        label: ids.length > 1 ? `교역자 ${ids.length}명 공유` : '교역자 공유',
+        variant: 'purple',
+      },
+    ];
   }
 
   if (ann.scope === 'level1') {

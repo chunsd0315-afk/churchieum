@@ -27,10 +27,9 @@ function toContent(value: VisibilityShareValue): ContentVisibilityValue {
 }
 
 function fromContent(value: ContentVisibilityValue): VisibilityShareValue {
-  const visibility =
-    value.visibility === 'public' ? 'organization_share' : value.visibility;
+  // 전체 공개는 최고관리자 정책에서만 선택되며, 값 그대로 저장한다.
   return {
-    visibility: visibility as VisibilityType,
+    visibility: value.visibility as VisibilityType,
     sharedPastorIds: value.sharedPastorIds,
     sharedOrganizationIds: value.sharedOrganizationIds,
   };
@@ -55,7 +54,7 @@ export function defaultVisibilityShareValue(
 export function visibilityShareToSaveFields(value: VisibilityShareValue) {
   const saved = visibilityValueToSaveFields(toContent(value));
   return {
-    visibility: (saved.visibility === 'public' ? 'organization_share' : saved.visibility) as VisibilityType,
+    visibility: saved.visibility as VisibilityType,
     sharedPastorIds: saved.sharedPastorIds,
     sharedOrganizationIds: saved.sharedOrganizationIds,
   };

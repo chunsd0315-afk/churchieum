@@ -159,7 +159,9 @@ export function resolveAllowComments(
 
 function normalizeNote(n: GraceNote): GraceNote {
   const rawVis = n.visibility as string | undefined;
-  const visibility = migrateVisibility(rawVis);
+  // 전체 공개(현재 교회 전체)는 조직 공유로 환산하지 않고 그대로 보존한다
+  const visibility: GraceNoteVisibility =
+    rawVis === 'public' ? 'public' : migrateVisibility(rawVis);
   const type = normalizeGraceNoteType(n.type);
   const split = splitOrganizationShareIds({
     sharedGroupIds: n.sharedGroupIds ?? n.sharedOrganizationIds,

@@ -44,6 +44,7 @@ import {
 import type { ReceivedShareType, VisibilityFilter } from '../../types/sharedContent';
 import { migrateVisibility } from '../../types/sharedContent';
 import { resolveOrganizationShareMode } from '../../types/sharedContent';
+import { normalizeVisibility } from '../../services/visibilityNormalize';
 import { getVisibilityLabels, getPastorTerminologyPhrases } from '../../services/orgTerminology';
 import { useOrgSettings } from '../../contexts/OrgSettingsContext';
 import { useOrganizationTreeVersion } from '../../hooks/useOrganizationTreeVersion';
@@ -406,7 +407,7 @@ function filterGraceNotesForTab(
   let list = tabNotes.filter(n => {
     if (tab === 'mine') {
       if (typeFilter && n.type !== typeFilter) return false;
-      if (visibilityFilter !== 'all' && migrateVisibility(n.visibility) !== visibilityFilter) {
+      if (visibilityFilter !== 'all' && normalizeVisibility(n.visibility) !== visibilityFilter) {
         return false;
       }
       if (visibilityFilter === 'pastor_share' && selectedPastorIds.length > 0) {

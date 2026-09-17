@@ -484,6 +484,14 @@ export function validateGraceNoteShare(
     };
   }
 
+  // 전체 공개 — 현재 교회 전체. 최고관리자 정책에서만 선택할 수 있다.
+  if (String(state.visibility) === 'public') {
+    if (!isSuperAdmin(user)) {
+      return { ok: false, error: '전체 공개 권한이 없습니다.' };
+    }
+    return { ok: true, sanitized: emptyShareFields('public') };
+  }
+
   const eligiblePastors = getEligiblePastorsForUser(user);
   const eligiblePastorIds = new Set(eligiblePastors.map(p => p.id));
   const preservedPastorIds = new Set(
@@ -676,6 +684,11 @@ export function filterShareStateToMembership(
   state: GraceShareFields,
   user: AppUser | null,
 ): GraceShareFields {
+  // 전체 공개는 조직 선택으로 환산하지 않는다 (권한 없으면 나만 보기로)
+  if (String(state.visibility) === 'public') {
+    return isSuperAdmin(user) ? emptyShareFields('public') : emptyShareFields('private');
+  }
+
   const eligiblePastorIds = new Set(getEligiblePastorsForUser(user).map(p => p.id));
   const eligible = getEligibleGroupsForUser(user);
   const eligibleUpperIds = new Set(eligible.districts.map(d => d.id));

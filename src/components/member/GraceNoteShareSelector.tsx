@@ -192,6 +192,21 @@ export function shareStateToInput(state: GraceNoteShareState) {
     };
   }
 
+  // 전체 공개 — 현재 교회 전체. 별도 공유 대상 없음
+  if (visibility === 'public') {
+    return {
+      visibility: 'public' as const,
+      sharedPastorAll: false,
+      sharedPastorIds: [] as string[],
+      sharedGroupAll: false,
+      sharedUpperOrganizationIds: [] as string[],
+      sharedLowerOrganizationIds: [] as string[],
+      sharedDepartmentIds: [] as string[],
+      sharedGroupIds: [] as string[],
+      organizationShareMode: undefined,
+    };
+  }
+
   if (visibility === 'pastor_share') {
     return {
       visibility: 'pastor_share' as const,

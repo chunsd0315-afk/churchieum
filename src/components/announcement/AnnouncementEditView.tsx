@@ -22,6 +22,7 @@ import { ContentEditorDetailSettings } from '../layout/ContentEditorDetailSettin
 import {
   AnnouncementVisibilitySelector,
   defaultAnnouncementVisibility,
+  isAnnouncementVisibilityComplete,
   type AnnouncementVisibilityValue,
 } from './AnnouncementVisibilitySelector';
 
@@ -33,6 +34,12 @@ function visibilityFromAnnouncement(ann: Announcement): AnnouncementVisibilityVa
     return defaultAnnouncementVisibility({
       mode: 'organization_share',
       sharedOrganizationIds: ann.sharedOrganizationIds ?? [],
+    });
+  }
+  if (ann.scope === 'pastors') {
+    return defaultAnnouncementVisibility({
+      mode: 'pastor_share',
+      sharedPastorIds: ann.sharedPastorIds ?? [],
     });
   }
   if (ann.scope === 'level1' || ann.scope === 'level2' || ann.scope === 'department') {
@@ -50,7 +57,7 @@ function visibilityFromAnnouncement(ann: Announcement): AnnouncementVisibilityVa
 
 function buildScopeFields(vis: AnnouncementVisibilityValue): Pick<
   Announcement,
-  'scope' | 'scopeId' | 'scopeName' | 'sharedOrganizationIds'
+  'scope' | 'scopeId' | 'scopeName' | 'sharedOrganizationIds' | 'sharedPastorIds'
 > {
   if (vis.mode === 'organization_share') {
     const ids = vis.sharedOrganizationIds;
@@ -60,6 +67,17 @@ function buildScopeFields(vis: AnnouncementVisibilityValue): Pick<
       scopeId: ids[0],
       scopeName: names.length === 1 ? names[0] : names.length > 1 ? `조직 ${ids.length}곳` : undefined,
       sharedOrganizationIds: ids,
+      sharedPastorIds: [],
+    };
+  }
+  if (vis.mode === 'pastor_share') {
+    const ids = vis.sharedPastorIds;
+    return {
+      scope: 'pastors',
+      scopeId: ids[0],
+      scopeName: ids.length > 1 ? `교역자 ${ids.length}명` : undefined,
+      sharedOrganizationIds: [],
+      sharedPastorIds: ids,
     };
   }
   return {
@@ -67,6 +85,7 @@ function buildScopeFields(vis: AnnouncementVisibilityValue): Pick<
     scopeId: undefined,
     scopeName: undefined,
     sharedOrganizationIds: [],
+    sharedPastorIds: [],
   };
 }
 
@@ -123,7 +142,7 @@ export function AnnouncementEditView({
   const canSubmit =
     title.trim().length > 0 &&
     content.trim().length > 0 &&
-    (visibility.mode === 'all' || visibility.sharedOrganizationIds.length > 0);
+    isAnnouncementVisibilityComplete(visibility);
 
   const detailSettingsActiveCount = useMemo(() => {
     let count = 0;
@@ -146,6 +165,10 @@ export function AnnouncementEditView({
     }
     if (visibility.mode === 'organization_share' && visibility.sharedOrganizationIds.length === 0) {
       setError('공유할 조직을 하나 이상 선택해 주세요.');
+      return;
+    }
+    if (visibility.mode === 'pastor_share' && visibility.sharedPastorIds.length === 0) {
+      setError('공유할 교역자를 한 명 이상 선택해 주세요.');
       return;
     }
 

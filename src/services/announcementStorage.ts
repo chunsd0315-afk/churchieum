@@ -29,15 +29,18 @@ export type Announcement = {
   category: '일반공지' | '행사안내' | '가정통신문' | '기타';
   /**
    * 공개범위
-   * - all: 전체 공개
-   * - organizations: 내 조직과 공유 (sharedOrganizationIds)
+   * - all: 전체 공개 (현재 교회 전체)
+   * - organizations: 조직과 공유 (sharedOrganizationIds)
+   * - pastors: 교역자와 공유 (sharedPastorIds)
    * - level1/level2/department: 레거시 단일 조직 공지
    */
-  scope: 'all' | 'level1' | 'level2' | 'department' | 'organizations';
+  scope: 'all' | 'level1' | 'level2' | 'department' | 'organizations' | 'pastors';
   scopeId?: string;
   scopeName?: string;
-  /** 내 조직과 공유 — 선택 조직 ID */
+  /** 조직과 공유 — 선택 조직 ID */
   sharedOrganizationIds?: string[];
+  /** 교역자와 공유 — 선택 교역자 ID */
+  sharedPastorIds?: string[];
   /** 목록·기간 필터용 YYYY-MM-DD (created_at 기준 자동) */
   date: string;
   /** 레거시 — 신규 작성에서는 false */
@@ -312,6 +315,7 @@ function normalizeAnnouncement(raw: unknown): Announcement {
     || a.scope === 'level2'
     || a.scope === 'department'
     || a.scope === 'organizations'
+    || a.scope === 'pastors'
   ) ? a.scope : 'all';
 
   const category = (
@@ -331,6 +335,9 @@ function normalizeAnnouncement(raw: unknown): Announcement {
     scopeName: typeof a.scopeName === 'string' ? a.scopeName : undefined,
     sharedOrganizationIds: Array.isArray(a.sharedOrganizationIds)
       ? a.sharedOrganizationIds.filter((id): id is string => typeof id === 'string' && !!id)
+      : [],
+    sharedPastorIds: Array.isArray(a.sharedPastorIds)
+      ? a.sharedPastorIds.filter((id): id is string => typeof id === 'string' && !!id)
       : [],
     date,
     isPinned: Boolean(a.isPinned),
