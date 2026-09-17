@@ -5,7 +5,7 @@ import { ChevronLeft, Settings,
 import { AppLayout } from '../layout/AppLayout';
 import { MobileAppHomeHeader } from '../layout/MobileAppHomeHeader';
 import { MobileSubPageHeader } from '../common/ui/PageLayout';
-import ChurchSettingsPage from '../../pages/admin/ChurchSettingsPage';
+import { useSettingsWorkspace } from './settings/useSettingsWorkspace';
 import { HomeLayoutProvider } from '../common/home/HomeLayoutContext';
 import {
   ADMIN_ROLE_MENUS,
@@ -74,10 +74,13 @@ function useAdminPageCopy(settings: OrgSettings) {
 }
 
 export function AdminLayout({ children, currentPage, onNavigate }: Props) {
-  const [showSettings, setShowSettings] = useState(false);
   const [menuTick, setMenuTick] = useState(0);
   const { settings } = useOrgSettings();
   const { pageLabels, pageSubtitles } = useAdminPageCopy(settings);
+  const workspaceSettings = useSettingsWorkspace({
+    enabled: true,
+    onExit: () => onNavigate('home'),
+  });
 
   useEffect(() => {
     const sync = () => setMenuTick(t => t + 1);
@@ -96,9 +99,10 @@ export function AdminLayout({ children, currentPage, onNavigate }: Props) {
 
   const handleNavigate = (id: string) => {
     if (id === 'settings') {
-      setShowSettings(true);
+      workspaceSettings.openSettings();
       return;
     }
+    if (workspaceSettings.active) workspaceSettings.dismissSettings();
     onNavigate(id as AdminPage);
   };
 
@@ -106,7 +110,7 @@ export function AdminLayout({ children, currentPage, onNavigate }: Props) {
     <MobileAppHomeHeader
       onProfileClick={() => onNavigate('profile')}
       showSettings
-      onSettingsClick={() => setShowSettings(true)}
+      onSettingsClick={workspaceSettings.openSettings}
     />
   );
 
@@ -126,27 +130,26 @@ export function AdminLayout({ children, currentPage, onNavigate }: Props) {
     />
   );
 
-  return (
-    <HomeLayoutProvider openSettings={() => setShowSettings(true)}>
-      <AppLayout
-        currentPage={currentPage}
-        onNavigate={handleNavigate}
-        isHomePage={isHome}
-        mobileHomeHeader={mobileHomeHeader}
-        mobileSubHeader={mobileSubHeader}
-        sidebarNavItems={sidebarNavItems.map(i => ({ page: i.page as AdminPage, label: i.label, iconKey: i.iconKey }))}
-        showSettingsButton
-        onSettingsClick={() => setShowSettings(true)}
-        bottomNavItems={BOTTOM_NAV_ITEMS.map(i => ({ id: i.id, label: i.label, icon: i.icon }))}
-      >
-        {children}
-      </AppLayout>
+  const settingsActive = workspaceSettings.active;
+  const bottomNavItems = BOTTOM_NAV_ITEMS.map(i => ({ id: i.id, label: i.label, icon: i.icon }));
 
-      {showSettings && (
-        <ChurchSettingsPage
-          onClose={() => { setShowSettings(false); onNavigate('home'); }}
-        />
-      )}
+  return (
+    <HomeLayoutProvider openSettings={workspaceSettings.openSettings}>
+      <AppLayout
+        currentPage={settingsActive ? ('settings' as AdminPage) : currentPage}
+        onNavigate={handleNavigate}
+        isHomePage={settingsActive ? false : isHome}
+        mobileHomeHeader={mobileHomeHeader}
+        mobileSubHeader={settingsActive ? workspaceSettings.mobileHeader : mobileSubHeader}
+        sidebarNavItems={sidebarNavItems.map(i => ({ page: i.page as AdminPage, label: i.label, iconKey: i.iconKey }))}
+        sidebarOverride={workspaceSettings.sidebar}
+        contentVariant={settingsActive ? 'full' : 'well'}
+        showSettingsButton
+        onSettingsClick={workspaceSettings.openSettings}
+        bottomNavItems={settingsActive && !workspaceSettings.showBottomNav ? undefined : bottomNavItems}
+      >
+        {settingsActive ? workspaceSettings.content : children}
+      </AppLayout>
     </HomeLayoutProvider>
   );
 }

@@ -38,6 +38,12 @@ export interface AppLayoutConfig<P extends string> {
   sidebarFooter?: React.ReactNode;
   showSettingsButton?: boolean;
   onSettingsClick?: () => void;
+  /** 설정 등 전용 사이드바로 교체 (상단 헤더는 그대로 유지) */
+  sidebarOverride?: React.ReactNode;
+
+  /* ── Content width ── */
+  /** well: 통일 900px 콘텐츠 웰 · full: 남은 폭 전체 (관리 화면) */
+  contentVariant?: 'well' | 'full';
 
   /* ── PC right panel ── */
   rightPanel?: React.ReactNode;
@@ -76,6 +82,8 @@ function DesktopAppLayout<P extends string>({
   sidebarFooter,
   showSettingsButton,
   onSettingsClick,
+  sidebarOverride,
+  contentVariant = 'well',
   rightPanel,
   children,
 }: AppLayoutConfig<P>) {
@@ -87,22 +95,22 @@ function DesktopAppLayout<P extends string>({
       />
 
       <div className="flex flex-1 min-h-0">
-        <PCSidebar
-          currentPage={currentPage}
-          onNavigate={onNavigate}
-          navItems={sidebarNavItems}
-          userPosition={userPosition}
-          modeSwitcher={sidebarModeSwitcher}
-          footerContent={sidebarFooter}
-        />
+        {sidebarOverride ?? (
+          <PCSidebar
+            currentPage={currentPage}
+            onNavigate={onNavigate}
+            navItems={sidebarNavItems}
+            userPosition={userPosition}
+            modeSwitcher={sidebarModeSwitcher}
+            footerContent={sidebarFooter}
+          />
+        )}
 
         <main
-          className="flex-1 overflow-y-auto min-w-0"
+          className="flex-1 overflow-y-auto overflow-x-hidden min-w-0"
           style={{ background: 'var(--color-bg-page)' }}
         >
-          <PageContentWell>
-            {children}
-          </PageContentWell>
+          {contentVariant === 'full' ? children : <PageContentWell>{children}</PageContentWell>}
         </main>
 
         {rightPanel && (
@@ -126,6 +134,7 @@ function MobileAppLayout<P extends string>({
   bottomNavItems,
   currentPage,
   onNavigate,
+  contentVariant = 'well',
   children,
 }: AppLayoutConfig<P>) {
   const hasBottomNav = bottomNavItems && bottomNavItems.length > 0;
@@ -140,7 +149,12 @@ function MobileAppLayout<P extends string>({
         className="flex-1"
         style={{ paddingBottom: hasBottomNav ? 'calc(64px + env(safe-area-inset-bottom, 0px))' : undefined }}
       >
-        {isHomePage ? (
+        {contentVariant === 'full' ? (
+          /* 관리 화면: 자체 여백을 쓰는 전체 폭 */
+          <div className="w-full min-w-0 max-w-full overflow-x-hidden">
+            {children}
+          </div>
+        ) : isHomePage ? (
           /* Home: 좌우 12~16px · 가로 스크롤 방지 */
           <div className="w-full min-w-0 max-w-full overflow-x-hidden px-3 sm:px-4 pt-4 pb-5">
             {children}

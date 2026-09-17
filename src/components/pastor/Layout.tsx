@@ -8,7 +8,7 @@ import { AppLayout } from '../layout/AppLayout';
 import { MobileAppHomeHeader } from '../layout/MobileAppHomeHeader';
 import { MobilePageHeaderCenter } from '../common/ui/PageHeaderTypography';
 import PrayerNotificationSheet from '../layout/PrayerNotificationSheet';
-import ChurchSettingsPage from '../../pages/admin/ChurchSettingsPage';
+import { useSettingsWorkspace } from '../admin/settings/useSettingsWorkspace';
 import { HomeLayoutProvider } from '../common/home/HomeLayoutContext';
 import {
   PASTOR_ROLE_MENUS,
@@ -71,9 +71,13 @@ type Props = {
 export function PastorLayout({ children, currentPage, onNavigate }: Props) {
   const { user, isAdmin } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [notifTick, setNotifTick] = useState(0);
   const [menuTick, setMenuTick] = useState(0);
+  // 통합 설정은 최고관리자 전용
+  const workspaceSettings = useSettingsWorkspace({
+    enabled: isAdmin,
+    onExit: () => onNavigate('home'),
+  });
 
   useEffect(() => {
     const sync = () => setMenuTick(t => t + 1);
@@ -96,10 +100,11 @@ export function PastorLayout({ children, currentPage, onNavigate }: Props) {
   const handleNavigate = (id: string) => {
     if (id === 'settings') {
       // 통합 설정은 최고관리자만 — 교역자는 내정보로
-      if (isAdmin) setShowSettings(true);
+      if (isAdmin) workspaceSettings.openSettings();
       else onNavigate('profile');
       return;
     }
+    if (workspaceSettings.active) workspaceSettings.dismissSettings();
     onNavigate(id as PastorPage);
   };
 
@@ -129,18 +134,25 @@ export function PastorLayout({ children, currentPage, onNavigate }: Props) {
     </header>
   );
 
+  const settingsActive = workspaceSettings.active;
+  const bottomNavItems = BOTTOM_NAV_ITEMS.map(i => ({ id: i.page, label: i.label, icon: i.icon }));
+
   return (
-    <HomeLayoutProvider openSettings={() => { if (isAdmin) setShowSettings(true); }}>
+    <HomeLayoutProvider openSettings={workspaceSettings.openSettings}>
       <AppLayout
-        currentPage={currentPage}
+        currentPage={settingsActive ? ('settings' as PastorPage) : currentPage}
         onNavigate={handleNavigate}
-        isHomePage={isHome}
+        isHomePage={settingsActive ? false : isHome}
         mobileHomeHeader={mobileHomeHeader}
-        mobileSubHeader={mobileSubHeader}
+        mobileSubHeader={settingsActive ? workspaceSettings.mobileHeader : mobileSubHeader}
         sidebarNavItems={sidebarNavItems.map(i => ({ page: i.page as PastorPage, label: i.label, iconKey: i.iconKey }))}
-        bottomNavItems={BOTTOM_NAV_ITEMS.map(i => ({ id: i.page, label: i.label, icon: i.icon }))}
+        sidebarOverride={workspaceSettings.sidebar}
+        contentVariant={settingsActive ? 'full' : 'well'}
+        showSettingsButton={isAdmin}
+        onSettingsClick={workspaceSettings.openSettings}
+        bottomNavItems={settingsActive && !workspaceSettings.showBottomNav ? undefined : bottomNavItems}
       >
-        {children}
+        {settingsActive ? workspaceSettings.content : children}
         {showNotifications && user?.id && (
           <PrayerNotificationSheet
             userId={user.id}
@@ -150,9 +162,6 @@ export function PastorLayout({ children, currentPage, onNavigate }: Props) {
           />
         )}
       </AppLayout>
-      {showSettings && isAdmin && (
-        <ChurchSettingsPage onClose={() => { setShowSettings(false); onNavigate('home'); }} />
-      )}
     </HomeLayoutProvider>
   );
 }
